@@ -1,0 +1,20 @@
+# dependencies
+node_modules
+
+# build
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+
+# generated docs
+public/api-docs.html
+
+# editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# logs
+*.log

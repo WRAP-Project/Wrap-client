@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Wrap API
+  version: 0.1.0
+  description: |
+    Backend contract for the Wrap client.
+
+    This file is the single source of truth for frontend-backend communication:
+    - Backend engineers edit this file when an endpoint changes.
+    - AI-assisted frontend changes are driven off this spec (request/response
+      shapes, routes, status codes) rather than reading backend source directly.
+    - Run `npm run docs:api` to render this into a human-readable page at
+      `public/api-docs.html` for a quick visual review of the whole contract.
+servers:
+  - url: http://localhost:8080
+    description: Local backend
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+components:
+  schemas: {}
