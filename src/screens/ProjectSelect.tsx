@@ -1,47 +1,5 @@
 import { RefreshCw } from "lucide-react";
-
-// ─── 데이터 타입 ─────────────────────────────────────────────────────────────
-
-interface Project {
-  id: string;
-  name: string;
-  color: string;
-  selected?: boolean;
-  description?: string;
-  progress?: number;
-  tags?: string[];
-}
-
-// ─── Mock 데이터 (API 연동 전 임시) ──────────────────────────────────────────
-
-const MOCK_PROJECTS: Project[] = [
-  {
-    id: "1",
-    name: "프로젝트명",
-    color: "#CDEA6F",
-    selected: true,
-    description: "함께 전 · 보스러리 시간 업프도빌",
-    progress: 78,
-    tags: ["함께", "팀"],
-  },
-  {
-    id: "2",
-    name: "프로젝트명",
-    color: "#F5E03A",
-    description: "1시간 뒤\n스크린샷 #2 작성",
-    tags: ["02"],
-  },
-  {
-    id: "3",
-    name: "프로젝트명",
-    color: "#A78BFA",
-  },
-  {
-    id: "4",
-    name: "프로젝트명",
-    color: "#F4A8A8",
-  },
-];
+import { useProjects, type Project } from "@/data/useProjects";
 
 // ─── ProjectCard (이 화면에서만 쓰이므로 인라인 정의) ────────────────────────
 
@@ -120,7 +78,8 @@ function ProjectCard({
 // ─── 화면 ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectSelect() {
-  const [large, ...small] = MOCK_PROJECTS;
+  const { projects } = useProjects();
+  const [large, ...small] = projects;
 
   return (
     <div className="min-h-screen">
