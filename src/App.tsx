@@ -1,11 +1,11 @@
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation, useMatch } from "react-router-dom";
 import { Home, Send, Calendar, Users } from "lucide-react";
 import { screens } from "@/screens";
 
 // 하단 탭 정의 — path가 있는 건 실제 라우트, 없는 건 미완성
 const NAV_ITEMS = [
   { icon: Home, path: "/" },
-  { icon: Send, path: null },
+  { icon: Send, path: "/chat" },
   { icon: Calendar, path: null },
   { icon: Users, path: null },
 ] as const;
@@ -47,6 +47,9 @@ function BottomNav() {
 
 
 export default function App() {
+  // 채팅방 안(/chat/:roomId)은 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
+  const isChatRoom = useMatch("/chat/:roomId");
+
   return (
     <div className="h-screen bg-white flex justify-center overflow-hidden">
       <div className="w-full max-w-[390px] h-full bg-[#1C1C1E] flex flex-col">
@@ -59,7 +62,7 @@ export default function App() {
           </Routes>
         </div>
         {/* 하단 네비게이션: 레이아웃 고정 */}
-        <BottomNav />
+        {!isChatRoom && <BottomNav />}
       </div>
     </div>
   );
