@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import Home from "./Home";
+import ProjectSelect from "./ProjectSelect";
 
 /**
  * Each entry is one designer-submitted flow, integrated after passing the
@@ -7,5 +7,5 @@ import Home from "./Home";
  * decides — the screen owns everything under it.
  */
 export const screens: { path: string; Component: ComponentType }[] = [
-  { path: "/", Component: Home },
+  { path: "/", Component: ProjectSelect },
 ];
