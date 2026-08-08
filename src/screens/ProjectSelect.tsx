@@ -1,4 +1,5 @@
 import { RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useProjects, type Project } from "@/data/useProjects";
 
 // ─── ProjectCard (이 화면에서만 쓰이므로 인라인 정의) ────────────────────────
@@ -79,6 +80,7 @@ function ProjectCard({
 
 export default function ProjectSelect() {
   const { projects } = useProjects();
+  const navigate = useNavigate();
   const [large, ...small] = projects;
 
   return (
@@ -141,7 +143,7 @@ export default function ProjectSelect() {
 
         {/* 새 프로젝트 만들기 버튼 */}
         <button
-          onClick={() => alert("새 프로젝트 만들기")}
+          onClick={() => navigate("/create-project")}
           className="w-full bg-[#2C2C2E] hover:bg-[#3A3A3C] active:bg-[#48484A] transition-colors text-white/50 hover:text-white/70 text-sm py-4 rounded-2xl flex items-center justify-center gap-2"
         >
           <span className="text-base leading-none">+</span>

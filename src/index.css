@@ -1,1 +1,142 @@
 @import "tailwindcss";
+
+/* ──────────────────────────────────────────
+   CreateProject 화면 스타일
+   ────────────────────────────────────────── */
+
+/* 뒤로가기 버튼 */
+.create-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.create-back-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.create-back-btn:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 페이지 제목 */
+.create-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+/* 필드 래퍼 */
+.create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 필드 레이블 */
+.create-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.01em;
+}
+
+/* 입력 필드 (공통) */
+.create-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: #2C2C2E;
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  font-size: 0.925rem;
+  color: rgba(255, 255, 255, 0.85);
+  outline: none;
+  transition: border-color 0.18s, background 0.18s;
+  box-sizing: border-box;
+}
+.create-input::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+.create-input:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: #333335;
+}
+
+/* 마감일 입력: 배경을 약간 더 밝게 (디자인 참조) */
+.create-input--deadline {
+  background: #363638;
+}
+.create-input--deadline:focus {
+  background: #3C3C3E;
+}
+
+/* 포인트 컬러 선택 행 */
+.create-color-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+/* 컬러 원 버튼 */
+.create-color-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s, box-shadow 0.18s;
+  flex-shrink: 0;
+}
+.create-color-btn:hover {
+  transform: scale(1.1);
+}
+.create-color-btn--active {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+  transform: scale(1.08);
+}
+.create-color-btn:active {
+  transform: scale(0.95);
+}
+
+/* 만들기 CTA 버튼 */
+.create-submit-btn {
+  width: 100%;
+  padding: 17px 0;
+  border-radius: 100px;
+  border: none;
+  background: #2C2C2E;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.2s, color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+.create-submit-btn--active {
+  background: #3A3A3C;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+}
+.create-submit-btn--active:hover {
+  background: #4A4A4C;
+  color: #fff;
+}
+.create-submit-btn--active:active {
+  transform: scale(0.98);
+}

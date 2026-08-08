@@ -47,8 +47,9 @@ function BottomNav() {
 
 
 export default function App() {
-  // 채팅방 안(/chat/:roomId)은 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
-  const isChatRoom = useMatch("/chat/:roomId");
+  // 채팅방 안(/chat/:roomId)과 프로젝트 생성 화면은 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
+  const isChatRoom     = useMatch("/chat/:roomId");
+  const isCreateProject = useMatch("/create-project");
 
   return (
     <div className="h-screen bg-white flex justify-center overflow-hidden">
@@ -62,7 +63,7 @@ export default function App() {
           </Routes>
         </div>
         {/* 하단 네비게이션: 레이아웃 고정 */}
-        {!isChatRoom && <BottomNav />}
+        {!isChatRoom && !isCreateProject && <BottomNav />}
       </div>
     </div>
   );
