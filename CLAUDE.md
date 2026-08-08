@@ -14,6 +14,52 @@ Wrap-client — Wrap 프로젝트의 프론트엔드 웹 앱입니다.
 react-router-dom. Figma Make가 출력하는 스택과 동일하므로, 디자이너의 화면을
 최소한의 수정만으로 바로 가져다 쓸 수 있습니다.
 
+## 데이터 계층 패턴 (선 하드코딩 → 후 백엔드)
+
+이 프로젝트에서 가장 중요한 규칙입니다. 화면 컴포넌트는 데이터가 mock인지
+API인지 몰라야 하고, 오직 `src/data/`의 훅을 통해서만 데이터에 접근합니다.
+
+### 읽기(Query): `src/data/use<Something>.ts`
+
+화면은 mock이든 API든 **같은 훅 인터페이스**를 통해서만 데이터를 읽는다.
+백엔드 연동 시 훅 내부만 교체하면 화면은 건드릴 필요가 없다.
+
+```
+src/data/useProjects.ts   ← 지금은 mock 배열 반환, 나중에 GET /projects fetch로 교체
+```
+
+### 쓰기(Mutation): Repository 패턴
+
+**쓰기도 읽기와 같은 원칙** — 화면은 "어디에 저장되는지" 몰라야 한다.
+`src/data/` 안에 `use<Something>.ts`가 `add / update / remove` 함수를 함께 반환한다.
+
+```
+// 화면이 아는 것: 이 함수만 호출하면 된다
+const { projects, addProject } = useProjects();
+
+// 지금 (하드코딩): addProject → 로컬 배열에 push
+// 나중 (백엔드):   addProject → POST /projects fetch → 응답으로 배열 갱신
+```
+
+전역 공유가 필요한 상태(예: 프로젝트 목록을 여러 화면이 함께 읽고 씀)는
+`src/data/<Something>Context.tsx`로 Context를 만들고, `main.tsx`에서 한 번만 감싼다.
+Context 내부 구현을 fetch로 바꿔도 소비 화면 코드는 그대로다.
+
+```
+// 구조 요약
+src/data/
+  useProjects.ts          ← 읽기 훅 (+ addProject 등 mutation 함수 포함)
+  ProjectsContext.tsx     ← 전역 공유가 필요할 때만 추가
+```
+
+### 규칙 요약
+
+| | 지금 (mock) | 나중 (API) | 바꾸는 곳 |
+|---|---|---|---|
+| 읽기 | 로컬 배열 반환 | `GET /x` fetch | `src/data/` 훅 내부만 |
+| 쓰기 | 로컬 상태 업데이트 | `POST /x` fetch | `src/data/` 훅 내부만 |
+| 화면 | 훅 호출만 | 훅 호출만 | **건드리지 않음** |
+
 ## 디자이너가 제출한 새 화면 통합하기
 1. 디자이너가 Figma Make로 만든 `.tsx` 화면(또는 소수의 관련 파일들)을
    제출합니다 — 이 저장소와 동일한 스택을 쓰지만, 보통 색상이 하드코딩되어
@@ -35,20 +81,11 @@ react-router-dom. Figma Make가 출력하는 스택과 동일하므로, 디자�
      없는 패키지를 쓰면, 설치 전에 사용자에게 알리고 확인받습니다.
    - **외부 리소스(폰트 등)도 설치 전에 확인**: CDN 등 외부 의존을
      추가하기 전에 자체 호스팅 여부를 포함해 사용자 확인을 받습니다.
-   - **mock 데이터는 `src/data/`의 `use<Something>()` 훅 뒤에 감춥니다**:
-     이 프로젝트의 핵심은 "1st 하드코딩 데이터로 화면 구현 → 실제 데이터
-     확보 시 교체"입니다. 화면 컴포넌트가 mock 배열/객체를 직접
-     import해서 쓰지 않고, `useProjects()`, `useChatRoom(id)`처럼
-     `src/data/`에 둔 훅을 통해서만 데이터에 접근하게 합니다 (예:
-     `src/data/useProjects.ts`, `src/data/useChatData.ts`). `src/screens/`
-     안에는 mock 데이터를 두지 않습니다 — 화면 폴더와 데이터 접근 계층을
-     물리적으로 분리해서, 나중에 실제 연동을 맡는 사람이 `src/data/`만
-     보면 되게 합니다. mock 데이터 자체는 그 훅 파일 밖으로 export하지
-     않습니다. 이렇게 하면 나중에 백엔드 연동 시 훅 내부 구현만 fetch
-     기반으로 바꾸면 되고, 화면 컴포넌트는 건드릴 필요가 없습니다.
-     (백엔드 개발자가 직접 보는 곳은 아닙니다 — 백엔드 계약은 여전히
-     `api/openapi.yaml`이 유일한 소스이고, `src/data/`는 그 계약을 쓰는
-     프론트엔드 쪽 소비자입니다.)
+   - **mock 데이터는 `src/data/`의 훅 뒤에 감춥니다**: 상세 규칙은 위
+     "데이터 계층 패턴" 섹션 참고. 화면 컴포넌트가 mock 배열/객체를
+     직접 import하지 않게 하고, `src/screens/` 안에는 mock 데이터를
+     두지 않습니다. (백엔드 개발자가 직접 보는 곳은 아닙니다 — 백엔드
+     계약은 여전히 `api/openapi.yaml`이 유일한 소스입니다.)
    - **검증까지 끝내고 완료 보고**: typecheck/lint/build 외에 가능하면
      브라우저 렌더링도 확인합니다. 헤드리스 브라우저 도구가 없어 확인을
      못 했다면, 그 사실을 명시적으로 보고하고 완료로 단정하지 않습니다.
