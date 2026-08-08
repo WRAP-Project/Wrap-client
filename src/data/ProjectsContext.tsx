@@ -18,7 +18,7 @@ export type { Project, ProjectDraft };
 
 interface ProjectsContextValue {
   projects: Project[];
-  addProject: (draft: ProjectDraft) => Project;
+  addProject: (draft: ProjectDraft) => Promise<Project>;
   loading: boolean;
   error: Error | null;
 }

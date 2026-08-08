@@ -180,19 +180,22 @@ export default function CreateProject() {
 
   const canCreate = name.trim().length > 0;
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!canCreate) return;
 
     const selectedHex = COLOR_OPTIONS.find((o) => o.id === color)?.hex ?? "#CDEA6F";
 
-    addProject({
-      name: name.trim(),
-      goal: goal.trim() || undefined,
-      endDate: deadline.trim() || undefined,
-      color: selectedHex,
-    });
-
-    navigate("/");
+    try {
+      await addProject({
+        name: name.trim(),
+        goal: goal.trim() || undefined,
+        endDate: deadline.trim() || undefined,
+        color: selectedHex,
+      });
+      navigate("/");
+    } catch {
+      alert("프로젝트 생성에 실패했습니다.");
+    }
   }
 
   return (
