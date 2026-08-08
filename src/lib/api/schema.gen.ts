@@ -20,6 +20,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 내 프로젝트 목록 조회 */
+        get: operations["getMyProjects"];
+        put?: never;
+        /** 프로젝트 생성 */
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/members/signup": {
         parameters: {
             query?: never;
@@ -85,6 +103,59 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update"];
+        trace?: never;
+    };
+    "/projects/{projectId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 프로젝트 상세 조회 */
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
+        /** 프로젝트 삭제 */
+        delete: operations["delete_1"];
+        options?: never;
+        head?: never;
+        /** 프로젝트 정보 수정 */
+        patch: operations["update_1"];
+        trace?: never;
+    };
+    "/projects/{projectId}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 프로젝트 재진행 */
+        patch: operations["reopen"];
+        trace?: never;
+    };
+    "/projects/{projectId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 프로젝트 완료 */
+        patch: operations["complete"];
         trace?: never;
     };
     "/schedules/me": {
@@ -201,6 +272,42 @@ export interface components {
             endAt?: string;
             shared?: boolean;
         };
+        ProjectCreateRequest: {
+            name: string;
+            description?: string;
+            goal?: string;
+            successCriteria?: string;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+        };
+        ApiResponseProjectResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ProjectResponse: {
+            /** Format: int64 */
+            id?: number;
+            name?: string;
+            description?: string;
+            goal?: string;
+            successCriteria?: string;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            /** @enum {string} */
+            status?: "IN_PROGRESS" | "COMPLETED";
+            /** Format: date-time */
+            completedAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
         SignupRequest: {
             /** Format: email */
             email: string;
@@ -244,11 +351,38 @@ export interface components {
             shared?: boolean;
             validDateRange?: boolean;
         };
+        ProjectUpdateRequest: {
+            name: string;
+            description?: string;
+            goal?: string;
+            successCriteria?: string;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+        };
         ApiResponseListScheduleResponse: {
             success?: boolean;
             data?: components["schemas"]["ScheduleResponse"][];
             message?: string;
             error?: components["schemas"]["ErrorBody"];
+        };
+        ApiResponseListProjectSummaryResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectSummaryResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ProjectSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            name?: string;
+            /** @enum {string} */
+            status?: "IN_PROGRESS" | "COMPLETED";
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
         };
         ApiResponseListScheduleReminderResponse: {
             success?: boolean;
@@ -300,6 +434,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseScheduleResponse"];
+                };
+            };
+        };
+    };
+    getMyProjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectSummaryResponse"];
+                };
+            };
+        };
+    };
+    create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
                 };
             };
         };
@@ -416,6 +594,120 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseScheduleResponse"];
+                };
+            };
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+        };
+    };
+    delete_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+        };
+    };
+    reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+        };
+    };
+    complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
                 };
             };
         };
