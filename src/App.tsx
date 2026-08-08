@@ -19,7 +19,10 @@ function BottomNav() {
       {/* 아이콘 영역 */}
       <div className="flex items-center justify-around px-6 pt-3 pb-2">
         {NAV_ITEMS.map(({ icon: Icon, path }, i) => {
-          const isActive = path !== null && pathname === path;
+          const isActive =
+            path !== null &&
+            (pathname === path ||
+              (path === "/" && pathname.startsWith("/project/")));
           return (
             <button
               key={i}
@@ -48,7 +51,7 @@ function BottomNav() {
 
 export default function App() {
   // 채팅방 안(/chat/:roomId)과 프로젝트 생성 화면은 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
-  const isChatRoom     = useMatch("/chat/:roomId");
+  const isChatRoom      = useMatch("/chat/:roomId");
   const isCreateProject = useMatch("/create-project");
 
   return (

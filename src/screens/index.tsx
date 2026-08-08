@@ -3,6 +3,7 @@ import ProjectSelect from "./ProjectSelect";
 import Chat from "./Chat";
 import ChatRoom from "./ChatRoom";
 import CreateProject from "./CreateProject";
+import ProjectDetail from "./ProjectDetail";
 
 /**
  * Each entry is one designer-submitted flow, integrated after passing the
@@ -11,6 +12,7 @@ import CreateProject from "./CreateProject";
  */
 export const screens: { path: string; Component: ComponentType }[] = [
   { path: "/", Component: ProjectSelect },
+  { path: "/project/:projectId", Component: ProjectDetail },
   { path: "/chat", Component: Chat },
   { path: "/chat/:roomId", Component: ChatRoom },
   { path: "/create-project", Component: CreateProject },
