@@ -4,15 +4,97 @@
  */
 
 export interface paths {
-    "/health": {
+    "/schedules": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Health check */
-        get: operations["getHealth"];
+        get?: never;
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/members/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 회원가입 */
+        post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/members/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 로그아웃 */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/members/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 로그인 */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedules/{scheduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch: operations["update"];
+        trace?: never;
+    };
+    "/schedules/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["findMine"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21,33 +103,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects": {
+    "/projects/{projectId}/schedules": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 내 프로젝트 목록 조회 */
-        get: operations["listProjects"];
+        get: operations["findProjectSchedules"];
         put?: never;
-        /** 프로젝트 생성 */
-        post: operations["createProject"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/projects/{projectId}": {
+    "/projects/{projectId}/schedules/reminders": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 프로젝트 상세 조회 */
-        get: operations["getProject"];
+        get: operations["findReminders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Swagger test
+         * @description Checks whether Swagger and API routing are working.
+         */
+        get: operations["test"];
         put?: never;
         post?: never;
         delete?: never;
@@ -60,29 +159,117 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @enum {string} */
-        ProjectStatus: "IN_PROGRESS" | "COMPLETED";
-        Project: {
-            id: string;
-            name: string;
+        ScheduleCreateRequest: {
+            /** Format: int64 */
+            projectId?: number;
+            title: string;
             description?: string;
-            goal?: string;
-            successCriteria?: string;
-            /** Format: date */
-            startDate?: string;
-            /** Format: date */
-            endDate?: string;
-            status: components["schemas"]["ProjectStatus"];
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+            shared?: boolean;
+            validDateRange?: boolean;
         };
-        ProjectCreateRequest: {
-            name: string;
+        ApiResponseScheduleResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ScheduleResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ErrorBody: {
+            code?: string;
+            message?: string;
+            details?: components["schemas"]["FieldError"][];
+        };
+        FieldError: {
+            field?: string;
+            reason?: string;
+        };
+        ScheduleResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            projectId?: number;
+            /** Format: int64 */
+            creatorId?: number;
+            title?: string;
             description?: string;
-            goal?: string;
-            successCriteria?: string;
-            /** Format: date */
-            startDate?: string;
-            /** Format: date */
-            endDate?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            shared?: boolean;
+        };
+        SignupRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            nickname: string;
+        };
+        ApiResponseMemberResponse: {
+            success?: boolean;
+            data?: components["schemas"]["MemberResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        MemberResponse: {
+            /** Format: int64 */
+            id?: number;
+            email?: string;
+            nickname?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ApiResponseVoid: {
+            success?: boolean;
+            data?: unknown;
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        ScheduleUpdateRequest: {
+            /** Format: int64 */
+            projectId?: number;
+            title?: string;
+            description?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            shared?: boolean;
+            validDateRange?: boolean;
+        };
+        ApiResponseListScheduleResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ScheduleResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ApiResponseListScheduleReminderResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ScheduleReminderResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ScheduleReminderResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            projectId?: number;
+            title?: string;
+            description?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            shared?: boolean;
+            /** Format: int64 */
+            daysLeft?: number;
         };
     };
     responses: never;
@@ -93,52 +280,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Service is up */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example ok */
-                        status: string;
-                    };
-                };
-            };
-        };
-    };
-    listProjects: {
-        parameters: {
-            query?: {
-                status?: components["schemas"]["ProjectStatus"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 프로젝트 목록 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Project"][];
-                };
-            };
-        };
-    };
-    createProject: {
+    create: {
         parameters: {
             query?: never;
             header?: never;
@@ -147,39 +289,227 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProjectCreateRequest"];
+                "application/json": components["schemas"]["ScheduleCreateRequest"];
             };
         };
         responses: {
-            /** @description 생성된 프로젝트 */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Project"];
+                    "*/*": components["schemas"]["ApiResponseScheduleResponse"];
                 };
             };
         };
     };
-    getProject: {
+    signup: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                projectId: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupRequest"];
+            };
+        };
         responses: {
-            /** @description 프로젝트 상세 */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Project"];
+                    "*/*": components["schemas"]["ApiResponseMemberResponse"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberResponse"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseScheduleResponse"];
+                };
+            };
+        };
+    };
+    findMine: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                projectId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListScheduleResponse"];
+                };
+            };
+        };
+    };
+    findProjectSchedules: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListScheduleResponse"];
+                };
+            };
+        };
+    };
+    findReminders: {
+        parameters: {
+            query?: {
+                days?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListScheduleReminderResponse"];
+                };
+            };
+        };
+    };
+    test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

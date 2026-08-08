@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "docs:api": "redocly build-docs api/openapi.yaml -o public/api-docs.html",
+    "sync:api": "curl -fsSL \"${API_DOCS_URL:-http://localhost:8080/v3/api-docs.yaml}\" -o api/openapi.yaml && echo 'api/openapi.yaml 업데이트 완료'",
     "codegen:api": "openapi-typescript api/openapi.yaml -o src/lib/api/schema.gen.ts",
     "codegen:api:check": "npm run codegen:api && git diff --exit-code src/lib/api/schema.gen.ts"
   },
