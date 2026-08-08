@@ -1,0 +1,20 @@
+다음 작업 목록 (이어서 진행)
+
+1. '프로젝트 선택' 화면(src/screens/ProjectSelect.tsx)의 데이터 흐름에 따른
+   API 호출 정리
+   - 현재 useProjects(src/data/useProjects.ts)가 GET/POST /projects와
+     연동되어 있음 (커밋 f2d5e9a 참고). 화면 진입 시점, 새로고침 버튼,
+     프로젝트 생성 후 리스트 갱신 등 데이터 흐름 전반을 점검하고 정리.
+
+2. 선택한 프로젝트에 따른 채팅 화면(src/screens/Chat.tsx, ChatRoom.tsx) 디테일 수정
+   - 현재 mock 데이터 기반. 어떤 프로젝트를 선택했는지에 따라 채팅
+     목록/내용이 달라지도록 연결 필요.
+
+3. 마이페이지 구현
+   - 아직 화면 없음. src/screens/index.tsx에 라우트 등록 필요.
+     참고: api/openapi.yaml의 Member 관련 API.
+
+참고
+- 데이터 접근은 CLAUDE.md의 "데이터 계층 패턴" 규칙을 따를 것
+  (화면은 src/data/의 훅을 통해서만 데이터 접근, mock/API 여부를 몰라야 함)
+- 백엔드 계약 소스: api/openapi.yaml
