@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "@/lib/api/client";
+import { C } from "@/screens/chatShared";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -25,15 +26,33 @@ export interface ProjectDraft {
 // ── Mock 데이터 ───────────────────────────────────────────────────────────────
 // 백엔드/DB가 아직 배포되지 않아, 로컬에 떠 있지 않으면 GET /projects가
 // 네트워크 자체에서 실패한다. 그 경우에만 이 mock으로 폴백한다.
+// id/이름은 useChatData.ts의 채팅 그룹과 1:1로 맞춰져 있다 — 홈에서 프로젝트를
+// 선택하면 채팅 탭에서 같은 프로젝트의 대화방 그룹이 펼쳐져야 하기 때문.
 
 const MOCK_PROJECTS: Project[] = [
   {
     id: "1",
-    name: "프로젝트명",
-    color: "#CDEA6F",
-    description: "함께 전 · 보스러리 시간 업프도빌",
-    progress: 78,
-    tags: ["함께", "팀"],
+    name: "프로젝트 루프",
+    color: C.lime,
+    description: "디자인 시스템 정비와 온보딩 플로우 개선을 진행 중입니다.",
+    progress: 68,
+    tags: ["디자인", "온보딩"],
+  },
+  {
+    id: "2",
+    name: "오로라 리브랜딩",
+    color: C.purple,
+    description: "브랜드 아이덴티티와 마케팅 자산을 새로 정의하고 있습니다.",
+    progress: 42,
+    tags: ["브랜딩"],
+  },
+  {
+    id: "3",
+    name: "캠페인 라디오",
+    color: C.pink,
+    description: "분기 캠페인 콘텐츠 기획과 라디오 광고 제작을 진행합니다.",
+    progress: 25,
+    tags: ["마케팅", "콘텐츠"],
   },
 ];
 

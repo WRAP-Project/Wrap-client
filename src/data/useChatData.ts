@@ -14,6 +14,7 @@ export interface ChatRoom {
 }
 
 export interface ChatRoomGroup {
+  projectId: string; // useProjects.ts의 Project.id와 1:1로 대응
   project: string;
   color: string;
   rooms: Omit<ChatRoom, "project" | "color">[];
@@ -33,19 +34,19 @@ export interface ChatParticipant {
 // 둔다 (반환 형태가 같으므로).
 const MOCK_ROOM_GROUPS: ChatRoomGroup[] = [
   {
-    project: "프로젝트 루프", color: C.lime, rooms: [
+    projectId: "1", project: "프로젝트 루프", color: C.lime, rooms: [
       { id: 1, title: "디자인 핸드오프", time: "오늘 · 14:00–15:00", people: 4, initials: "DH", unread: 2, note: "최종 카드 레이아웃을 확인했어요." },
       { id: 2, title: "데일리 스탠드업", time: "오늘 · 09:30–09:45", people: 3, initials: "DS", unread: 0, note: "API 키 이슈를 백엔드에 전달했어요." },
     ],
   },
   {
-    project: "오로라 리브랜딩", color: C.purple, rooms: [
+    projectId: "2", project: "오로라 리브랜딩", color: C.purple, rooms: [
       { id: 3, title: "프로덕트 싱크", time: "오늘 · 11:00–12:00", people: 6, initials: "PS", unread: 5, note: "3분기 로드맵을 확정했어요." },
       { id: 4, title: "주간 플래닝", time: "내일 · 10:00–11:30", people: 2, initials: "JP", unread: 0, note: "새 스프린트 목표를 추가 중이에요." },
     ],
   },
   {
-    project: "캠페인 라디오", color: C.pink, rooms: [
+    projectId: "3", project: "캠페인 라디오", color: C.pink, rooms: [
       { id: 5, title: "마케팅 아이디어", time: "금요일 · 15:00–16:00", people: 5, initials: "MI", unread: 1, note: "캠페인 비주얼 검토가 준비됐어요." },
       { id: 6, title: "스프린트 회고", time: "금요일 · 16:30–17:00", people: 4, initials: "SH", unread: 0, note: "좋았던 점과 아쉬운 점을 정리해요." },
     ],
