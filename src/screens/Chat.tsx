@@ -11,10 +11,9 @@ export default function Chat() {
   const { groups } = useChatRoomGroups();
   const { selectedProjectId, selectProject } = useProjectsContext();
 
-  // 한 번에 하나의 그룹만 펼친다 — 기본값은 홈에서 선택한 프로젝트, 없으면 첫 그룹.
-  const [openProjectId, setOpenProjectId] = useState<string | null>(
-    selectedProjectId ?? groups[0]?.projectId ?? null,
-  );
+  // 한 번에 하나의 그룹만 펼친다 — 기본값은 홈에서 선택한 프로젝트.
+  // 아무것도 선택 안 했으면 아무 그룹도 펼치지 않는다(전부 pill 상태).
+  const [openProjectId, setOpenProjectId] = useState<string | null>(selectedProjectId);
 
   const openGroup = (projectId: string) => {
     setOpenProjectId(projectId);
@@ -34,6 +33,12 @@ export default function Chat() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 pb-8 [scrollbar-width:none]">
+        {openProjectId === null && (
+          <div className="mb-4 flex flex-col items-center gap-1 rounded-2xl px-4 py-7 text-center" style={{ background: C.surface }}>
+            <p className="text-[13px] font-bold" style={{ color: C.fg70 }}>선택된 프로젝트가 없어요</p>
+            <p className="text-[11px]" style={{ color: C.fg35 }}>홈에서 프로젝트를 선택하면 여기에 대화가 펼쳐져요</p>
+          </div>
+        )}
         {groups.map((group) => {
           const isOpen = group.projectId === openProjectId;
           const totalUnread = group.rooms.reduce((s, r) => s + r.unread, 0);
