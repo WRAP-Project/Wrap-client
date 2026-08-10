@@ -1,24 +1,28 @@
 import { Routes, Route, useNavigate, useLocation, useMatch } from "react-router-dom";
 import { Home, Send, Calendar, Users } from "lucide-react";
 import { screens } from "@/screens";
+import { useProjectsContext } from "@/data/ProjectsContext";
 
-// 하단 탭 정의 — path가 있는 건 실제 라우트, 없는 건 미완성
+// 하단 탭 정의 — path가 있는 건 실제 라우트, 없는 건 미완성.
+// 홈은 선택된 프로젝트가 있으면 그 프로젝트로, 없으면 프로젝트 목록으로 이동한다.
 const NAV_ITEMS = [
-  { icon: Home, path: "/" },
-  { icon: Send, path: "/chat" },
-  { icon: Calendar, path: null },
-  { icon: Users, path: "/mypage" },
+  { icon: Home, path: "/", isHome: true },
+  { icon: Send, path: "/chat", isHome: false },
+  { icon: Calendar, path: null, isHome: false },
+  { icon: Users, path: "/mypage", isHome: false },
 ] as const;
 
 function BottomNav() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { selectedProjectId } = useProjectsContext();
 
   return (
     <nav className="bg-[#1C1C1E] shrink-0">
       {/* 아이콘 영역 */}
       <div className="flex items-center justify-around px-6 pt-3 pb-2">
-        {NAV_ITEMS.map(({ icon: Icon, path }, i) => {
+        {NAV_ITEMS.map(({ icon: Icon, path, isHome }, i) => {
+          const resolvedPath = isHome && selectedProjectId ? `/project/${selectedProjectId}` : path;
           const isActive =
             path !== null &&
             (pathname === path ||
@@ -26,7 +30,7 @@ function BottomNav() {
           return (
             <button
               key={i}
-              onClick={() => (path ? navigate(path) : alert("아직 미완성입니다."))}
+              onClick={() => (resolvedPath ? navigate(resolvedPath) : alert("아직 미완성입니다."))}
               className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${
                 isActive ? "bg-[#EFEFEF]" : ""
               }`}

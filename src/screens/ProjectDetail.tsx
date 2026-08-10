@@ -1,5 +1,6 @@
-import { useParams } from "react-router-dom";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ChevronRight } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProjectDetail } from "@/data/useProjectDetail";
 
@@ -7,11 +8,23 @@ import { useProjectDetail } from "@/data/useProjectDetail";
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { projects } = useProjectsContext();
+  const navigate = useNavigate();
+  const { projects, selectProject } = useProjectsContext();
   const { data } = useProjectDetail(projectId);
 
   const project = projects.find((p) => p.id === projectId) ?? projects[0];
   const accentColor = project?.color ?? "#A78BFA";
+
+  // 이 프로젝트를 보는 순간 "현재 선택된 프로젝트"로 기록 — 하단 탭 홈 버튼이
+  // 뒤로가기 전까지 이 프로젝트로 돌아오도록 한다.
+  useEffect(() => {
+    if (project) selectProject(project.id);
+  }, [project, selectProject]);
+
+  const handleBack = () => {
+    selectProject(null);
+    navigate("/");
+  };
 
   const { urgentTask, members, schedules, progress } = data;
   const activeCount = members.filter((m) => m.active).length;
@@ -26,6 +39,15 @@ export default function ProjectDetail() {
     >
       {/* ── 스크롤 영역 ── */}
       <div className="flex-1 overflow-y-auto px-4 pt-6 pb-8 [scrollbar-width:none] flex flex-col gap-5">
+
+        {/* 뒤로가기 */}
+        <button
+          onClick={handleBack}
+          className="w-8 h-8 -ml-1 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+          style={{ background: "rgba(240,240,236,0.08)" }}
+        >
+          <ArrowLeft size={16} strokeWidth={2.5} color="#F0F0EC" />
+        </button>
 
         {/* 프로젝트명 */}
         <h1

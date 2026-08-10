@@ -6,10 +6,12 @@ import { useProjectsContext, type Project } from "@/data/ProjectsContext";
 
 function ProjectCard({
   project,
+  selected,
   onClick,
   className = "",
 }: {
   project: Project;
+  selected: boolean;
   onClick: () => void;
   className?: string;
 }) {
@@ -24,7 +26,7 @@ function ProjectCard({
         <span className="bg-black/20 text-black/80 text-xs font-medium px-2.5 py-1 rounded-full shrink-0">
           {project.name}
         </span>
-        {project.selected && (
+        {selected && (
           <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shrink-0">
             <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
               <path
@@ -79,9 +81,14 @@ function ProjectCard({
 // ─── 화면 ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectSelect() {
-  const { projects } = useProjectsContext();
+  const { projects, selectedProjectId, selectProject } = useProjectsContext();
   const navigate = useNavigate();
   const [large, ...small] = projects;
+
+  const openProject = (id: string) => {
+    selectProject(id);
+    navigate(`/project/${id}`);
+  };
 
   return (
     <div className="min-h-screen">
@@ -114,7 +121,8 @@ export default function ProjectSelect() {
           {large && (
             <ProjectCard
               project={large}
-              onClick={() => navigate(`/project/${large.id}`)}
+              selected={large.id === selectedProjectId}
+              onClick={() => openProject(large.id)}
               className="min-h-[130px]"
             />
           )}
@@ -126,7 +134,8 @@ export default function ProjectSelect() {
               {small[0] && (
                 <ProjectCard
                   project={small[0]}
-                  onClick={() => navigate(`/project/${small[0].id}`)}
+                  selected={small[0].id === selectedProjectId}
+                  onClick={() => openProject(small[0].id)}
                   className="flex-1 h-full"
                 />
               )}
@@ -136,14 +145,16 @@ export default function ProjectSelect() {
                   {small[1] && (
                     <ProjectCard
                       project={small[1]}
-                      onClick={() => navigate(`/project/${small[1].id}`)}
+                      selected={small[1].id === selectedProjectId}
+                      onClick={() => openProject(small[1].id)}
                       className="flex-1"
                     />
                   )}
                   {small[2] && (
                     <ProjectCard
                       project={small[2]}
-                      onClick={() => navigate(`/project/${small[2].id}`)}
+                      selected={small[2].id === selectedProjectId}
+                      onClick={() => openProject(small[2].id)}
                       className="flex-1"
                     />
                   )}

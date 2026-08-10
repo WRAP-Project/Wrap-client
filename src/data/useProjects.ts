@@ -7,7 +7,6 @@ export interface Project {
   id: string;
   name: string;
   color: string;          // 프론트 전용 (백엔드 스키마에 없음)
-  selected?: boolean;
   description?: string;
   progress?: number;
   tags?: string[];
@@ -32,7 +31,6 @@ const MOCK_PROJECTS: Project[] = [
     id: "1",
     name: "프로젝트명",
     color: "#CDEA6F",
-    selected: true,
     description: "함께 전 · 보스러리 시간 업프도빌",
     progress: 78,
     tags: ["함께", "팀"],

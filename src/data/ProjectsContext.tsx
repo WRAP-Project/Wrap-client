@@ -8,7 +8,7 @@
  * 내부가 mock인지 fetch인지는 이 파일 + useProjects.ts 안에서만 결정된다.
  */
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useProjects, type Project, type ProjectDraft } from "./useProjects";
 
 // 소비 측에서 ProjectsContext 하나만 import해도 되도록 re-export
@@ -21,6 +21,10 @@ interface ProjectsContextValue {
   addProject: (draft: ProjectDraft) => Promise<Project>;
   loading: boolean;
   error: Error | null;
+  /** 홈에서 선택한(또는 마지막으로 본) 프로젝트 — 하단 탭 홈 버튼이 이 프로젝트로 이동한다. */
+  selectedProjectId: string | null;
+  selectedProject: Project | undefined;
+  selectProject: (id: string | null) => void;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
@@ -28,7 +32,16 @@ const ProjectsContext = createContext<ProjectsContextValue | null>(null);
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function ProjectsProvider({ children }: { children: ReactNode }) {
-  const value = useProjects();
+  const projectsValue = useProjects();
+  const [selectedProjectId, selectProject] = useState<string | null>(null);
+
+  const value: ProjectsContextValue = {
+    ...projectsValue,
+    selectedProjectId,
+    selectedProject: projectsValue.projects.find((p) => p.id === selectedProjectId),
+    selectProject,
+  };
+
   return (
     <ProjectsContext.Provider value={value}>
       {children}
