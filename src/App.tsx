@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { icon: Home, path: "/" },
   { icon: Send, path: "/chat" },
   { icon: Calendar, path: null },
-  { icon: Users, path: null },
+  { icon: Users, path: "/mypage" },
 ] as const;
 
 function BottomNav() {
@@ -53,6 +53,7 @@ export default function App() {
   // 채팅방 안(/chat/:roomId)과 프로젝트 생성 화면은 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
   const isChatRoom      = useMatch("/chat/:roomId");
   const isCreateProject = useMatch("/create-project");
+  const isEditProfile   = useMatch("/mypage/edit");
 
   return (
     <div className="h-screen bg-white flex justify-center overflow-hidden">
@@ -66,7 +67,7 @@ export default function App() {
           </Routes>
         </div>
         {/* 하단 네비게이션: 레이아웃 고정 */}
-        {!isChatRoom && !isCreateProject && <BottomNav />}
+        {!isChatRoom && !isCreateProject && !isEditProfile && <BottomNav />}
       </div>
     </div>
   );

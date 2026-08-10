@@ -1,6 +1,6 @@
-// Chat.tsx와 ChatRoom.tsx가 함께 쓰는 색상 상수·헬퍼·UI 조각.
-// 두 화면 모두 원본 디자이너 파일(하나의 App.tsx)에서 나뉜 것이라 공유가 자연스럽다.
-// mock 데이터는 여기 두지 않는다 — ./useChatData.ts의 훅을 통해서만 접근한다.
+// Chat.tsx, ChatRoom.tsx, MyPage.tsx, EditProfile.tsx가 함께 쓰는 색상 상수·헬퍼·UI 조각.
+// 모두 같은 디자이너 파일 계열(Figma Make 출력)에서 나뉜 것이라 색 토큰이 동일해 공유가 자연스럽다.
+// mock 데이터는 여기 두지 않는다 — src/data/의 훅을 통해서만 접근한다.
 
 export const C = {
   bg: "#1e1f23",
