@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C } from "@/screens/chatShared";
+import { C } from "@/screens/chatTheme";
 
 export interface ChatRoom {
   id: number;
