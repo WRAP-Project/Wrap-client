@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
-import { apiClient } from "@/lib/api/client";
+import { useCallback, useState } from "react";
 import { C } from "@/screens/chatShared";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -24,8 +23,8 @@ export interface ProjectDraft {
 }
 
 // ── Mock 데이터 ───────────────────────────────────────────────────────────────
-// 백엔드/DB가 아직 배포되지 않아, 로컬에 떠 있지 않으면 GET /projects가
-// 네트워크 자체에서 실패한다. 그 경우에만 이 mock으로 폴백한다.
+// 백엔드가 아직 준비되지 않아 하드코딩만 사용한다. 백엔드 GET /projects가
+// 준비되면 이 파일 내부만 fetch 기반으로 교체 — 화면 쪽은 건드릴 필요 없음.
 // id/이름은 useChatData.ts의 채팅 그룹과 1:1로 맞춰져 있다 — 홈에서 프로젝트를
 // 선택하면 채팅 탭에서 같은 프로젝트의 대화방 그룹이 펼쳐져야 하기 때문.
 
@@ -56,97 +55,22 @@ const MOCK_PROJECTS: Project[] = [
   },
 ];
 
-// 백엔드 응답엔 색상 개념이 없어서, id를 기준으로 팔레트를 순환시켜 배정한다.
-const COLOR_PALETTE = ["#CDEA6F", "#A78BFA", "#60A5FA", "#F472B6", "#FBBF24"];
-
-function colorForId(id: number): string {
-  return COLOR_PALETTE[id % COLOR_PALETTE.length];
-}
-
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [usingMock, setUsingMock] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      try {
-        const { data, error: fetchError } = await apiClient.GET("/projects");
-        if (cancelled) return;
-
-        if (fetchError || !data?.data) {
-          throw new Error("프로젝트 목록을 불러오지 못했습니다.");
-        }
-
-        setProjects(
-          data.data.map((p) => ({
-            id: String(p.id),
-            name: p.name ?? "",
-            color: colorForId(p.id ?? 0),
-          })),
-        );
-        setUsingMock(false);
-        setError(null);
-      } catch {
-        // 백엔드가 아직 배포되지 않아 서버가 없을 때(네트워크 실패)만
-        // 여기로 떨어진다 — mock으로 폴백해 화면은 그대로 동작하게 한다.
-        if (cancelled) return;
-        console.warn("[useProjects] /projects 연결 실패 — mock 데이터로 대체합니다.");
-        setProjects(MOCK_PROJECTS);
-        setUsingMock(true);
-        setError(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
 
   const addProject = useCallback(async (draft: ProjectDraft): Promise<Project> => {
-    if (usingMock) {
-      const newProject: Project = {
-        id: crypto.randomUUID(),
-        name: draft.name,
-        color: draft.color,
-        goal: draft.goal,
-        endDate: draft.endDate,
-      };
-      setProjects((prev) => [...prev, newProject]);
-      return newProject;
-    }
-
-    const { data, error: createError } = await apiClient.POST("/projects", {
-      body: {
-        name: draft.name,
-        goal: draft.goal,
-        endDate: draft.endDate,
-      },
-    });
-
-    if (createError || !data?.data) {
-      throw new Error("프로젝트 생성에 실패했습니다.");
-    }
-
-    const created: Project = {
-      id: String(data.data.id),
-      name: data.data.name ?? draft.name,
+    const newProject: Project = {
+      id: crypto.randomUUID(),
+      name: draft.name,
       color: draft.color,
-      goal: data.data.goal,
-      endDate: data.data.endDate,
+      goal: draft.goal,
+      endDate: draft.endDate,
     };
-    setProjects((prev) => [...prev, created]);
-    return created;
-  }, [usingMock]);
+    setProjects((prev) => [...prev, newProject]);
+    return newProject;
+  }, []);
 
-  return { projects, addProject, loading, error };
+  return { projects, addProject, loading: false, error: null as Error | null };
 }
