@@ -26,7 +26,7 @@ export default function Chat() {
     <main className="flex size-full flex-col overflow-hidden bg-[#0d0e11] text-[#f0f0ec]">
       <header className="shrink-0 px-5 pb-3 pt-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-[24px] font-black leading-none tracking-[-.03em]">Chat</h1>
+          <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">Chat</h1>
           <div className="flex gap-2">
             <Btn><Search size={16} strokeWidth={2.2} /></Btn>
             <Btn><MoreHorizontal size={17} strokeWidth={2.2} /></Btn>
