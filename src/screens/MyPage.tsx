@@ -77,11 +77,17 @@ function ToggleRow({ label, on, onToggle }: { label: string; on: boolean; onTogg
   const [open, setOpen] = useState(false);
   return (
     <div>
-      <button onClick={() => setOpen((v) => !v)} className="flex h-[52px] w-full items-center gap-3 px-4 text-left">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setOpen((v) => !v); }}
+        className="flex h-[52px] w-full items-center gap-3 px-4 text-left"
+      >
         <span className="flex-1 text-[14px] font-medium">{label}</span>
         <Toggle on={on} onToggle={onToggle} />
         <ChevronRight size={14} style={{ color: C.fg35, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-      </button>
+      </div>
       {open && (
         <DetailPanel>
           <div className="text-[11px]" style={{ color: C.fg50 }}>알림 수신 시간대 및 채널을 설정합니다.</div>
