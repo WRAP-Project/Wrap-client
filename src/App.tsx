@@ -8,7 +8,7 @@ import { useProjectsContext } from "@/data/ProjectsContext";
 const NAV_ITEMS = [
   { icon: Home, path: "/", isHome: true },
   { icon: Send, path: "/chat", isHome: false },
-  { icon: Calendar, path: null, isHome: false },
+  { icon: Calendar, path: "/calendar", isHome: false },
   { icon: Users, path: "/mypage", isHome: false },
 ] as const;
 

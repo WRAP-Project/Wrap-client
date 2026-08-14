@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ChevronLeft, Calendar } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
+import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 
 // 포인트 컬러 옵션
 const COLOR_OPTIONS = [
@@ -12,158 +13,19 @@ const COLOR_OPTIONS = [
   { id: "blue",   hex: "#60C8F5" },
 ];
 
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-
-function buildCalendar(year: number, month: number) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (number | null)[] = Array(firstDay).fill(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
+// "YYYY. MM. DD" 문자열 <-> PickedDate 변환
+function parseDeadline(value: string): PickedDate | null {
+  if (!value) return null;
+  const parts = value.replace(/\./g, "").trim().split(/\s+/);
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+  return { year: y, month: m - 1, day: d };
 }
-
-// ── 캘린더 피커 컴포넌트 ───────────────────────────────────────────────────────
-
-function CalendarPicker({
-  value,
-  onChange,
-  onClose,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onClose: () => void;
-}) {
-  const today = new Date();
-  const [viewYear,  setViewYear]  = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
-
-  // 선택된 날짜 파싱
-  const selected = value
-    ? (() => {
-        const parts = value.replace(/\./g, "").trim().split(/\s+/);
-        if (parts.length === 3) {
-          const [y, m, d] = parts.map(Number);
-          if (!isNaN(y) && !isNaN(m) && !isNaN(d)) return { year: y, month: m - 1, day: d };
-        }
-        return null;
-      })()
-    : null;
-
-  const cells = buildCalendar(viewYear, viewMonth);
-
-  function prevMonth() {
-    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
-    else setViewMonth(m => m - 1);
-  }
-  function nextMonth() {
-    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
-    else setViewMonth(m => m + 1);
-  }
-  function selectDay(day: number) {
-    const mm = String(viewMonth + 1).padStart(2, "0");
-    const dd = String(day).padStart(2, "0");
-    onChange(`${viewYear}. ${mm}. ${dd}`);
-    onClose();
-  }
-  function isSelected(day: number) {
-    return selected?.year === viewYear && selected?.month === viewMonth && selected?.day === day;
-  }
-  function isToday(day: number) {
-    return today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end"
-      style={{ background: "rgba(0,0,0,0.55)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full rounded-t-[28px] px-5 pt-5 pb-8 flex flex-col gap-4"
-        style={{ background: "#2C2C2E", maxWidth: 390, margin: "0 auto" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 핸들 바 */}
-        <div className="mx-auto w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
-
-        {/* 헤더: 이전 / 연·월 / 다음 */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={prevMonth}
-            className="w-9 h-9 flex items-center justify-center rounded-xl transition-opacity active:opacity-50"
-            style={{ background: "rgba(255,255,255,0.08)" }}
-          >
-            <ChevronLeft size={18} color="rgba(255,255,255,0.7)" strokeWidth={2.2} />
-          </button>
-          <span className="text-[16px] font-bold" style={{ color: "#fff" }}>
-            {viewYear}년 {viewMonth + 1}월
-          </span>
-          <button
-            onClick={nextMonth}
-            className="w-9 h-9 flex items-center justify-center rounded-xl transition-opacity active:opacity-50"
-            style={{ background: "rgba(255,255,255,0.08)" }}
-          >
-            <ChevronRight size={18} color="rgba(255,255,255,0.7)" strokeWidth={2.2} />
-          </button>
-        </div>
-
-        {/* 요일 헤더 */}
-        <div className="grid grid-cols-7 text-center">
-          {WEEKDAYS.map((w, i) => (
-            <span
-              key={w}
-              className="text-[11px] font-semibold py-1"
-              style={{
-                color: i === 0 ? "#EB3E88" : i === 6 ? "#60A5FA" : "rgba(255,255,255,0.35)",
-              }}
-            >
-              {w}
-            </span>
-          ))}
-        </div>
-
-        {/* 날짜 그리드 */}
-        <div className="grid grid-cols-7 gap-y-1 text-center">
-          {cells.map((day, idx) => {
-            if (day === null) return <div key={`e-${idx}`} />;
-            const col = idx % 7;
-            const sel = isSelected(day);
-            const tod = isToday(day);
-            return (
-              <button
-                key={day}
-                onClick={() => selectDay(day)}
-                className="mx-auto w-9 h-9 flex items-center justify-center rounded-full text-[14px] font-medium transition-all active:scale-90"
-                style={{
-                  background: sel ? "#CDEA6F" : tod ? "rgba(255,255,255,0.1)" : "transparent",
-                  color: sel
-                    ? "#1C1C1E"
-                    : col === 0
-                    ? "#EB3E88"
-                    : col === 6
-                    ? "#60A5FA"
-                    : "rgba(255,255,255,0.75)",
-                  fontWeight: sel ? 800 : undefined,
-                }}
-              >
-                {day}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 닫기 버튼 */}
-        <button
-          onClick={onClose}
-          className="w-full py-4 rounded-2xl text-[14px] font-bold transition-opacity active:opacity-70"
-          style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}
-        >
-          닫기
-        </button>
-      </div>
-    </div>
-  );
+function formatDeadline({ year, month, day }: PickedDate): string {
+  const mm = String(month + 1).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}. ${mm}. ${dd}`;
 }
 
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
@@ -315,9 +177,9 @@ export default function CreateProject() {
 
       {/* ── 캘린더 피커 ── */}
       {calOpen && (
-        <CalendarPicker
-          value={deadline}
-          onChange={setDeadline}
+        <DatePickerSheet
+          selected={parseDeadline(deadline)}
+          onSelect={(d) => setDeadline(formatDeadline(d))}
           onClose={() => setCalOpen(false)}
         />
       )}
