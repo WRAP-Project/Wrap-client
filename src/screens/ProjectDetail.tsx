@@ -77,6 +77,7 @@ export default function ProjectDetail() {
                 마감 임박
               </span>
               <button
+                onClick={() => navigate(`/project/${project?.id}/milestone`)}
                 className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
                 style={{ background: "rgba(255,255,255,0.18)" }}
               >
@@ -119,8 +120,9 @@ export default function ProjectDetail() {
 
         {/* ── 섹션: 팀원 ── */}
         <section
-          className="rounded-2xl p-5 flex flex-col gap-4"
+          className="rounded-2xl p-5 flex flex-col gap-4 text-left transition-opacity active:opacity-80"
           style={{ background: "#fff", color: "#1C1C1E" }}
+          onClick={() => navigate(`/project/${project?.id}/team`)}
         >
           {/* 헤더: 활동 중 카운트 + 이니셜 미리보기 */}
           <div className="flex items-center justify-between">
@@ -188,8 +190,9 @@ export default function ProjectDetail() {
           </p>
 
           <div
-            className="rounded-2xl overflow-hidden"
+            className="rounded-2xl overflow-hidden text-left transition-opacity active:opacity-80"
             style={{ background: "#fff" }}
+            onClick={() => navigate(`/project/${project?.id}/schedule`)}
           >
             {schedules.map((s, i) => (
               <div
@@ -221,8 +224,9 @@ export default function ProjectDetail() {
 
         {/* ── 섹션: 전체 진행률 ── */}
         <section
-          className="rounded-2xl p-5 flex flex-col gap-4"
+          className="rounded-2xl p-5 flex flex-col gap-4 text-left transition-opacity active:opacity-80"
           style={{ background: "#fff" }}
+          onClick={() => navigate(`/project/${project?.id}/report`)}
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between">

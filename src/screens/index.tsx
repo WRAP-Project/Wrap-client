@@ -4,6 +4,10 @@ import Chat from "./Chat";
 import ChatRoom from "./ChatRoom";
 import CreateProject from "./CreateProject";
 import ProjectDetail from "./ProjectDetail";
+import MilestoneDetail from "./MilestoneDetail";
+import TeamActivity from "./TeamActivity";
+import ProjectSchedule from "./ProjectSchedule";
+import ProgressReport from "./ProgressReport";
 import MyPage from "./MyPage";
 import EditProfile from "./EditProfile";
 import Calendar from "./Calendar";
@@ -16,6 +20,10 @@ import Calendar from "./Calendar";
 export const screens: { path: string; Component: ComponentType }[] = [
   { path: "/", Component: ProjectSelect },
   { path: "/project/:projectId", Component: ProjectDetail },
+  { path: "/project/:projectId/milestone", Component: MilestoneDetail },
+  { path: "/project/:projectId/team", Component: TeamActivity },
+  { path: "/project/:projectId/schedule", Component: ProjectSchedule },
+  { path: "/project/:projectId/report", Component: ProgressReport },
   { path: "/chat", Component: Chat },
   { path: "/chat/:roomId", Component: ChatRoom },
   { path: "/calendar", Component: Calendar },
