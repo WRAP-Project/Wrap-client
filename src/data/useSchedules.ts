@@ -14,7 +14,6 @@ export interface Schedule {
   startTime: string;  // HH:mm
   endTime: string;    // HH:mm
   type: ScheduleType;
-  shared: boolean;
   reminder: boolean;
 }
 
@@ -27,7 +26,6 @@ export interface ScheduleDraft {
   startTime: string;
   endTime: string;
   type: ScheduleType;
-  shared: boolean;
   reminder: boolean;
 }
 
@@ -71,7 +69,6 @@ const MOCK_SCHEDULES: Schedule[] = [
     startTime: "10:00",
     endTime: "11:00",
     type: "deadline",
-    shared: true,
     reminder: true,
   },
   {
@@ -83,7 +80,6 @@ const MOCK_SCHEDULES: Schedule[] = [
     startTime: "14:00",
     endTime: "15:00",
     type: "milestone",
-    shared: true,
     reminder: true,
   },
   {
@@ -95,7 +91,6 @@ const MOCK_SCHEDULES: Schedule[] = [
     startTime: "13:00",
     endTime: "14:00",
     type: "meeting",
-    shared: false,
     reminder: false,
   },
   {
@@ -107,7 +102,6 @@ const MOCK_SCHEDULES: Schedule[] = [
     startTime: "16:00",
     endTime: "17:00",
     type: "meeting",
-    shared: true,
     reminder: false,
   },
 ];

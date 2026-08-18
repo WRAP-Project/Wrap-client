@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, MoreHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MoreHorizontal } from "lucide-react";
 import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { useSchedules, daysLeft, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
-import { useTeamMembers } from "@/data/useTeamMembers";
 import { useProjectsContext } from "@/data/ProjectsContext";
 
 // ── 색상 ──────────────────────────────────────────────────────────────────────
-// 화면 배경은 ProjectDetail/CreateProject와 같은 계열(#1C1C1E). 등록/공유 바텀시트만
+// 화면 배경은 ProjectDetail/CreateProject와 같은 계열(#1C1C1E). 등록 바텀시트만
 // 디자인 시안대로 흰색 톤 — 이 화면 전용 톤이라 chatShared 팔레트는 쓰지 않는다.
 
 const INK = "#1C1C1E";
@@ -89,7 +88,6 @@ function RegisterSheet({
   const [startTime, setStartTime] = useState("14:00");
   const [endTime, setEndTime] = useState("15:00");
   const [type, setType] = useState<ScheduleType>("deadline");
-  const [shared, setShared] = useState(true);
   const [reminder, setReminder] = useState(false);
 
   const projectName = projects.find((p) => p.id === projectId)?.name ?? "";
@@ -105,7 +103,6 @@ function RegisterSheet({
       startTime,
       endTime,
       type,
-      shared,
       reminder,
     });
   }
@@ -252,12 +249,6 @@ function RegisterSheet({
             </div>
           </div>
 
-          {/* 팀원에게 공유 */}
-          <div className="flex items-center justify-between border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
-            <span className="text-[14px] font-semibold" style={{ color: INK }}>팀원에게 공유</span>
-            <Toggle on={shared} onChange={setShared} />
-          </div>
-
           {/* 마감 리마인드 */}
           <div className="flex items-center justify-between py-4">
             <span className="text-[14px] font-semibold" style={{ color: INK }}>마감 리마인드</span>
@@ -286,90 +277,6 @@ function RegisterSheet({
         />
       )}
     </div>
-  );
-}
-
-// ── 일정 공유 바텀시트 ────────────────────────────────────────────────────────
-
-function ShareSheet({ onClose }: { onClose: () => void }) {
-  const { members } = useTeamMembers();
-  const [selected, setSelected] = useState<Set<string>>(new Set(members.map((m) => m.id)));
-
-  const allSelected = selected.size === members.length;
-
-  function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(members.map((m) => m.id)));
-  }
-  function toggleOne(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.55)" }} onClick={onClose}>
-      <div
-        className="w-full rounded-t-[28px] px-5 pb-8 pt-3"
-        style={{ background: "#fff", maxWidth: 390, margin: "0 auto" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ background: "rgba(28,28,30,0.15)" }} />
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-[16px] font-bold" style={{ color: INK }}>일정 공유</span>
-          <button onClick={onClose}><X size={18} color="rgba(28,28,30,0.4)" /></button>
-        </div>
-
-        <button
-          onClick={toggleAll}
-          className="flex w-full items-center justify-between border-b py-3"
-          style={{ borderColor: "rgba(28,28,30,0.08)" }}
-        >
-          <span className="text-[14px] font-semibold" style={{ color: INK }}>전체 선택</span>
-          <Checkbox checked={allSelected} />
-        </button>
-
-        <div className="flex flex-col">
-          {members.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => toggleOne(m.id)}
-              className="flex items-center justify-between border-b py-3.5 last:border-b-0"
-              style={{ borderColor: "rgba(28,28,30,0.06)" }}
-            >
-              <span className="text-[14px]" style={{ color: INK }}>{m.name}</span>
-              <Checkbox checked={selected.has(m.id)} />
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={onClose}
-          disabled={selected.size === 0}
-          className="mt-6 w-full rounded-2xl py-4 text-[15px] font-bold transition-opacity active:opacity-70"
-          style={{ background: selected.size > 0 ? INK : "rgba(28,28,30,0.15)", color: "#fff" }}
-        >
-          {selected.size}명에게 공유
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Checkbox({ checked }: { checked: boolean }) {
-  return (
-    <span
-      className="grid size-5 shrink-0 place-items-center rounded-md"
-      style={{ background: checked ? INK : "transparent", border: checked ? "none" : "1.5px solid rgba(28,28,30,0.2)" }}
-    >
-      {checked && (
-        <svg width="11" height="9" viewBox="0 0 13 10" fill="none">
-          <path d="M1.5 5L5 8.5L11.5 1" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
-    </span>
   );
 }
 
@@ -411,7 +318,6 @@ export default function CalendarScreen() {
   const [selectedDay, setSelectedDay] = useState<PickedDate>(todayPicked());
   const [activeTab, setActiveTab] = useState<TabId>("mine");
   const [registerOpen, setRegisterOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
 
   const cells = buildCalendar(viewYear, viewMonth);
 
@@ -445,7 +351,6 @@ export default function CalendarScreen() {
     try {
       await addSchedule(draft);
       setRegisterOpen(false);
-      if (draft.shared) setShareOpen(true);
     } catch {
       alert("일정 등록에 실패했습니다.");
     }
@@ -567,15 +472,6 @@ export default function CalendarScreen() {
               })}
             </div>
 
-            {/* 일정 공유 버튼 */}
-            <button
-              onClick={() => setShareOpen(true)}
-              className="mt-6 w-full rounded-2xl py-4 text-[14px] font-bold transition-opacity active:opacity-70"
-              style={{ background: FG, color: INK }}
-            >
-              일정 공유
-            </button>
-
             {/* 마감 리마인드 */}
             {reminders.length > 0 && (
               <div className="mt-7">
@@ -594,7 +490,6 @@ export default function CalendarScreen() {
       {registerOpen && (
         <RegisterSheet onClose={() => setRegisterOpen(false)} onSubmit={handleRegister} />
       )}
-      {shareOpen && <ShareSheet onClose={() => setShareOpen(false)} />}
     </div>
   );
 }
