@@ -132,20 +132,28 @@ export default function MilestoneDetail() {
               파일 {stats.fileCount}개
             </span>
           </div>
-          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "#fff" }}>
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
-              style={{ background: "#A78BFA", color: "#fff" }}
-            >
-              {update.author}
+          {update ? (
+            <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "#fff" }}>
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
+                style={{ background: "#A78BFA", color: "#fff" }}
+              >
+                {update.author}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium" style={{ color: "#1C1C1E" }}>&ldquo;{update.text}&rdquo;</p>
+                <p className="text-[11px] font-medium mt-1" style={{ color: "rgba(28,28,30,0.4)" }}>
+                  {update.author} · {update.time}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium" style={{ color: "#1C1C1E" }}>&ldquo;{update.text}&rdquo;</p>
-              <p className="text-[11px] font-medium mt-1" style={{ color: "rgba(28,28,30,0.4)" }}>
-                {update.author} · {update.time}
+          ) : (
+            <div className="rounded-2xl px-4 py-6 text-center" style={{ background: "rgba(240,240,236,0.06)" }}>
+              <p className="text-[12px] font-semibold" style={{ color: "rgba(240,240,236,0.5)" }}>
+                아직 공유된 업데이트가 없어요
               </p>
             </div>
-          </div>
+          )}
         </section>
       </div>
 

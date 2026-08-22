@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { useSchedules, daysLeft, type Schedule, type ScheduleType } from "@/data/useSchedules";
+import { useProjectSchedules } from "@/data/SchedulesContext";
+import { daysLeft, ddayLabel, type Schedule, type ScheduleType } from "@/data/useSchedules";
 
 const TYPE_COLOR: Record<ScheduleType, string> = {
   deadline: "#EB3E88",
@@ -30,15 +31,13 @@ function formatMd(dateStr: string): string {
 export default function ProjectSchedule() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { schedules } = useSchedules();
+  // 이 프로젝트의 전체 일정 — 마감이 가까운 순(지난 일정은 뒤)으로 정렬돼 온다
+  const projectSchedules = useProjectSchedules(projectId);
   const [selectedDate, setSelectedDate] = useState(() => toDateStr(new Date()));
 
-  const projectSchedules = useMemo(
-    () =>
-      schedules
-        .filter((s) => s.projectId === projectId)
-        .sort((a, b) => a.date.localeCompare(b.date)),
-    [schedules, projectId],
+  const upcomingCount = useMemo(
+    () => projectSchedules.filter((s) => daysLeft(s.date) >= 0).length,
+    [projectSchedules],
   );
 
   const weekStrip = useMemo(() => {
@@ -111,14 +110,14 @@ export default function ProjectSchedule() {
           </div>
 
           <p className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.6)" }}>
-            {selected.getMonth() + 1}월 {selected.getDate()}일 · 예정된 일정 {projectSchedules.length}개
+            전체 일정 {projectSchedules.length}개 · 다가오는 일정 {upcomingCount}개
           </p>
         </div>
 
-        {/* 다가오는 일정 */}
+        {/* 전체 일정 — 마감이 가까운 순, 지난 일정은 뒤에 흐리게 */}
         <section className="flex flex-col gap-2">
           <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
-            다가오는 일정
+            전체 일정
           </p>
 
           <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
@@ -128,21 +127,21 @@ export default function ProjectSchedule() {
               </p>
             ) : (
               projectSchedules.map((s: Schedule, i) => {
-                const left = daysLeft(s.date);
-                const label = left === 0 ? "D-day" : left > 0 ? `D-${left}` : `D+${-left}`;
+                const past = daysLeft(s.date) < 0;
                 return (
                   <div
                     key={s.id}
                     className="flex items-center gap-3 px-4 py-3.5"
                     style={{
                       borderBottom: i < projectSchedules.length - 1 ? "1px solid rgba(0,0,0,0.06)" : "none",
+                      opacity: past ? 0.45 : 1,
                     }}
                   >
                     <span
                       className="text-[11px] font-black px-2.5 py-1 rounded-lg shrink-0 min-w-[40px] text-center"
-                      style={{ background: TYPE_COLOR[s.type], color: "#fff" }}
+                      style={{ background: past ? "rgba(28,28,30,0.35)" : TYPE_COLOR[s.type], color: "#fff" }}
                     >
-                      {label}
+                      {ddayLabel(s.date)}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-semibold truncate" style={{ color: "#1C1C1E" }}>{s.title}</p>

@@ -10,9 +10,9 @@ export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { projects, selectProject } = useProjectsContext();
-  const { data } = useProjectDetail(projectId);
-
   const project = projects.find((p) => p.id === projectId) ?? projects[0];
+  const { data } = useProjectDetail(project?.id);
+
   const accentColor = project?.color ?? "#A78BFA";
 
   // 이 프로젝트를 보는 순간 "현재 선택된 프로젝트"로 기록 — 하단 탭 홈 버튼이
@@ -64,6 +64,19 @@ export default function ProjectDetail() {
           </p>
 
           {/* D-Day 카드 */}
+          {!urgentTask ? (
+            <div
+              className="rounded-2xl px-5 py-8 text-center"
+              style={{ background: "rgba(240,240,236,0.06)" }}
+            >
+              <p className="text-[13px] font-bold" style={{ color: "rgba(240,240,236,0.7)" }}>
+                등록된 일정이 없어요
+              </p>
+              <p className="mt-1 text-[11px]" style={{ color: "rgba(240,240,236,0.35)" }}>
+                캘린더에서 일정을 추가해보세요
+              </p>
+            </div>
+          ) : (
           <div
             className="relative rounded-2xl p-5 flex flex-col gap-3"
             style={{ background: ddayBg }}
@@ -116,9 +129,11 @@ export default function ProjectDetail() {
               ))}
             </div>
           </div>
+          )}
         </section>
 
         {/* ── 섹션: 팀원 ── */}
+        {members.length > 0 && (
         <section
           className="rounded-2xl p-5 flex flex-col gap-4 text-left transition-opacity active:opacity-80"
           style={{ background: "#fff", color: "#1C1C1E" }}
@@ -155,8 +170,8 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* 아바타 목록 */}
-          <div className="flex justify-between">
+          {/* 아바타 목록 — 팀 규모가 프로젝트마다 달라 좌측 정렬 + 줄바꿈 */}
+          <div className="flex flex-wrap gap-x-5 gap-y-3">
             {members.map((m) => (
               <div key={m.initials} className="flex flex-col items-center gap-1.5">
                 {/* 아바타 */}
@@ -182,8 +197,10 @@ export default function ProjectDetail() {
             ))}
           </div>
         </section>
+        )}
 
         {/* ── 섹션: 다가오는 일정 ── */}
+        {schedules.length > 0 && (
         <section className="flex flex-col gap-2">
           <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
             다가오는 일정
@@ -221,6 +238,7 @@ export default function ProjectDetail() {
             ))}
           </div>
         </section>
+        )}
 
         {/* ── 섹션: 전체 진행률 ── */}
         <section
