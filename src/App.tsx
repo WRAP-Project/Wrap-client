@@ -30,7 +30,7 @@ function BottomNav() {
           return (
             <button
               key={i}
-              onClick={() => (resolvedPath ? navigate(resolvedPath) : alert("아직 미완성입니다."))}
+              onClick={() => (resolvedPath ? navigate(resolvedPath) : alert("구현 완료되지 않은 기능입니다."))}
               className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${
                 isActive ? "bg-[#EFEFEF]" : ""
               }`}
@@ -54,10 +54,12 @@ function BottomNav() {
 
 
 export default function App() {
-  // 채팅방 안(/chat/:roomId)과 프로젝트 생성 화면은 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
+  // 채팅방 안(/chat/:roomId)과 프로젝트 생성 흐름(/create-project/**: 생성 → 완료 → 초대)은
+  // 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
   const isChatRoom      = useMatch("/chat/:roomId");
-  const isCreateProject = useMatch("/create-project");
+  const isCreateProject = useMatch("/create-project/*");
   const isEditProfile   = useMatch("/mypage/edit");
+  const isShareSchedule = useMatch("/calendar/share");
 
   return (
     <div className="h-screen bg-white flex justify-center overflow-hidden">
@@ -71,7 +73,7 @@ export default function App() {
           </Routes>
         </div>
         {/* 하단 네비게이션: 레이아웃 고정 */}
-        {!isChatRoom && !isCreateProject && !isEditProfile && <BottomNav />}
+        {!isChatRoom && !isCreateProject && !isEditProfile && !isShareSchedule && <BottomNav />}
       </div>
     </div>
   );

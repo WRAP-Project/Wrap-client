@@ -3,6 +3,8 @@ import ProjectSelect from "./ProjectSelect";
 import Chat from "./Chat";
 import ChatRoom from "./ChatRoom";
 import CreateProject from "./CreateProject";
+import ProjectCreated from "./ProjectCreated";
+import InviteTeam from "./InviteTeam";
 import ProjectDetail from "./ProjectDetail";
 import MilestoneDetail from "./MilestoneDetail";
 import TeamActivity from "./TeamActivity";
@@ -11,6 +13,7 @@ import ProgressReport from "./ProgressReport";
 import MyPage from "./MyPage";
 import EditProfile from "./EditProfile";
 import Calendar from "./Calendar";
+import ShareSchedule from "./ShareSchedule";
 
 /**
  * Each entry is one designer-submitted flow, integrated after passing the
@@ -27,7 +30,10 @@ export const screens: { path: string; Component: ComponentType }[] = [
   { path: "/chat", Component: Chat },
   { path: "/chat/:roomId", Component: ChatRoom },
   { path: "/calendar", Component: Calendar },
+  { path: "/calendar/share", Component: ShareSchedule },
   { path: "/create-project", Component: CreateProject },
+  { path: "/create-project/:projectId/done", Component: ProjectCreated },
+  { path: "/create-project/:projectId/invite", Component: InviteTeam },
   { path: "/mypage", Component: MyPage },
   { path: "/mypage/edit", Component: EditProfile },
 ];

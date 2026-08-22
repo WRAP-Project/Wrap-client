@@ -1,9 +1,20 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, MoreHorizontal } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { CalendarPlus, ChevronLeft, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
 import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
-import { useSchedules, daysLeft, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
+import { daysLeft, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
+import { useSchedulesContext } from "@/data/SchedulesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
+import {
+  DAY_END_MIN,
+  DAY_START_MIN,
+  STATUS_LABEL,
+  toMinutes,
+  useTeamDaySchedule,
+  type TeamMemberDay,
+  type TeamStatus,
+} from "@/data/useTeamDaySchedule";
 
 // ── 색상 ──────────────────────────────────────────────────────────────────────
 // 화면 배경은 ProjectDetail/CreateProject와 같은 계열(#1C1C1E). 등록 바텀시트만
@@ -18,24 +29,29 @@ const SURFACE = "rgba(240,240,236,0.06)";
 const PINK = "#EB3E88";
 const BLUE = "#60C8F5";
 const PURPLE = "#A78BFA";
-const LIME = "#CDEA6F";
-const YELLOW = "#F5E03A";
 
-const TYPE_COLOR: Record<ScheduleType, string> = {
-  deadline: PINK,
-  meeting: BLUE,
-  milestone: PURPLE,
-};
 const TYPE_LABEL: Record<ScheduleType, string> = {
   deadline: "마감",
   meeting: "미팅",
   milestone: "마일스톤",
 };
 
-const REMINDER_PALETTE = [LIME, PURPLE, PINK, BLUE, YELLOW];
-const BRIGHT = new Set([LIME, YELLOW]);
+/** 프로젝트 색을 못 찾았을 때만 쓰는 기본색 */
+const FALLBACK_COLOR = PURPLE;
+
+/** 배경이 밝으면 글자를 어둡게 — 프로젝트 색을 사용자가 고르므로 밝기를 계산한다. */
+function isBright(hex: string): boolean {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150;
+}
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+/** 주간 스트립은 사진과 동일하게 월요일 시작 */
+const WEEKDAYS_MON = ["월", "화", "수", "목", "금", "토", "일"];
 const TABS = [
   { id: "mine", label: "내 일정" },
   { id: "team", label: "팀원 일정" },
@@ -51,6 +67,19 @@ function pickedToDateStr({ year, month, day }: PickedDate): string {
   const mm = String(month + 1).padStart(2, "0");
   const dd = String(day).padStart(2, "0");
   return `${year}-${mm}-${dd}`;
+}
+function pickedToDate({ year, month, day }: PickedDate): Date {
+  return new Date(year, month, day);
+}
+function dateToPicked(d: Date): PickedDate {
+  return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
+}
+/** 월요일 시작 주의 첫 날 */
+function startOfWeek(d: Date): Date {
+  const c = new Date(d);
+  c.setHours(0, 0, 0, 0);
+  c.setDate(c.getDate() - ((c.getDay() + 6) % 7));
+  return c;
 }
 
 // ── 토글 스위치 ───────────────────────────────────────────────────────────────
@@ -73,15 +102,17 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 // ── 일정 등록 바텀시트 ────────────────────────────────────────────────────────
 
 function RegisterSheet({
+  defaultProjectId,
   onClose,
   onSubmit,
 }: {
+  defaultProjectId: string | null;
   onClose: () => void;
   onSubmit: (draft: ScheduleDraft) => void;
 }) {
   const { projects } = useProjectsContext();
   const [title, setTitle] = useState("");
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(defaultProjectId ?? projects[0]?.id ?? "");
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [date, setDate] = useState<PickedDate>(todayPicked());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -256,10 +287,10 @@ function RegisterSheet({
           </div>
         </div>
 
-        {/* 등록하기 */}
+        {/* 등록하기 — 실제 등록 동작은 아직 미완성 */}
         <div className="shrink-0 px-5 pb-8 pt-2">
           <button
-            onClick={handleSubmit}
+            onClick={() => alert("구현 완료되지 않은 기능입니다.")}
             disabled={!canSubmit}
             className="w-full rounded-2xl py-4 text-[15px] font-bold transition-opacity active:opacity-70"
             style={{ background: canSubmit ? INK : "rgba(28,28,30,0.15)", color: "#fff" }}
@@ -282,9 +313,9 @@ function RegisterSheet({
 
 // ── 마감 리마인드 카드 ────────────────────────────────────────────────────────
 
-function ReminderCard({ schedule, index }: { schedule: Schedule; index: number }) {
-  const bg = REMINDER_PALETTE[index % REMINDER_PALETTE.length];
-  const bright = BRIGHT.has(bg);
+function ReminderCard({ schedule, color }: { schedule: Schedule; color: string }) {
+  const bg = color;
+  const bright = isBright(bg);
   const left = daysLeft(schedule.date);
   const label = left === 0 ? "D-day" : left > 0 ? `D-${left}` : `D+${-left}`;
 
@@ -308,21 +339,228 @@ function ReminderCard({ schedule, index }: { schedule: Schedule; index: number }
   );
 }
 
+// ── 주간 스트립 ───────────────────────────────────────────────────────────────
+
+function WeekStrip({
+  selected,
+  onSelect,
+}: {
+  selected: Date;
+  onSelect: (d: Date) => void;
+}) {
+  const monday = startOfWeek(selected);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const today = new Date();
+
+  function shiftWeek(delta: number) {
+    const d = new Date(selected);
+    d.setDate(d.getDate() + delta * 7);
+    onSelect(d);
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <button onClick={() => shiftWeek(-1)} className="grid size-8 place-items-center active:opacity-50">
+          <ChevronLeft size={16} color={FG50} />
+        </button>
+        <span className="text-[13px] font-bold" style={{ color: FG70 }}>
+          {monday.getFullYear()}.{String(monday.getMonth() + 1).padStart(2, "0")}
+        </span>
+        <button onClick={() => shiftWeek(1)} className="grid size-8 place-items-center active:opacity-50">
+          <ChevronRight size={16} color={FG50} />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 text-center">
+        {days.map((d, i) => {
+          const sel = d.toDateString() === selected.toDateString();
+          const isToday = d.toDateString() === today.toDateString();
+          return (
+            <button key={i} onClick={() => onSelect(d)} className="flex flex-col items-center gap-1.5">
+              <span className="text-[11px] font-semibold" style={{ color: i === 6 ? PINK : i === 5 ? BLUE : FG35 }}>
+                {WEEKDAYS_MON[i]}
+              </span>
+              <span
+                className="flex size-9 items-center justify-center rounded-full text-[14px]"
+                style={{
+                  background: sel ? "#fff" : isToday ? SURFACE : "transparent",
+                  color: sel ? INK : FG70,
+                  fontWeight: sel ? 800 : 500,
+                }}
+              >
+                {d.getDate()}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── 팀원 일정 타임라인 ────────────────────────────────────────────────────────
+
+/** 09~19시를 1시간 60px으로 그린다 — 좁은 폭에서 막대 제목이 읽히도록 가로 스크롤. */
+const HOUR_PX = 60;
+const LANE_WIDTH = ((DAY_END_MIN - DAY_START_MIN) / 60) * HOUR_PX;
+const NAME_COL = 120;
+/** 팀원 정보(아바타 44px, 배지+이름+프로젝트) 한 줄의 최소 높이 */
+const NAME_ROW_MIN = 52;
+
+function offsetOf(hhmm: string): number {
+  return ((toMinutes(hhmm) - DAY_START_MIN) / 60) * HOUR_PX;
+}
+
+function StatusBadge({ status }: { status: TeamStatus }) {
+  const style =
+    status === "blocked"
+      ? { background: PINK, color: "#fff", border: "none" }
+      : status === "done"
+        ? { background: SURFACE, color: FG50, border: "none" }
+        : { background: "transparent", color: FG70, border: `1px solid ${FG35}` };
+  return (
+    <span className="inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold" style={style}>
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+function TeamTimeline({ rows, color }: { rows: TeamMemberDay[]; color: (projectId: string) => string }) {
+  const hours = Array.from({ length: (DAY_END_MIN - DAY_START_MIN) / 60 + 1 }, (_, i) => 9 + i);
+
+  // 팀원 칸과 시간표는 서로 다른 스크롤 컨테이너에 들어가므로, 두 열의 행 높이를
+  // 같은 값으로 계산해서 줄이 어긋나지 않게 맞춘다.
+  const rowHeights = rows.map((r) => Math.max(NAME_ROW_MIN, Math.max(1, r.tasks.length) * 30));
+
+  return (
+    <div className="flex">
+      {/* 팀원 칸 — 스크롤 밖에 있어 항상 제자리 */}
+      <div className="shrink-0" style={{ width: NAME_COL }}>
+        <div className="h-5" /> {/* 시간 눈금 줄만큼 비움 */}
+        <div className="flex flex-col gap-4">
+          {rows.map((r, i) => (
+            <div key={r.id} className="flex gap-2.5 pr-3" style={{ height: rowHeights[i] }}>
+              <span
+                className="size-11 shrink-0 rounded-2xl rounded-tl-md"
+                style={{ background: color(r.projectId), opacity: r.status === "done" ? 0.5 : 1 }}
+              />
+              <div className="min-w-0">
+                <StatusBadge status={r.status} />
+                <p className="mt-1 truncate text-[13px] font-bold" style={{ color: FG }}>
+                  {r.name}
+                </p>
+                <p className="truncate text-[10px]" style={{ color: FG35 }}>
+                  {r.projectName}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 시간표 — 가로 스크롤은 이 영역 안에서만 일어나고, 막대는 밖으로 넘치지 않는다 */}
+      <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]">
+        <div style={{ width: LANE_WIDTH }}>
+          {/* 시간 눈금 */}
+          <div className="relative h-5">
+            {hours.map((h) => (
+              <span
+                key={h}
+                className="absolute top-0 text-[10px]"
+                style={{ left: (h - 9) * HOUR_PX, color: FG35 }}
+              >
+                {h}시
+              </span>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {rows.map((r, i) => {
+              const c = color(r.projectId);
+              const bright = isBright(c);
+              return (
+                <div key={r.id} className="relative" style={{ height: rowHeights[i] }}>
+                  {r.tasks.length === 0 && (
+                    <span className="text-[11px]" style={{ color: FG35 }}>
+                      등록된 일정 없음
+                    </span>
+                  )}
+                  {r.tasks.map((t, k) => {
+                    const left = offsetOf(t.startTime);
+                    const width = Math.max(44, offsetOf(t.endTime) - left);
+                    return (
+                      <span
+                        key={t.id}
+                        className="absolute flex h-6 items-center rounded-md px-2 text-[11px] font-semibold"
+                        style={{
+                          left,
+                          top: k * 30,
+                          width,
+                          background: c,
+                          color: bright ? INK : "#fff",
+                          opacity: t.done ? 0.55 : 1,
+                          textDecoration: t.done ? "line-through" : undefined,
+                        }}
+                        title={`${t.startTime}–${t.endTime} ${t.title}`}
+                      >
+                        <span className="truncate">{t.title}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
-  const { schedules, addSchedule } = useSchedules();
+  const { schedules, addSchedule } = useSchedulesContext();
+  const { projects, selectedProjectId, selectProject } = useProjectsContext();
+  const navigate = useNavigate();
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
-  const [selectedDay, setSelectedDay] = useState<PickedDate>(todayPicked());
+  /** null이면 날짜 선택 해제 — 마감 리마인드는 다시 전체(다가오는 순)로 돌아간다. */
+  const [selectedDay, setSelectedDay] = useState<PickedDate | null>(todayPicked());
   const [activeTab, setActiveTab] = useState<TabId>("mine");
   const [registerOpen, setRegisterOpen] = useState(false);
+  /**
+   * null이면 전체 프로젝트 — 상단 원형 프로젝트를 누르면 해당 프로젝트만 본다.
+   * 기본값은 채팅 탭과 동일하게 홈에서 선택한 프로젝트(전역 선택 상태).
+   */
+  const [filterProjectId, setFilterProjectId] = useState<string | null>(selectedProjectId);
+
+  /** 캘린더 탭에서 고른 프로젝트도 전역 선택 상태에 반영한다. */
+  function pickProject(id: string | null) {
+    setFilterProjectId(id);
+    selectProject(id);
+  }
+
+  const filterColor = projects.find((p) => p.id === filterProjectId)?.color ?? null;
+
+  /** 일정 색은 상단 원형 아이콘과 동일하게 프로젝트 색을 따른다. */
+  function colorOfProject(id: string): string {
+    return projects.find((p) => p.id === id)?.color ?? FALLBACK_COLOR;
+  }
 
   const cells = buildCalendar(viewYear, viewMonth);
 
+  const visibleSchedules = filterProjectId
+    ? schedules.filter((s) => s.projectId === filterProjectId)
+    : schedules;
+
   const schedulesByDate = new Map<string, Schedule[]>();
-  for (const s of schedules) {
+  for (const s of visibleSchedules) {
     const list = schedulesByDate.get(s.date) ?? [];
     list.push(s);
     schedulesByDate.set(s.date, list);
@@ -343,9 +581,17 @@ export default function CalendarScreen() {
     else setViewMonth((m) => m + 1);
   }
 
-  const reminders = [...schedules]
-    .filter((s) => s.reminder && daysLeft(s.date) >= 0)
-    .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+  /** 날짜를 고르면 그 날짜만, 선택을 풀면 다가오는 리마인드 전체. */
+  const selectedDateStr = selectedDay ? pickedToDateStr(selectedDay) : null;
+  const reminders = selectedDateStr
+    ? visibleSchedules.filter((s) => s.reminder && s.date === selectedDateStr)
+    : [...visibleSchedules]
+        .filter((s) => s.reminder && daysLeft(s.date) >= 0)
+        .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+
+  /** 팀원 일정 탭은 "선택 없음" 상태가 없다 — 선택이 풀려 있으면 오늘 기준. */
+  const teamDate = selectedDay ?? todayPicked();
+  const { rows: teamRows } = useTeamDaySchedule(filterProjectId, pickedToDateStr(teamDate));
 
   async function handleRegister(draft: ScheduleDraft) {
     try {
@@ -362,14 +608,59 @@ export default function CalendarScreen() {
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: INK, color: FG }}>
-      <div className="flex items-center justify-between px-5 pt-5">
+      <header className="flex items-center justify-between px-5 pb-3 pt-5">
         <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">캘린더</h1>
+        {/* 일정 공유 — 단순 "+"보다 무엇을 하는 버튼인지 드러나도록 아이콘+라벨 pill.
+            배경은 다른 카드와 같은 SURFACE라 화면 톤에서 튀지 않는다. */}
         <button
-          onClick={() => setRegisterOpen(true)}
-          className="grid size-10 place-items-center rounded-xl transition-opacity active:opacity-60"
+          onClick={() => navigate("/calendar/share")}
+          className="flex items-center gap-1.5 rounded-full py-2 pl-3 pr-3.5 active:opacity-60"
           style={{ background: SURFACE }}
         >
-          <Plus size={18} color={FG} strokeWidth={2.2} />
+          <CalendarPlus size={15} color={FG70} strokeWidth={2.2} />
+          <span className="text-[12px] font-bold" style={{ color: FG70 }}>일정 공유</span>
+        </button>
+      </header>
+
+      {/* 내 프로젝트 — 누르면 해당 프로젝트 일정만 본다(다시 누르면 전체) */}
+      <div className="flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
+        {projects.map((p) => {
+          const on = filterProjectId === p.id;
+          return (
+            <button
+              key={p.id}
+              onClick={() => pickProject(on ? null : p.id)}
+              className="flex w-11 shrink-0 flex-col items-center gap-1.5"
+            >
+              {/* 선택 시 안쪽에 배경색 링이 생겨 도넛 형태가 된다 */}
+              <span
+                className="size-11 rounded-full transition-all"
+                style={{
+                  background: p.color,
+                  opacity: filterProjectId && !on ? 0.4 : 1,
+                  boxShadow: on ? `inset 0 0 0 3px ${p.color}, inset 0 0 0 5px ${INK}` : undefined,
+                }}
+              />
+              <span
+                className="w-full truncate text-center text-[10px]"
+                style={{ color: on ? FG : FG50, fontWeight: on ? 700 : 500 }}
+              >
+                {p.name}
+              </span>
+            </button>
+          );
+        })}
+
+        <button
+          onClick={() => navigate("/create-project")}
+          className="flex w-11 shrink-0 flex-col items-center gap-1.5"
+        >
+          <span className="grid size-11 place-items-center rounded-full" style={{ background: SURFACE }}>
+            <Plus size={18} color={FG50} strokeWidth={2.2} />
+          </span>
+          <span className="w-full truncate text-center text-[10px]" style={{ color: FG35 }}>
+            추가
+          </span>
         </button>
       </div>
 
@@ -381,7 +672,7 @@ export default function CalendarScreen() {
             onClick={() => handleTabClick(tab.id)}
             className="flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-colors"
             style={{
-              background: activeTab === tab.id ? FG : "transparent",
+              background: activeTab === tab.id ? (filterColor ?? FG) : "transparent",
               color: activeTab === tab.id ? INK : FG50,
             }}
           >
@@ -391,14 +682,38 @@ export default function CalendarScreen() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-8 pt-5 [scrollbar-width:none]">
-        {activeTab !== "mine" ? (
+        {activeTab === "team" ? (
+          <>
+            <WeekStrip
+              selected={pickedToDate(teamDate)}
+              onSelect={(d) => setSelectedDay(dateToPicked(d))}
+            />
+
+            <div className="mt-6">
+              {teamRows.length === 0 ? (
+                <div className="flex flex-col items-center gap-1 rounded-2xl px-4 py-10 text-center" style={{ background: SURFACE }}>
+                  <p className="text-[13px] font-bold" style={{ color: FG70 }}>표시할 팀원이 없어요</p>
+                  <p className="text-[11px]" style={{ color: FG35 }}>프로젝트에 팀원을 초대해보세요</p>
+                </div>
+              ) : (
+                <TeamTimeline rows={teamRows} color={colorOfProject} />
+              )}
+            </div>
+
+            <button
+              onClick={() => alert("구현 완료되지 않은 기능입니다.")}
+              className="mt-8 w-full rounded-2xl border py-4 text-[14px] font-bold transition-opacity active:opacity-70"
+              style={{ borderColor: FG35, color: FG }}
+            >
+              가능한 시간 확인
+            </button>
+          </>
+        ) : activeTab === "checklist" ? (
           <div className="flex flex-col items-center gap-1 rounded-2xl px-4 py-10 text-center" style={{ background: SURFACE }}>
-            <p className="text-[13px] font-bold" style={{ color: FG70 }}>
-              {activeTab === "team" ? "팀원 일정" : "리스트 체크"}는 준비 중이에요
-            </p>
+            <p className="text-[13px] font-bold" style={{ color: FG70 }}>리스트 체크는 준비 중이에요</p>
             <p className="text-[11px]" style={{ color: FG35 }}>곧 만나보실 수 있어요</p>
           </div>
-        ) : schedules.length === 0 ? (
+        ) : visibleSchedules.length === 0 ? (
           /* ── 빈 상태 ── */
           <div className="flex flex-col items-center gap-6 pt-24 text-center">
             <div>
@@ -410,7 +725,7 @@ export default function CalendarScreen() {
               className="w-full rounded-2xl py-4 text-[14px] font-bold transition-opacity active:opacity-70"
               style={{ background: SURFACE, color: FG70 }}
             >
-              일정 등록
+              일정 등록하기
             </button>
           </div>
         ) : (
@@ -444,12 +759,16 @@ export default function CalendarScreen() {
                 const col = idx % 7;
                 const dateStr = dateStrOf(day);
                 const daySchedules = schedulesByDate.get(dateStr) ?? [];
-                const sel = selectedDay.year === viewYear && selectedDay.month === viewMonth && selectedDay.day === day;
+                const sel =
+                  selectedDay !== null &&
+                  selectedDay.year === viewYear &&
+                  selectedDay.month === viewMonth &&
+                  selectedDay.day === day;
                 const isToday = today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
                 return (
                   <button
                     key={day}
-                    onClick={() => setSelectedDay({ year: viewYear, month: viewMonth, day })}
+                    onClick={() => setSelectedDay(sel ? null : { year: viewYear, month: viewMonth, day })}
                     className="mx-auto flex w-9 flex-col items-center gap-1"
                   >
                     <span
@@ -464,7 +783,7 @@ export default function CalendarScreen() {
                     </span>
                     <span className="flex h-1.5 items-center justify-center gap-[3px]">
                       {daySchedules.slice(0, 3).map((s) => (
-                        <span key={s.id} className="size-[3px] rounded-full" style={{ background: TYPE_COLOR[s.type] }} />
+                        <span key={s.id} className="size-[3px] rounded-full" style={{ background: colorOfProject(s.projectId) }} />
                       ))}
                     </span>
                   </button>
@@ -472,23 +791,42 @@ export default function CalendarScreen() {
               })}
             </div>
 
-            {/* 마감 리마인드 */}
-            {reminders.length > 0 && (
-              <div className="mt-7">
-                <h2 className="mb-3 text-[13px] font-bold" style={{ color: FG50 }}>마감 리마인드</h2>
+            {/* 일정 등록하기 */}
+            <button
+              onClick={() => setRegisterOpen(true)}
+              className="mt-6 w-full rounded-2xl border py-4 text-[14px] font-bold transition-opacity active:opacity-70"
+              style={{ borderColor: FG35, color: FG }}
+            >
+              일정 등록하기
+            </button>
+
+            {/* 마감 리마인드 — 선택한 날짜의 일정만 */}
+            <div className="mt-7">
+              <h2 className="mb-3 text-[13px] font-bold" style={{ color: FG50 }}>
+                마감 리마인드{selectedDateStr ? ` · ${selectedDateStr.replace(/-/g, ".")}` : ""}
+              </h2>
+              {reminders.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {reminders.map((s, i) => (
-                    <ReminderCard key={s.id} schedule={s} index={i} />
+                  {reminders.map((s) => (
+                    <ReminderCard key={s.id} schedule={s} color={colorOfProject(s.projectId)} />
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="rounded-2xl px-4 py-6 text-center text-[12px]" style={{ background: SURFACE, color: FG35 }}>
+                  {selectedDateStr ? "이 날짜에는 마감 리마인드가 없어요" : "다가오는 마감 리마인드가 없어요"}
+                </p>
+              )}
+            </div>
           </>
         )}
       </div>
 
       {registerOpen && (
-        <RegisterSheet onClose={() => setRegisterOpen(false)} onSubmit={handleRegister} />
+        <RegisterSheet
+          defaultProjectId={filterProjectId}
+          onClose={() => setRegisterOpen(false)}
+          onSubmit={handleRegister}
+        />
       )}
     </div>
   );
