@@ -48,13 +48,15 @@ export default function CreateProject() {
     const selectedHex = COLOR_OPTIONS.find((o) => o.id === color)?.hex ?? "#CDEA6F";
 
     try {
-      await addProject({
+      const created = await addProject({
         name: name.trim(),
         goal: goal.trim() || undefined,
         endDate: deadline.trim() || undefined,
         color: selectedHex,
       });
-      navigate("/");
+      // 생성 완료 화면 → 팀원 초대 화면으로 이어진다. replace로 넘겨서
+      // 완료 화면에서 뒤로가기 하면 빈 폼이 아니라 이전 화면으로 나가게 한다.
+      navigate(`/create-project/${created.id}/done`, { replace: true });
     } catch {
       alert("프로젝트 생성에 실패했습니다.");
     }

@@ -9,10 +9,10 @@
  */
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { useProjects, type Project, type ProjectDraft } from "./useProjects";
+import { useProjects, type Project, type ProjectDraft, type ProjectMember } from "./useProjects";
 
 // 소비 측에서 ProjectsContext 하나만 import해도 되도록 re-export
-export type { Project, ProjectDraft };
+export type { Project, ProjectDraft, ProjectMember };
 
 // ── Context 타입 ──────────────────────────────────────────────────────────────
 
