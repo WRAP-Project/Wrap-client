@@ -3,7 +3,7 @@
 // mock 데이터는 여기 두지 않는다 — src/data/의 훅을 통해서만 접근한다.
 
 export const C = {
-  bg: "#1e1f23",
+  bg: "#1C1C1E",
   surface: "#27282d",
   surfaceHigh: "#32333a",
   // 어두운 배경 위 텍스트 — 흰색 계열 opacity 단계

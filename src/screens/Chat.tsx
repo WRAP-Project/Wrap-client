@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowRight, Calendar, MoreHorizontal, Plus, Search, Users } from "lucide-react";
+import { ArrowRight, Calendar, MoreHorizontal, Search, Users } from "lucide-react";
 import { Btn, C, rgba } from "./chatTheme";
 import { useChatRoomGroups } from "@/data/useChatData";
 import { useProjectsContext } from "@/data/ProjectsContext";
@@ -23,10 +23,10 @@ export default function Chat() {
   };
 
   return (
-    <main className="flex size-full flex-col overflow-hidden bg-[#0d0e11] text-[#f0f0ec]">
-      <header className="shrink-0 px-5 pb-3 pt-3">
+    <main className="flex size-full flex-col overflow-hidden bg-[#1C1C1E] text-[#f0f0ec]">
+      <header className="shrink-0 px-5 pb-3 pt-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">Chat</h1>
+          <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">채팅</h1>
           <div className="flex gap-2">
             <Btn><Search size={16} strokeWidth={2.2} /></Btn>
             <Btn><MoreHorizontal size={17} strokeWidth={2.2} /></Btn>
@@ -170,13 +170,6 @@ export default function Chat() {
             </motion.div>
           );
         })}
-        <button
-          className="mt-1 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl py-4 transition-opacity active:opacity-60"
-          style={{ background: C.surface }}
-        >
-          <Plus size={18} strokeWidth={2.2} style={{ color: C.fg50 }} />
-          <span className="text-[13px] font-bold" style={{ color: C.fg50 }}>새 채팅 추가</span>
-        </button>
       </div>
     </main>
   );

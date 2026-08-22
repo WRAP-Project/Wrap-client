@@ -415,7 +415,7 @@ export default function ChatRoom() {
                       <h2 className="mt-1.5 text-[26px] font-black leading-none tracking-[-.03em]">다음 미팅 제안</h2>
                       <div className="mt-4 rounded-2xl p-4" style={{ background: C.blue, color: C.ink }}>
                         <div className="flex items-center gap-2.5 text-[15px] font-bold">
-                          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#0d0e11]/15">
+                          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#1C1C1E]/15">
                             <Calendar size={15} strokeWidth={2.2} />
                           </span>
                           목요일 · 오후 2:00

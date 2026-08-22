@@ -240,8 +240,8 @@ export default function MyPage() {
   const connectedCount = integrations.filter((i) => i.connected).length;
 
   return (
-    <main className="flex size-full flex-col overflow-hidden bg-[#1e1f23] text-[#f0f0ec]">
-      <header className="px-5 pb-4 pt-5">
+    <main className="flex size-full flex-col overflow-hidden bg-[#1C1C1E] text-[#f0f0ec]">
+      <header className="px-5 pb-3 pt-5">
         <div className="flex items-center justify-between">
           <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">마이 페이지</h1>
           <div className="flex gap-2">

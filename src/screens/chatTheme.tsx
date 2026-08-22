@@ -3,7 +3,7 @@
 // 채팅 화면만 더 어두운 톤·다른 퍼플로 바뀌었고, 다른 화면 배경은 바꾸지 않기로 했다.
 
 export const C = {
-  bg: "#0d0e11",
+  bg: "#1C1C1E",
   surface: "#16171c",
   surfaceHigh: "#1f2028",
   // 어두운 배경 위 텍스트 — 흰색 계열 opacity 단계

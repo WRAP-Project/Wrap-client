@@ -27,7 +27,7 @@ export default function EditProfile() {
   };
 
   return (
-    <main className="flex size-full flex-col overflow-hidden bg-[#1e1f23] text-[#f0f0ec]">
+    <main className="flex size-full flex-col overflow-hidden bg-[#1C1C1E] text-[#f0f0ec]">
       <header
         className="relative flex h-[52px] shrink-0 items-center px-4"
         style={{ borderBottom: `1px solid ${rgba(C.fg, 0.07)}` }}
