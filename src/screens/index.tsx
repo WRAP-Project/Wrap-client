@@ -13,7 +13,9 @@ import ProgressReport from "./ProgressReport";
 import MyPage from "./MyPage";
 import EditProfile from "./EditProfile";
 import Calendar from "./Calendar";
-import ShareSchedule from "./ShareSchedule";
+import AdjustSchedule from "./AdjustSchedule";
+import AdjustCreate from "./AdjustCreate";
+import AdjustDetail, { AdjustHeatmap } from "./AdjustDetail";
 
 /**
  * Each entry is one designer-submitted flow, integrated after passing the
@@ -30,7 +32,10 @@ export const screens: { path: string; Component: ComponentType }[] = [
   { path: "/chat", Component: Chat },
   { path: "/chat/:roomId", Component: ChatRoom },
   { path: "/calendar", Component: Calendar },
-  { path: "/calendar/share", Component: ShareSchedule },
+  { path: "/calendar/adjust", Component: AdjustSchedule },
+  { path: "/calendar/adjust/new", Component: AdjustCreate },
+  { path: "/calendar/adjust/:requestId", Component: AdjustDetail },
+  { path: "/calendar/adjust/:requestId/heatmap", Component: AdjustHeatmap },
   { path: "/create-project", Component: CreateProject },
   { path: "/create-project/:projectId/done", Component: ProjectCreated },
   { path: "/create-project/:projectId/invite", Component: InviteTeam },

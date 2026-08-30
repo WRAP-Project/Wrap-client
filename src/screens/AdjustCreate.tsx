@@ -4,10 +4,11 @@ import { ArrowRight, Check, ChevronLeft } from "lucide-react";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useTeamMembers } from "@/data/useTeamMembers";
+import { ME_ID, useAdjustRequests } from "@/data/AdjustRequestsContext";
 
-// 캘린더 헤더의 "일정 공유" 버튼에서 들어오는 전체 화면.
-// 팀원에게 가능한 시간대를 물어보기 위한 폼 — 실제 공유/등록은 백엔드가
-// 준비되면 붙인다(지금은 마지막 버튼에서 미구현 안내만 띄운다).
+// 일정 조정 요청 생성 폼 — 조정 요청 목록(/calendar/adjust)의 "일정 조정하기"
+// 버튼에서 들어온다. 제출하면 요청이 목록에 추가되고, 팀원들이 각자 가능한
+// 시간을 칠해서 제출하는 흐름으로 이어진다.
 
 const INK = "#1C1C1E";
 const FG = "#F0F0EC";
@@ -27,6 +28,9 @@ function addDays(p: PickedDate, n: number): PickedDate {
 }
 function formatPicked({ year, month, day }: PickedDate): string {
   return `${year}.${String(month + 1).padStart(2, "0")}.${String(day).padStart(2, "0")}`;
+}
+function pickedToDateStr({ year, month, day }: PickedDate): string {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /** 라벨 + 값 한 쌍 — 날짜/시간 범위 카드의 좌우 칸 */
@@ -55,10 +59,11 @@ function RangeField({
   );
 }
 
-export default function ShareSchedule() {
+export default function AdjustCreate() {
   const navigate = useNavigate();
   const { selectedProjectId } = useProjectsContext();
   const { members } = useTeamMembers(selectedProjectId);
+  const { addRequest } = useAdjustRequests();
 
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState<PickedDate>(todayPicked());
@@ -77,6 +82,21 @@ export default function ShareSchedule() {
     setExcluded(allSelected ? members.map((m) => m.id) : []);
   }
 
+  const canSubmit = title.trim().length > 0 && excluded.length < members.length;
+
+  function handleSubmit() {
+    if (!canSubmit) return;
+    addRequest({
+      title: title.trim(),
+      startDate: pickedToDateStr(startDate),
+      endDate: pickedToDateStr(endDate),
+      startTime,
+      endTime,
+      memberIds: [ME_ID, ...members.filter((m) => !excluded.includes(m.id)).map((m) => m.id)],
+    });
+    navigate("/calendar/adjust");
+  }
+
   return (
     <div className="flex min-h-full flex-col" style={{ background: INK, color: FG }}>
       {/* 헤더 */}
@@ -87,7 +107,7 @@ export default function ShareSchedule() {
         <button onClick={() => navigate(-1)} className="grid size-9 place-items-center active:opacity-50" aria-label="뒤로">
           <ChevronLeft size={22} color={FG} />
         </button>
-        <h1 className="flex-1 text-center text-[17px] font-bold">일정 공유하기</h1>
+        <h1 className="flex-1 text-center text-[17px] font-bold">일정 조정하기</h1>
         <span className="size-9" />
       </header>
 
@@ -196,14 +216,15 @@ export default function ShareSchedule() {
         )}
       </div>
 
-      {/* 이 시간으로 일정 등록 */}
+      {/* 요청 생성 */}
       <div className="sticky bottom-0 shrink-0 px-5 pb-8 pt-3" style={{ background: INK }}>
         <button
-          onClick={() => alert("구현 완료되지 않은 기능입니다.")}
+          onClick={handleSubmit}
+          disabled={!canSubmit}
           className="w-full rounded-2xl py-4 text-[15px] font-bold transition-opacity active:opacity-70"
-          style={{ background: "#fff", color: INK }}
+          style={{ background: canSubmit ? "#fff" : SURFACE_HIGH, color: canSubmit ? INK : FG35 }}
         >
-          이 시간으로 일정 등록
+          이 시간으로 일정 조정하기
         </button>
       </div>
 

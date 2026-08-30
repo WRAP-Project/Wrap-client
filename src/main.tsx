@@ -5,6 +5,7 @@ import App from "./App";
 import { ProjectsProvider } from "./data/ProjectsContext";
 import { SchedulesProvider } from "./data/SchedulesContext";
 import { ProfileProvider } from "./data/ProfileContext";
+import { AdjustRequestsProvider } from "./data/AdjustRequestsContext";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")!).render(
       <ProjectsProvider>
         <SchedulesProvider>
           <ProfileProvider>
-            <App />
+            <AdjustRequestsProvider>
+              <App />
+            </AdjustRequestsProvider>
           </ProfileProvider>
         </SchedulesProvider>
       </ProjectsProvider>

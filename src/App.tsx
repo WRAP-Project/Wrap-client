@@ -59,7 +59,8 @@ export default function App() {
   const isChatRoom      = useMatch("/chat/:roomId");
   const isCreateProject = useMatch("/create-project/*");
   const isEditProfile   = useMatch("/mypage/edit");
-  const isShareSchedule = useMatch("/calendar/share");
+  const isAdjust        = useMatch("/calendar/adjust/*");
+  const isAdjustList    = useMatch("/calendar/adjust");
 
   return (
     <div className="h-screen bg-white flex justify-center overflow-hidden">
@@ -73,7 +74,7 @@ export default function App() {
           </Routes>
         </div>
         {/* 하단 네비게이션: 레이아웃 고정 */}
-        {!isChatRoom && !isCreateProject && !isEditProfile && !isShareSchedule && <BottomNav />}
+        {!isChatRoom && !isCreateProject && !isEditProfile && !isAdjust && !isAdjustList && <BottomNav />}
       </div>
     </div>
   );

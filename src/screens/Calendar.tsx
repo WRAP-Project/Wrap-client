@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarPlus, ChevronLeft, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
-import { daysLeft, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
+import { daysLeft, ddayLabel, type ChecklistItem, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
 import { useSchedulesContext } from "@/data/SchedulesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import {
@@ -55,7 +55,6 @@ const WEEKDAYS_MON = ["월", "화", "수", "목", "금", "토", "일"];
 const TABS = [
   { id: "mine", label: "내 일정" },
   { id: "team", label: "팀원 일정" },
-  { id: "checklist", label: "리스트 체크" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -312,29 +311,101 @@ function RegisterSheet({
 }
 
 // ── 마감 리마인드 카드 ────────────────────────────────────────────────────────
+// 누르면 체크리스트(담당자·상태·BLOCK 배지)가 카드 안에 펼쳐진다.
 
-function ReminderCard({ schedule, color }: { schedule: Schedule; color: string }) {
-  const bg = color;
-  const bright = isBright(bg);
-  const left = daysLeft(schedule.date);
-  const label = left === 0 ? "D-day" : left > 0 ? `D-${left}` : `D+${-left}`;
-
+function ChecklistRow({
+  item, bright, onToggle,
+}: {
+  item: ChecklistItem; bright: boolean; onToggle: () => void;
+}) {
+  const done = item.state === "done";
+  const blocked = item.state === "blocked";
   return (
-    <div className="flex items-center gap-3 rounded-2xl px-4 py-4" style={{ background: bg }}>
+    <div className="flex items-center gap-3.5">
+      <button
+        onClick={onToggle}
+        className="grid size-7 shrink-0 place-items-center rounded-lg transition-colors"
+        style={done ? { background: INK } : { border: `2px solid ${bright ? INK : "#fff"}` }}
+      >
+        {done && <Check size={14} color="#fff" strokeWidth={3} />}
+      </button>
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-black" style={{ color: bright ? "rgba(28,28,30,0.6)" : "rgba(255,255,255,0.7)" }}>
-          {label}
+        <p className="truncate text-[14px] font-bold" style={{ color: bright ? INK : "#fff" }}>
+          {item.title}
         </p>
-        <p className="truncate text-[15px] font-bold" style={{ color: bright ? INK : "#fff" }}>
-          {schedule.title}
-        </p>
-        <p className="truncate text-[12px]" style={{ color: bright ? "rgba(28,28,30,0.55)" : "rgba(255,255,255,0.7)" }}>
-          {schedule.projectName}
+        <p
+          className="mt-0.5 truncate text-[11px] font-semibold"
+          style={{ color: blocked ? PINK : bright ? "rgba(28,28,30,0.45)" : "rgba(255,255,255,0.6)" }}
+        >
+          {item.statusLabel} · {item.assignee}
         </p>
       </div>
-      <button className="shrink-0" style={{ color: bright ? "rgba(28,28,30,0.4)" : "rgba(255,255,255,0.6)" }}>
-        <MoreHorizontal size={18} />
+      {blocked && (
+        <span
+          className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black tracking-[.04em]"
+          style={{ background: PINK, color: "#fff" }}
+        >
+          BLOCK
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ReminderCard({
+  schedule, color, open, onToggleOpen, onToggleItem,
+}: {
+  schedule: Schedule;
+  color: string;
+  open: boolean;
+  onToggleOpen: () => void;
+  onToggleItem: (itemId: string) => void;
+}) {
+  const bright = isBright(color);
+  const hasBlocked = schedule.checklist?.some((i) => i.state === "blocked") ?? false;
+
+  return (
+    <div className="rounded-3xl rounded-tl-lg px-5 py-4" style={{ background: color }}>
+      <button onClick={onToggleOpen} className="flex w-full items-start justify-between gap-3 text-left">
+        <div className="min-w-0">
+          {/* 막힘 항목이 있는 마감은 D-라벨을 경고색으로 */}
+          <p
+            className="text-[13px] font-black"
+            style={{ color: hasBlocked ? PINK : bright ? "rgba(28,28,30,0.55)" : "rgba(255,255,255,0.7)" }}
+          >
+            {ddayLabel(schedule.date)}
+          </p>
+          <p className="mt-0.5 truncate text-[16px] font-bold" style={{ color: bright ? INK : "#fff" }}>
+            {schedule.title}
+          </p>
+          <p className="mt-0.5 truncate text-[12px]" style={{ color: bright ? "rgba(28,28,30,0.55)" : "rgba(255,255,255,0.7)" }}>
+            {schedule.projectName}
+          </p>
+        </div>
+        <ChevronDown
+          size={18}
+          className="mt-1 shrink-0"
+          style={{
+            color: bright ? "rgba(28,28,30,0.55)" : "rgba(255,255,255,0.7)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform .2s",
+          }}
+        />
       </button>
+
+      {open && (
+        <div className="mt-5 flex flex-col gap-4 pb-1">
+          {schedule.checklist?.length ? (
+            schedule.checklist.map((item) => (
+              <ChecklistRow key={item.id} item={item} bright={bright} onToggle={() => onToggleItem(item.id)} />
+            ))
+          ) : (
+            <p className="text-[12px]" style={{ color: bright ? "rgba(28,28,30,0.5)" : "rgba(255,255,255,0.6)" }}>
+              등록된 체크리스트가 없어요
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -524,7 +595,7 @@ function TeamTimeline({ rows, color }: { rows: TeamMemberDay[]; color: (projectI
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
-  const { schedules, addSchedule } = useSchedulesContext();
+  const { schedules, addSchedule, toggleChecklistItem } = useSchedulesContext();
   const { projects, selectedProjectId, selectProject } = useProjectsContext();
   const navigate = useNavigate();
   const today = new Date();
@@ -534,6 +605,9 @@ export default function CalendarScreen() {
   const [selectedDay, setSelectedDay] = useState<PickedDate | null>(todayPicked());
   const [activeTab, setActiveTab] = useState<TabId>("mine");
   const [registerOpen, setRegisterOpen] = useState(false);
+  /** 펼쳐진 마감 리마인드 카드 — 한 번에 하나만 */
+  const [openReminderId, setOpenReminderId] = useState<string | null>(null);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   /**
    * null이면 전체 프로젝트 — 상단 원형 프로젝트를 누르면 해당 프로젝트만 본다.
    * 기본값은 채팅 탭과 동일하게 홈에서 선택한 프로젝트(전역 선택 상태).
@@ -606,19 +680,42 @@ export default function CalendarScreen() {
     setActiveTab(id);
   }
 
+  /** 전체 일정의 막힘(BLOCK) 체크리스트 항목 — 상단 막힘 신호 배너의 데이터 */
+  const blockedSignals = schedules.flatMap((s) =>
+    (s.checklist ?? [])
+      .filter((i) => i.state === "blocked")
+      .map((i) => ({ ...i, projectId: s.projectId })),
+  );
+
   return (
-    <div className="flex min-h-full flex-col" style={{ background: INK, color: FG }}>
+    <div className="relative flex min-h-full flex-col" style={{ background: INK, color: FG }}>
+      {/* 막힘 신호 배너 — 화살표를 누르면 담당자 목록이 아래로 펼쳐진다 */}
+      {blockedSignals.length > 0 && (
+        <button
+          onClick={() => setBlockedOpen(true)}
+          className="flex shrink-0 items-center justify-between px-5 py-3.5"
+          style={{ borderBottom: "1px solid rgba(240,240,236,0.08)" }}
+        >
+          <span className="flex items-center gap-3">
+            <span className="size-4 rounded-full" style={{ background: PINK }} />
+            <span className="text-[14px] font-bold" style={{ color: PINK }}>막힘 신호 {blockedSignals.length}건</span>
+          </span>
+          <ChevronDown size={16} color={FG50} />
+        </button>
+      )}
+
       <header className="flex items-center justify-between px-5 pb-3 pt-5">
         <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">캘린더</h1>
-        {/* 일정 공유 — 단순 "+"보다 무엇을 하는 버튼인지 드러나도록 아이콘+라벨 pill.
-            배경은 다른 카드와 같은 SURFACE라 화면 톤에서 튀지 않는다. */}
+        {/* 일정 조정하기 — 막힘 신호가 있으면 우상단에 경고 점이 붙는다 */}
         <button
-          onClick={() => navigate("/calendar/share")}
-          className="flex items-center gap-1.5 rounded-full py-2 pl-3 pr-3.5 active:opacity-60"
+          onClick={() => navigate("/calendar/adjust")}
+          className="relative grid size-11 place-items-center rounded-xl active:opacity-60"
           style={{ background: SURFACE }}
         >
-          <CalendarPlus size={15} color={FG70} strokeWidth={2.2} />
-          <span className="text-[12px] font-bold" style={{ color: FG70 }}>일정 공유</span>
+          <CalendarClock size={19} color={FG70} strokeWidth={2} />
+          {blockedSignals.length > 0 && (
+            <span className="absolute right-1 top-1 size-2 rounded-full" style={{ background: PINK }} />
+          )}
         </button>
       </header>
 
@@ -708,11 +805,6 @@ export default function CalendarScreen() {
               가능한 시간 확인
             </button>
           </>
-        ) : activeTab === "checklist" ? (
-          <div className="flex flex-col items-center gap-1 rounded-2xl px-4 py-10 text-center" style={{ background: SURFACE }}>
-            <p className="text-[13px] font-bold" style={{ color: FG70 }}>리스트 체크는 준비 중이에요</p>
-            <p className="text-[11px]" style={{ color: FG35 }}>곧 만나보실 수 있어요</p>
-          </div>
         ) : visibleSchedules.length === 0 ? (
           /* ── 빈 상태 ── */
           <div className="flex flex-col items-center gap-6 pt-24 text-center">
@@ -806,10 +898,24 @@ export default function CalendarScreen() {
                 마감 리마인드{selectedDateStr ? ` · ${selectedDateStr.replace(/-/g, ".")}` : ""}
               </h2>
               {reminders.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                  {reminders.map((s) => (
-                    <ReminderCard key={s.id} schedule={s} color={colorOfProject(s.projectId)} />
-                  ))}
+                /* 왼쪽 세로 레일 + 카드 목록 */
+                <div className="relative pl-4">
+                  <span
+                    className="absolute bottom-1 left-0 top-1 w-[3px] rounded-full"
+                    style={{ background: "rgba(240,240,236,0.12)" }}
+                  />
+                  <div className="flex flex-col gap-3.5">
+                    {reminders.map((s) => (
+                      <ReminderCard
+                        key={s.id}
+                        schedule={s}
+                        color={colorOfProject(s.projectId)}
+                        open={openReminderId === s.id}
+                        onToggleOpen={() => setOpenReminderId((cur) => (cur === s.id ? null : s.id))}
+                        onToggleItem={(itemId) => toggleChecklistItem(s.id, itemId)}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <p className="rounded-2xl px-4 py-6 text-center text-[12px]" style={{ background: SURFACE, color: FG35 }}>
@@ -820,6 +926,53 @@ export default function CalendarScreen() {
           </>
         )}
       </div>
+
+      {/* 막힘 신호 펼침 — 배너 아래로 담당자 목록이 내려오고 나머지는 어두워진다 */}
+      {blockedOpen && (
+        <div className="absolute inset-0 z-50 flex flex-col">
+          <div style={{ background: INK }}>
+            <button
+              onClick={() => setBlockedOpen(false)}
+              className="flex w-full items-center justify-between px-5 py-3.5"
+              style={{ borderBottom: "1px solid rgba(240,240,236,0.08)" }}
+            >
+              <span className="flex items-center gap-3">
+                <span className="size-4 rounded-full" style={{ background: PINK }} />
+                <span className="text-[14px] font-bold" style={{ color: PINK }}>막힘 신호 {blockedSignals.length}건</span>
+              </span>
+              <ChevronDown size={16} color={FG50} style={{ transform: "rotate(180deg)" }} />
+            </button>
+            <div className="flex flex-col gap-3 px-5 pb-8 pt-5">
+              {blockedSignals.map((sig) => {
+                const c = colorOfProject(sig.projectId);
+                return (
+                  <div key={sig.id} className="flex items-center gap-4 py-2">
+                    <span
+                      className="grid size-14 shrink-0 place-items-center rounded-full text-[15px] font-black"
+                      style={{ background: c, color: isBright(c) ? INK : "#fff" }}
+                    >
+                      {sig.assigneeInitials ?? sig.assignee.slice(0, 1)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] font-bold" style={{ color: FG }}>
+                        {sig.assignee}{sig.assigneeRole ? ` · ${sig.assigneeRole}` : ""}
+                      </p>
+                      <p className="mt-1 truncate text-[13px]" style={{ color: PINK }}>{sig.title}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <span className="text-[12px] font-semibold" style={{ color: PINK }}>업데이트 필요</span>
+                      <span className="rounded-full px-3 py-1.5 text-[11px] font-black" style={{ background: PINK, color: "#fff" }}>
+                        BLOCK
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <button aria-label="닫기" onClick={() => setBlockedOpen(false)} className="flex-1" style={{ background: "rgba(0,0,0,0.55)" }} />
+        </div>
+      )}
 
       {registerOpen && (
         <RegisterSheet
