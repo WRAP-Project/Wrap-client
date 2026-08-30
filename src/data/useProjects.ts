@@ -22,6 +22,10 @@ export interface Project {
   goal?: string;
   endDate?: string;       // YYYY-MM-DD (백엔드 endDate 필드와 동일)
   members?: ProjectMember[];
+  /** 마이페이지 배지에 표시할 최근 업데이트 수 (백엔드 스키마에 없음 — mock 전용) */
+  recentUpdates?: number;
+  /** "최근 업데이트 · {라벨}" 표기용 (mock 전용) */
+  lastUpdatedLabel?: string;
 }
 
 /** CreateProject 화면이 넘기는 입력값 */
@@ -48,6 +52,8 @@ const MOCK_PROJECTS: Project[] = [
     description: "디자인 시스템 정비와 온보딩 플로우 개선을 진행 중입니다.",
     progress: 68,
     tags: ["디자인", "온보딩"],
+    recentUpdates: 2,
+    lastUpdatedLabel: "오늘",
     members: [
       { id: "m1", initials: "김" },
       { id: "m2", initials: "이" },
@@ -64,6 +70,8 @@ const MOCK_PROJECTS: Project[] = [
     description: "브랜드 아이덴티티와 마케팅 자산을 새로 정의하고 있습니다.",
     progress: 42,
     tags: ["브랜딩"],
+    recentUpdates: 5,
+    lastUpdatedLabel: "오늘",
     members: [
       { id: "m7", initials: "문" },
       { id: "m8", initials: "오" },
@@ -78,6 +86,8 @@ const MOCK_PROJECTS: Project[] = [
     description: "분기 캠페인 콘텐츠 기획과 라디오 광고 제작을 진행합니다.",
     progress: 25,
     tags: ["마케팅", "콘텐츠"],
+    recentUpdates: 1,
+    lastUpdatedLabel: "오늘",
     members: [
       { id: "m11", initials: "서" },
       { id: "m12", initials: "노" },

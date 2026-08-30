@@ -1,230 +1,239 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, MoreHorizontal, Plus, Search, Sparkles } from "lucide-react";
-import { Btn, C, rgba } from "./chatShared";
+import { ChevronRight, Plus } from "lucide-react";
+import { C, rgba, Sheet } from "./chatShared";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProfile } from "@/data/useProfile";
 import { useIntegrations } from "@/data/useIntegrations";
 import { useNotificationSettings } from "@/data/useNotificationSettings";
+import { useTeamMembers } from "@/data/useTeamMembers";
+import { useProjectInvite } from "@/data/useProjectInvite";
+import type { Project } from "@/data/useProjects";
+
+// 마이페이지 — 번호 매긴 섹션 카드(01 프로필 / 02 프로젝트 관리 / 03 연동 툴 /
+// 04 알림 설정)가 한 번에 하나씩 펼쳐지고, 사용자 지정색(profile.accentColor)이
+// 배지·타일·토글 등 모든 액센트에 일관되게 반영된다.
+
+type SectionId = "profile" | "projects" | "tools" | "alerts";
+type SheetState = { type: "roles" | "invite"; project: Project } | null;
 
 // ─── 화면 전용 조각들 (MyPage.tsx에서만 쓰이므로 인라인 정의) ─────────────────
 
-function DetailPanel({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="flex flex-col gap-2 px-4 pb-3.5 pt-3"
-      style={{ borderTop: `1px solid ${rgba(C.fg, 0.07)}` }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function ActionBtn({ label, primary = false, onClick }: { label: string; primary?: boolean; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="h-9 flex-1 rounded-xl text-[12px] font-bold transition-opacity active:opacity-60"
-      style={{
-        background: primary ? C.red : rgba(C.fg, 0.08),
-        color: primary ? "#fff" : C.fg50,
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+// 사용자 지정색 토글 — 켜짐: 액센트 트랙 + 어두운 노브
+function Toggle({ on, accent, onToggle }: { on: boolean; accent: string; onToggle: () => void }) {
   return (
     <button
       onClick={(e) => {
         e.stopPropagation();
         onToggle();
       }}
-      className="relative h-[26px] w-11 shrink-0 rounded-full transition-colors"
-      style={{ background: on ? C.red : "transparent", border: `1.5px solid ${on ? C.red : rgba(C.fg, 0.15)}` }}
+      className="relative h-7 w-12 shrink-0 rounded-full transition-colors"
+      style={{ background: on ? accent : rgba(C.fg, 0.12) }}
     >
       <span
-        className="absolute top-[2px] size-[18px] rounded-full transition-all"
-        style={{ background: on ? "#fff" : rgba(C.fg, 0.3), left: on ? 21 : 2 }}
+        className="absolute top-[3px] size-[22px] rounded-full transition-all"
+        style={{ background: on ? C.ink : rgba(C.fg, 0.35), left: on ? 23 : 3 }}
       />
     </button>
   );
 }
 
-function Row({ label, sub, detail }: { label: string; sub?: string; detail?: ReactNode }) {
-  const [open, setOpen] = useState(false);
+// 액센트 틴트 사각 타일 (아바타·프로젝트/연동 툴 이니셜·알림 번호)
+function Tile({ accent, size = 40, radius = 12, children }: { accent: string; size?: number; radius?: number; children: ReactNode }) {
   return (
-    <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-[52px] w-full items-center gap-3 px-4 text-left"
-      >
-        <div className="size-8 shrink-0 rounded-[10px]" style={{ background: C.bg }} />
-        <div className="flex-1">
-          <div className="text-[14px] font-medium">{label}</div>
-          {sub && <div className="mt-0.5 text-[10px]" style={{ color: C.fg50 }}>{sub}</div>}
-        </div>
-        <ChevronRight size={14} style={{ color: C.fg35, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-      </button>
-      {open && detail && <DetailPanel>{detail}</DetailPanel>}
-    </div>
-  );
-}
-
-function ToggleRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setOpen((v) => !v); }}
-        className="flex h-[52px] w-full items-center gap-3 px-4 text-left"
-      >
-        <span className="flex-1 text-[14px] font-medium">{label}</span>
-        <Toggle on={on} onToggle={onToggle} />
-        <ChevronRight size={14} style={{ color: C.fg35, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-      </div>
-      {open && (
-        <DetailPanel>
-          <div className="text-[11px]" style={{ color: C.fg50 }}>알림 수신 시간대 및 채널을 설정합니다.</div>
-          <div className="flex gap-2">
-            <ActionBtn label="스케줄 관리" />
-            <ActionBtn label="채널 설정" />
-          </div>
-        </DetailPanel>
-      )}
+    <div
+      className="grid shrink-0 place-items-center font-black"
+      style={{ width: size, height: size, borderRadius: radius, background: rgba(accent, 0.14), color: accent }}
+    >
+      {children}
     </div>
   );
 }
 
 function Divider() {
-  return <div className="mx-4 h-px" style={{ background: rgba(C.fg, 0.07) }} />;
+  return <div className="mx-4 h-px" style={{ background: rgba(C.fg, 0.06) }} />;
 }
 
-// 색 헤더 + 접히는 리스트 카드 (연동 툴 / 알림 설정)
-function AccordionCard({ title, sub, accent, count, children }: { title: string; sub: string; accent: string; count?: number; children: ReactNode }) {
-  const [open, setOpen] = useState(true);
+function CloseBtn({ onClose }: { onClose: () => void }) {
   return (
-    <div className="mb-5 overflow-hidden rounded-2xl" style={{ background: C.surface }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="relative w-full px-4 pb-4 pt-5 text-left"
-        style={{ background: accent }}
-      >
-        <div className="mb-2 text-[22px] font-black leading-[1.1] tracking-[-.02em]" style={{ color: C.ink }}>{title}</div>
-        <div className="text-[10px] font-bold uppercase tracking-[.06em]" style={{ color: C.ink45 }}>{sub}</div>
-        <div
-          className="absolute right-4 top-4 grid size-6 place-items-center rounded-full"
-          style={{ background: rgba(C.ink, 0.15) }}
-        >
-          {count !== undefined ? (
-            <span className="text-[11px] font-black" style={{ color: C.ink }}>{count}</span>
-          ) : (
-            <ChevronRight size={14} style={{ color: C.ink45, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-          )}
-        </div>
+    <button
+      onClick={onClose}
+      className="mt-4 h-12 w-full rounded-xl text-[14px] font-medium transition-opacity active:opacity-60"
+      style={{ background: rgba(C.fg, 0.07), color: C.fg70 }}
+    >
+      닫기
+    </button>
+  );
+}
+
+// 번호 매긴 섹션 카드 — 헤더 오른쪽에 액센트 배지(count) 또는 화살표를 표시
+function SectionCard({
+  number, title, accent, count, open, onToggle, children,
+}: {
+  number: string; title: string; accent: string; count?: number;
+  open: boolean; onToggle: () => void; children: ReactNode;
+}) {
+  return (
+    <div className="shrink-0 overflow-hidden rounded-[20px]" style={{ background: C.surface }}>
+      <button onClick={onToggle} className="flex h-16 w-full items-center gap-4 px-5 text-left">
+        <span className="w-5 shrink-0 text-[11px] font-bold tracking-[.08em]" style={{ color: C.fg35 }}>{number}</span>
+        <span className="flex-1 text-[16px] font-bold tracking-[-.01em]">{title}</span>
+        {count !== undefined && !open ? (
+          <span
+            className="grid size-7 shrink-0 place-items-center rounded-full text-[12px] font-black"
+            style={{ background: accent, color: C.ink }}
+          >
+            {count}
+          </span>
+        ) : (
+          <ChevronRight
+            size={15}
+            style={{ color: C.fg35, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }}
+          />
+        )}
       </button>
-      {open && <div>{children}</div>}
+      {open && children}
     </div>
   );
 }
 
-// 프로젝트 관리 카드 — 실제 프로젝트 목록(useProjectsContext)을 사용
-function ProjectManageCard() {
+// 02 프로젝트 관리 — 프로젝트 목록 + 행 펼침 시 권한 설정·초대하기
+function ProjectSectionBody({
+  accent, onOpenSheet,
+}: {
+  accent: string;
+  onOpenSheet: (sheet: NonNullable<SheetState>) => void;
+}) {
   const navigate = useNavigate();
   const { projects } = useProjectsContext();
-  const [listOpen, setListOpen] = useState(true);
-  const [aiOpen, setAiOpen] = useState(false);
   const [openRow, setOpenRow] = useState<string | null>(null);
 
   return (
-    <div className="mb-5 overflow-hidden rounded-2xl" style={{ background: C.surface }}>
-      <button
-        onClick={() => setListOpen((v) => !v)}
-        className="relative w-full px-4 pb-4 pt-5 text-left"
-        style={{ background: C.lime }}
-      >
-        <div className="mb-2.5 text-[22px] font-black leading-[1.1] tracking-[-.02em]" style={{ color: C.ink }}>프로젝트 관리</div>
-        <div className="text-[10px] font-bold uppercase tracking-[.06em]" style={{ color: C.ink45 }}>목록 · AI 마일스톤 · 팀 초대</div>
-        <div
-          className="absolute right-4 top-4 flex h-[26px] items-center gap-1 rounded-full px-2.5"
-          style={{ background: rgba(C.ink, 0.15) }}
-        >
-          <span className="text-[10px] font-bold" style={{ color: C.ink }}>목록</span>
-          <ChevronRight size={12} style={{ color: C.ink45, transform: listOpen ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-        </div>
-      </button>
-
-      {listOpen && (
-        <div>
-          {projects.map((project, i) => (
-            <div key={project.id}>
-              {i > 0 && <Divider />}
-              <div>
-                <button
-                  onClick={() => setOpenRow((cur) => (cur === project.id ? null : project.id))}
-                  className="flex h-12 w-full items-center gap-3 px-4 text-left"
-                >
-                  <span className="size-2 shrink-0 rounded-full" style={{ background: project.color }} />
-                  <span className="flex-1 text-[14px] font-medium">{project.name}</span>
-                  <ChevronRight size={14} style={{ color: C.fg35, transform: openRow === project.id ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-                </button>
-                {openRow === project.id && (
-                  <DetailPanel>
-                    <div className="text-[11px]" style={{ color: C.fg50 }}>{project.name} 프로젝트입니다.</div>
-                    <div className="h-px" style={{ background: rgba(C.fg, 0.07) }} />
-                    <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[.08em]" style={{ color: C.fg35 }}>팀 초대</div>
-                    <div className="flex h-8 items-center rounded-lg px-3" style={{ background: C.surfaceHigh }}>
-                      <span className="text-[12px]" style={{ color: C.fg20 }}>이메일 입력</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <ActionBtn label="초대 보내기" primary />
-                      <ActionBtn label="권한 설정 ›" />
-                    </div>
-                    <div className="mt-0.5 flex gap-2">
-                      <ActionBtn label="채팅 열기" primary onClick={() => navigate("/chat")} />
-                      <ActionBtn label="설정" />
-                    </div>
-                  </DetailPanel>
-                )}
-              </div>
-            </div>
-          ))}
-          <Divider />
-          <button
-            onClick={() => navigate("/create-project")}
-            className="flex h-12 w-full items-center gap-3 px-4 text-left"
-          >
-            <span className="size-2 shrink-0 rounded-full" style={{ border: `1.5px solid ${C.fg35}` }} />
-            <span className="flex-1 text-[14px] font-medium" style={{ color: C.fg50 }}>새 프로젝트 추가</span>
-            <Plus size={16} style={{ color: C.fg35 }} />
-          </button>
-          <Divider />
-
-          <button onClick={() => setAiOpen((v) => !v)} className="flex h-[52px] w-full items-center gap-3 px-4 text-left">
-            <div className="size-8 shrink-0 rounded-[10px]" style={{ background: C.bg }} />
-            <span className="flex-1 text-[14px] font-medium">AI 마일스톤 제안</span>
-            <span
-              className="mr-1.5 flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 text-[9px] font-bold tracking-[.06em]"
-              style={{ background: C.purple }}
+    <div style={{ borderTop: `1px solid ${rgba(C.fg, 0.06)}` }}>
+      {projects.map((project, i) => {
+        const open = openRow === project.id;
+        return (
+          <div key={project.id}>
+            {i > 0 && <Divider />}
+            <button
+              onClick={() => setOpenRow((cur) => (cur === project.id ? null : project.id))}
+              className="flex h-[72px] w-full items-center gap-3.5 px-4 text-left"
             >
-              <Sparkles size={9} />AI
-            </span>
-            <ChevronRight size={14} style={{ color: C.fg35, transform: aiOpen ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-          </button>
-          {aiOpen && (
-            <DetailPanel>
-              <div className="text-[11px]" style={{ color: C.fg50 }}>AI가 프로젝트 목표를 분석해 마일스톤을 자동 제안합니다.</div>
-              <ActionBtn label="마일스톤 생성하기" primary />
-            </DetailPanel>
-          )}
-        </div>
-      )}
+              <Tile accent={accent} size={48} radius={14}>
+                <span className="text-[15px]">{project.name.charAt(0)}</span>
+              </Tile>
+              <div className="flex-1">
+                <div className="text-[16px] font-bold tracking-[-.01em]">{project.name}</div>
+                <div className="mt-0.5 text-[12px]" style={{ color: C.fg50 }}>
+                  {open ? "권한 · 초대 관리" : `최근 업데이트 · ${project.lastUpdatedLabel ?? "오늘"}`}
+                </div>
+              </div>
+              {open ? (
+                <ChevronRight size={14} style={{ color: C.fg35, transform: "rotate(90deg)", transition: "transform .2s" }} />
+              ) : (
+                <span
+                  className="grid size-7 shrink-0 place-items-center rounded-full text-[12px] font-black"
+                  style={{ background: accent, color: C.ink }}
+                >
+                  {project.recentUpdates ?? 0}
+                </span>
+              )}
+            </button>
+            {open && (
+              <div className="flex gap-2 px-4 pb-4">
+                <button
+                  onClick={() => onOpenSheet({ type: "roles", project })}
+                  className="h-12 flex-1 rounded-xl text-[14px] font-bold transition-opacity active:opacity-60"
+                  style={{ background: rgba(C.fg, 0.07), color: C.fg70 }}
+                >
+                  권한 설정
+                </button>
+                <button
+                  onClick={() => onOpenSheet({ type: "invite", project })}
+                  className="h-12 flex-[1.4] rounded-xl text-[14px] font-bold transition-opacity active:opacity-60"
+                  style={{ background: accent, color: C.ink }}
+                >
+                  초대하기
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <Divider />
+      <button
+        onClick={() => navigate("/create-project")}
+        className="flex h-14 w-full items-center gap-3.5 px-4 text-left"
+      >
+        <span className="grid w-12 shrink-0 place-items-center">
+          <Plus size={15} style={{ color: C.fg35 }} />
+        </span>
+        <span className="flex-1 text-[14px] font-medium" style={{ color: C.fg50 }}>새 프로젝트 추가</span>
+      </button>
     </div>
+  );
+}
+
+// 권한 설정 시트 — 팀장/팀원 역할 선택. 역할 저장 엔드포인트가 아직 없어
+// (openapi.yaml 기준) 선택 상태는 시트 로컬 mock으로만 유지한다.
+function RolesSheet({ project, accent, onClose }: { project: Project; accent: string; onClose: () => void }) {
+  const { members } = useTeamMembers(project.id);
+  const [roles, setRoles] = useState<Record<string, "팀장" | "팀원">>({});
+  const roleOf = (id: string, idx: number) => roles[id] ?? (idx === 0 ? "팀장" : "팀원");
+
+  return (
+    <Sheet title={`권한 설정 · ${project.name}`} onClose={onClose}>
+      <div className="flex flex-col gap-1">
+        {members.map((member, idx) => (
+          <div key={member.id} className="flex h-14 items-center">
+            <span className="flex-1 text-[16px] font-bold tracking-[-.01em]">{member.name}</span>
+            <div className="flex gap-1.5">
+              {(["팀장", "팀원"] as const).map((role) => {
+                const selected = roleOf(member.id, idx) === role;
+                return (
+                  <button
+                    key={role}
+                    onClick={() => setRoles((prev) => ({ ...prev, [member.id]: role }))}
+                    className="h-9 rounded-full px-4 text-[13px] font-bold transition-opacity active:opacity-60"
+                    style={{
+                      background: selected ? accent : rgba(C.fg, 0.08),
+                      color: selected ? C.ink : C.fg50,
+                    }}
+                  >
+                    {role}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <CloseBtn onClose={onClose} />
+    </Sheet>
+  );
+}
+
+// 초대 링크 시트
+function InviteSheet({ project, accent, onClose }: { project: Project; accent: string; onClose: () => void }) {
+  const { invite, copyLink, copied } = useProjectInvite(project.id);
+
+  return (
+    <Sheet title={`초대 링크 · ${project.name}`} onClose={onClose}>
+      <div className="flex h-14 items-center gap-2 rounded-xl pl-4 pr-2" style={{ background: rgba(C.fg, 0.06) }}>
+        <span className="flex-1 truncate text-[14px]" style={{ color: C.fg }}>{invite.link}</span>
+        <button
+          onClick={copyLink}
+          className="h-9 shrink-0 rounded-lg px-3.5 text-[13px] font-bold transition-opacity active:opacity-60"
+          style={{ background: accent, color: C.ink }}
+        >
+          {copied ? "복사됨" : "복사"}
+        </button>
+      </div>
+      <p className="mt-3 text-[12px]" style={{ color: C.fg50 }}>
+        이 링크로 가입하면 팀원 권한으로 프로젝트에 참여합니다.
+      </p>
+      <CloseBtn onClose={onClose} />
+    </Sheet>
   );
 }
 
@@ -236,99 +245,144 @@ export default function MyPage() {
   const { profile } = useProfile();
   const { integrations, toggleIntegration } = useIntegrations();
   const { settings, toggleSetting } = useNotificationSettings();
+  const [openSection, setOpenSection] = useState<SectionId | null>("profile");
+  const [sheet, setSheet] = useState<SheetState>(null);
 
+  const accent = profile.accentColor;
   const connectedCount = integrations.filter((i) => i.connected).length;
+  const toggle = (id: SectionId) => setOpenSection((cur) => (cur === id ? null : id));
+
+  const alertRows: { num: string; label: string; key: "push" | "email" | "meetingReminder" }[] = [
+    { num: "01", label: "푸시 알림", key: "push" },
+    { num: "02", label: "이메일 알림", key: "email" },
+    { num: "03", label: "미팅 리마인더", key: "meetingReminder" },
+  ];
 
   return (
-    <main className="flex size-full flex-col overflow-hidden bg-[#1C1C1E] text-[#f0f0ec]">
-      <header className="px-5 pb-3 pt-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">마이 페이지</h1>
-          <div className="flex gap-2">
-            <Btn><Search size={16} strokeWidth={2.2} /></Btn>
-            <Btn><MoreHorizontal size={17} strokeWidth={2.2} /></Btn>
-          </div>
-        </div>
+    <main className="relative flex size-full flex-col overflow-hidden bg-[#1C1C1E] text-[#f0f0ec]">
+      <header className="px-5 pb-4 pt-5">
+        <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">마이페이지</h1>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-8 [scrollbar-width:none]">
-        {/* 프로필 카드 */}
-        <div className="mb-5 overflow-hidden rounded-2xl" style={{ background: C.red }}>
-          <div className="flex items-center gap-3.5 px-4 pt-5">
-            <div className="grid size-12 shrink-0 place-items-center rounded-full" style={{ background: rgba(C.ink, 0.2) }}>
-              <span className="text-[18px] font-black" style={{ color: C.ink }}>{profile.avatarInitial}</span>
-            </div>
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-8 [scrollbar-width:none]">
+        {/* 01 — 프로필 */}
+        <div className="shrink-0 overflow-hidden rounded-[20px]" style={{ background: C.surface }}>
+          <button onClick={() => toggle("profile")} className="flex w-full items-center gap-4 px-4 pb-4 pt-4 text-left">
+            <Tile accent={accent} size={48} radius={14}><span className="text-[16px]">{profile.avatarInitial}</span></Tile>
             <div className="flex-1">
-              <div className="mb-0.5 text-[20px] font-black leading-[1.1] tracking-[-.02em]" style={{ color: C.ink }}>{profile.name}</div>
-              <div className="mb-1.5 text-[11px]" style={{ color: C.ink70 }}>{profile.email}</div>
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5" style={{ background: rgba(C.ink, 0.15) }}>
-                <span className="size-[5px] rounded-full" style={{ background: C.ink, opacity: 0.4 }} />
-                <span className="text-[10px] font-medium" style={{ color: C.ink70 }}>{profile.team}</span>
-              </span>
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-[.14em]" style={{ color: C.fg35 }}>
+                01 — {profile.role}
+              </div>
+              <div className="text-[18px] font-black leading-none tracking-[-.02em]">{profile.name}</div>
             </div>
-            <button
-              onClick={() => navigate("/mypage/edit")}
-              className="h-8 shrink-0 rounded-full px-3.5 text-[12px] font-bold transition-opacity active:opacity-60"
-              style={{ background: rgba(C.ink, 0.2), color: C.ink }}
-            >
-              편집
-            </button>
-          </div>
-          <div className="mt-4 flex" style={{ borderTop: `1px solid ${rgba(C.ink, 0.12)}` }}>
-            {[
-              [String(projects.length), "프로젝트"],
-              [String(profile.teamMembers), "팀원"],
-              [String(profile.tasks), "태스크"],
-            ].map(([val, label], i) => (
-              <div
-                key={label}
-                className="flex h-12 flex-1 flex-col items-center justify-center gap-0.5"
-                style={i > 0 ? { borderLeft: `1px solid ${rgba(C.ink, 0.12)}` } : undefined}
-              >
-                <span className="text-[16px] font-black" style={{ color: C.ink }}>{val}</span>
-                <span className="text-[9px] font-medium uppercase tracking-[.06em]" style={{ color: C.ink45 }}>{label}</span>
+            <ChevronRight
+              size={15}
+              style={{ color: C.fg35, transform: openSection === "profile" ? "rotate(90deg)" : "none", transition: "transform .2s" }}
+            />
+          </button>
+
+          {openSection === "profile" && (
+            <>
+              <div className="px-4 pb-4" style={{ borderBottom: `1px solid ${rgba(C.fg, 0.06)}` }}>
+                <div className="mb-3 text-[13px]" style={{ color: C.fg50 }}>{profile.email}</div>
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1" style={{ background: rgba(C.fg, 0.06) }}>
+                    <span className="size-[5px] rounded-full" style={{ background: accent }} />
+                    <span className="text-[10px] font-medium" style={{ color: C.fg70 }}>{profile.team}</span>
+                  </span>
+                  <button
+                    onClick={() => navigate("/mypage/edit")}
+                    className="h-8 rounded-full px-3.5 text-[12px] font-bold transition-opacity active:opacity-60"
+                    style={{ background: rgba(C.fg, 0.08), color: C.fg70 }}
+                  >
+                    편집 ›
+                  </button>
+                </div>
+              </div>
+              <div className="flex">
+                {[
+                  [String(projects.length), "PROJECTS"],
+                  [String(profile.teamMembers), "MEMBERS"],
+                  [String(profile.tasks), "TASKS"],
+                ].map(([val, label], i) => (
+                  <div
+                    key={label}
+                    className="flex h-16 flex-1 flex-col items-center justify-center gap-1"
+                    style={i > 0 ? { borderLeft: `1px solid ${rgba(C.fg, 0.06)}` } : undefined}
+                  >
+                    <span className="text-[19px] font-black leading-none">{val}</span>
+                    <span className="text-[9px] font-bold tracking-[.12em]" style={{ color: C.fg35 }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* 02 — 프로젝트 관리 */}
+        <SectionCard
+          number="02" title="프로젝트 관리" accent={accent} count={projects.length}
+          open={openSection === "projects"} onToggle={() => toggle("projects")}
+        >
+          <ProjectSectionBody accent={accent} onOpenSheet={setSheet} />
+        </SectionCard>
+
+        {/* 03 — 연동 툴 */}
+        <SectionCard
+          number="03" title="연동 툴" accent={accent} count={connectedCount}
+          open={openSection === "tools"} onToggle={() => toggle("tools")}
+        >
+          <div style={{ borderTop: `1px solid ${rgba(C.fg, 0.06)}` }}>
+            {integrations.map((tool, i) => (
+              <div key={tool.id}>
+                {i > 0 && <Divider />}
+                <div className="flex h-[68px] items-center gap-3.5 px-4">
+                  <Tile accent={accent}><span className="text-[15px]">{tool.name.charAt(0)}</span></Tile>
+                  <div className="flex-1">
+                    <div className="text-[15px] font-bold">{tool.name}</div>
+                    <div className="mt-0.5 text-[11px]" style={{ color: C.fg50 }}>
+                      {tool.connected ? "연동됨" : "미연동"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toggleIntegration(tool.id)}
+                    className="h-8 rounded-full px-4 text-[12px] font-bold transition-opacity active:opacity-60"
+                    style={{ background: rgba(C.fg, 0.08), color: C.fg70 }}
+                  >
+                    {tool.connected ? "해제" : "연결"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </SectionCard>
 
-        {/* 프로젝트 관리 — lime */}
-        <ProjectManageCard />
-
-        {/* 연동 툴 — blue */}
-        <AccordionCard title="연동 툴" sub="Figma · Notion · Slack · Drive" accent={C.blue} count={connectedCount}>
-          {integrations.map((tool, i) => (
-            <div key={tool.id}>
-              {i > 0 && <Divider />}
-              <Row
-                label={tool.name}
-                sub={tool.connected ? "연동됨" : "미연동"}
-                detail={
-                  <>
-                    <div className="text-[11px]" style={{ color: C.fg50 }}>
-                      {tool.connected ? `${tool.name} 워크스페이스와 연동돼 있습니다.` : `${tool.name} 계정을 연결하세요.`}
-                    </div>
-                    <ActionBtn
-                      label={tool.connected ? "연동 해제" : "연결하기"}
-                      primary={!tool.connected}
-                      onClick={() => toggleIntegration(tool.id)}
-                    />
-                  </>
-                }
-              />
-            </div>
-          ))}
-        </AccordionCard>
-
-        {/* 알림 설정 — pink */}
-        <AccordionCard title="알림 설정" sub="푸시 · 이메일 · 미팅 리마인더" accent={C.pink}>
-          <ToggleRow label="푸시 알림" on={settings.push} onToggle={() => toggleSetting("push")} />
-          <Divider />
-          <ToggleRow label="이메일 알림" on={settings.email} onToggle={() => toggleSetting("email")} />
-          <Divider />
-          <ToggleRow label="미팅 리마인더" on={settings.meetingReminder} onToggle={() => toggleSetting("meetingReminder")} />
-        </AccordionCard>
+        {/* 04 — 알림 설정 */}
+        <SectionCard
+          number="04" title="알림 설정" accent={accent}
+          open={openSection === "alerts"} onToggle={() => toggle("alerts")}
+        >
+          <div style={{ borderTop: `1px solid ${rgba(C.fg, 0.06)}` }}>
+            {alertRows.map((row, i) => (
+              <div key={row.key}>
+                {i > 0 && <Divider />}
+                <div className="flex h-[64px] items-center gap-3.5 px-4">
+                  <Tile accent={accent}><span className="text-[12px]">{row.num}</span></Tile>
+                  <span className="flex-1 text-[15px] font-bold">{row.label}</span>
+                  <Toggle on={settings[row.key]} accent={accent} onToggle={() => toggleSetting(row.key)} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
       </div>
+
+      {sheet?.type === "roles" && (
+        <RolesSheet project={sheet.project} accent={accent} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.type === "invite" && (
+        <InviteSheet project={sheet.project} accent={accent} onClose={() => setSheet(null)} />
+      )}
     </main>
   );
 }

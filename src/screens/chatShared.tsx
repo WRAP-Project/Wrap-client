@@ -35,6 +35,20 @@ export function rgba(hex: string, a: number) {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+// 하단 시트 — 마이페이지(권한 설정·초대 링크)와 프로필 편집(사진 변경·소개 편집)이 공유.
+// 부모(main 등)에 relative가 있어야 화면 전체를 덮는다.
+export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col justify-end">
+      <button aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="relative rounded-t-3xl px-4 pb-8 pt-5" style={{ background: C.surface }}>
+        <div className="mb-4 text-[11px] font-bold tracking-[.06em]" style={{ color: C.fg50 }}>{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function Btn({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
   return (
     <button
