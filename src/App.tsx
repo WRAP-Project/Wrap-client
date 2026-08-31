@@ -1,6 +1,7 @@
 import { Routes, Route, useNavigate, useLocation, useMatch } from "react-router-dom";
 import { Home, Send, Calendar, Users } from "lucide-react";
 import { screens } from "@/screens";
+import { RequireAuth } from "@/components/RequireAuth";
 import { useProjectsContext } from "@/data/ProjectsContext";
 
 // 하단 탭 정의 — path가 있는 건 실제 라우트, 없는 건 미완성.
@@ -55,7 +56,10 @@ function BottomNav() {
 
 export default function App() {
   // 채팅방 안(/chat/:roomId)과 프로젝트 생성 흐름(/create-project/**: 생성 → 완료 → 초대)은
-  // 자체 풀스크린 흐름이라 하단 탭바를 숨긴다.
+  // 자체 풀스크린 흐름이라 하단 탭바를 숨긴다. 로그인·회원가입도 마찬가지로,
+  // 아직 앱 안에 들어오기 전이라 탭바를 보여주지 않는다.
+  const isLogin         = useMatch("/login");
+  const isSignup        = useMatch("/signup");
   const isChatRoom      = useMatch("/chat/:roomId");
   const isCreateProject = useMatch("/create-project/*");
   const isEditProfile   = useMatch("/mypage/edit");
@@ -68,13 +72,17 @@ export default function App() {
         {/* 콘텐츠 영역: 남은 공간 전부 차지하며 내부 스크롤 */}
         <div className="flex-1 overflow-y-auto">
           <Routes>
-            {screens.map(({ path, Component }) => (
-              <Route key={path} path={path} element={<Component />} />
+            {screens.map(({ path, Component, isPublic }) => (
+              <Route
+                key={path}
+                path={path}
+                element={isPublic ? <Component /> : <RequireAuth><Component /></RequireAuth>}
+              />
             ))}
           </Routes>
         </div>
         {/* 하단 네비게이션: 레이아웃 고정 */}
-        {!isChatRoom && !isCreateProject && !isEditProfile && !isAdjust && !isAdjustList && <BottomNav />}
+        {!isLogin && !isSignup && !isChatRoom && !isCreateProject && !isEditProfile && !isAdjust && !isAdjustList && <BottomNav />}
       </div>
     </div>
   );

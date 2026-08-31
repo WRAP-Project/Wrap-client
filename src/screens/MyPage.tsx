@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, LogOut, Plus } from "lucide-react";
 import { C, rgba, Sheet } from "./chatShared";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProfile } from "@/data/useProfile";
+import { useAuth } from "@/data/useAuth";
 import { useIntegrations } from "@/data/useIntegrations";
 import { useNotificationSettings } from "@/data/useNotificationSettings";
 import { useTeamMembers } from "@/data/useTeamMembers";
@@ -243,6 +244,7 @@ export default function MyPage() {
   const navigate = useNavigate();
   const { projects } = useProjectsContext();
   const { profile } = useProfile();
+  const { logout } = useAuth();
   const { integrations, toggleIntegration } = useIntegrations();
   const { settings, toggleSetting } = useNotificationSettings();
   const [openSection, setOpenSection] = useState<SectionId | null>("profile");
@@ -251,6 +253,11 @@ export default function MyPage() {
   const accent = profile.accentColor;
   const connectedCount = integrations.filter((i) => i.connected).length;
   const toggle = (id: SectionId) => setOpenSection((cur) => (cur === id ? null : id));
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
 
   const alertRows: { num: string; label: string; key: "push" | "email" | "meetingReminder" }[] = [
     { num: "01", label: "푸시 알림", key: "push" },
@@ -375,6 +382,16 @@ export default function MyPage() {
             ))}
           </div>
         </SectionCard>
+
+        {/* 로그아웃 — 섹션 카드가 아니라 목록 끝에 놓아 계정 동작임을 구분한다. */}
+        <button
+          onClick={handleLogout}
+          className="flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-[20px] text-[14px] font-bold transition-opacity active:opacity-70"
+          style={{ background: C.surface, color: C.red }}
+        >
+          <LogOut size={15} strokeWidth={2.2} />
+          로그아웃
+        </button>
       </div>
 
       {sheet?.type === "roles" && (

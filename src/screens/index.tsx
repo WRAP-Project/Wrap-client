@@ -16,13 +16,20 @@ import Calendar from "./Calendar";
 import AdjustSchedule from "./AdjustSchedule";
 import AdjustCreate from "./AdjustCreate";
 import AdjustDetail, { AdjustHeatmap } from "./AdjustDetail";
+import Login from "./Login";
+import Signup from "./Signup";
 
 /**
  * Each entry is one designer-submitted flow, integrated after passing the
  * lead designer's structural review. Route path is the only thing this repo
  * decides — the screen owns everything under it.
+ *
+ * `isPublic` marks the routes that must stay reachable while logged out —
+ * everything else goes behind RequireAuth in App.tsx.
  */
-export const screens: { path: string; Component: ComponentType }[] = [
+export const screens: { path: string; Component: ComponentType; isPublic?: boolean }[] = [
+  { path: "/login", Component: Login, isPublic: true },
+  { path: "/signup", Component: Signup, isPublic: true },
   { path: "/", Component: ProjectSelect },
   { path: "/project/:projectId", Component: ProjectDetail },
   { path: "/project/:projectId/milestone", Component: MilestoneDetail },
