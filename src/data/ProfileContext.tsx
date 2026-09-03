@@ -67,7 +67,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // 로그인/로그아웃 시점에 한 번만 덮는다. 이후 프로필 편집에서 바꾼 값이
   // 다시 서버 값으로 되돌아가지 않도록, 렌더마다 병합하지 않고 이 시점에만 반영한다.
   useEffect(() => {
-    if (!member) return;
+    // 로그아웃 — 이전 사용자의 닉네임·이메일이 다음 로그인 화면까지 남지 않도록 되돌린다.
+    if (!member) {
+      setProfile(MOCK_PROFILE);
+      return;
+    }
     setProfile((prev) => {
       const name = member.nickname ?? prev.name;
       return {

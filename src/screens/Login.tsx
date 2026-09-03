@@ -19,17 +19,14 @@ import { useAuth } from "@/data/useAuth";
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, pending, error, clearError, isAuthenticated } = useAuth();
+  const { login, pending, error, clearError } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   // RequireAuth가 막아 세운 경로 — 로그인 후 원래 가려던 곳으로 돌려보낸다.
+  // (이미 로그인한 채로 이 화면에 들어온 경우는 RedirectIfAuthenticated가 처리한다.)
   const from = (location.state as { from?: string } | null)?.from ?? "/";
-
-  useEffect(() => {
-    if (isAuthenticated) navigate(from, { replace: true });
-  }, [isAuthenticated, from, navigate]);
 
   // 화면을 벗어날 때 이전 실패 메시지를 남기지 않는다.
   useEffect(() => clearError, [clearError]);

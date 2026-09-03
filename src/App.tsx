@@ -1,7 +1,7 @@
-import { Routes, Route, useNavigate, useLocation, useMatch } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from "react-router-dom";
 import { Home, Send, Calendar, Users } from "lucide-react";
 import { screens } from "@/screens";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequireAuth, RedirectIfAuthenticated } from "@/components/RequireAuth";
 import { useProjectsContext } from "@/data/ProjectsContext";
 
 // 하단 탭 정의 — path가 있는 건 실제 라우트, 없는 건 미완성.
@@ -76,9 +76,17 @@ export default function App() {
               <Route
                 key={path}
                 path={path}
-                element={isPublic ? <Component /> : <RequireAuth><Component /></RequireAuth>}
+                element={
+                  isPublic ? (
+                    <RedirectIfAuthenticated><Component /></RedirectIfAuthenticated>
+                  ) : (
+                    <RequireAuth><Component /></RequireAuth>
+                  )
+                }
               />
             ))}
+            {/* 등록되지 않은 경로는 홈으로 — 로그인 여부에 따른 분기는 거기서 RequireAuth가 한다. */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
         {/* 하단 네비게이션: 레이아웃 고정 */}
