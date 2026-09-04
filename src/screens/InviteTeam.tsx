@@ -89,10 +89,10 @@ export default function InviteTeam() {
           </div>
         </div>
 
-        {/* ── 함께할 팀원 ── */}
+        {/* ── 현재 등록 팀원 ── */}
         <div className="flex flex-col gap-2.5">
           <span className="text-[0.78rem]" style={{ color: "rgba(255,255,255,0.45)" }}>
-            함께할 팀원
+            현재 등록 팀원
           </span>
 
           <ul
