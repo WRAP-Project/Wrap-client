@@ -27,6 +27,14 @@ function formatDeadline({ year, month, day }: PickedDate): string {
   const dd = String(day).padStart(2, "0");
   return `${year}. ${mm}. ${dd}`;
 }
+/** 화면 표기("2026. 09. 04")를 ProjectDraft.endDate 형식("2026-09-04")으로 바꾼다. */
+function toIsoDate(value: string): string | undefined {
+  const picked = parseDeadline(value);
+  if (!picked) return undefined;
+  const mm = String(picked.month + 1).padStart(2, "0");
+  const dd = String(picked.day).padStart(2, "0");
+  return `${picked.year}-${mm}-${dd}`;
+}
 
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +59,7 @@ export default function CreateProject() {
       const created = await addProject({
         name: name.trim(),
         goal: goal.trim() || undefined,
-        endDate: deadline.trim() || undefined,
+        endDate: toIsoDate(deadline),
         color: selectedHex,
       });
       // 생성 완료 화면 → 팀원 초대 화면으로 이어진다. replace로 넘겨서

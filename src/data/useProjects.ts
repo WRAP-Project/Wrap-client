@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiClient } from "@/lib/api/client";
 import { C } from "@/screens/chatShared";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -37,12 +38,13 @@ export interface ProjectDraft {
 }
 
 // ── Mock 데이터 ───────────────────────────────────────────────────────────────
-// 백엔드가 아직 준비되지 않아 하드코딩만 사용한다. 백엔드 GET /projects가
-// 준비되면 이 파일 내부만 fetch 기반으로 교체 — 화면 쪽은 건드릴 필요 없음.
-// id/이름은 useChatData.ts의 채팅 그룹과 1:1로 맞춰져 있다 — 홈에서 프로젝트를
-// 선택하면 채팅 탭에서 같은 프로젝트의 대화방 그룹이 펼쳐져야 하기 때문.
-// members는 useTeamActivity.ts의 팀원 명단과 1:1로 맞춰져 있고, 프로젝트끼리
-// 겹치는 사람은 없다 — 실제 서비스에서도 한 사람이 여러 프로젝트에 속하지 않는다.
+// 목록은 "mock 고정 + 서버 프로젝트 추가" 방식이다. 이 세 프로젝트가 앱 전체의
+// 기준점이라 — id/이름이 useChatData.ts의 채팅 그룹, useProjectDetail.ts의 상세,
+// useTeamActivity.ts의 팀원 명단, useSchedules.ts의 일정과 전부 1:1로 맞춰져 있다.
+// mock을 서버 목록으로 갈아치우면 그 화면들이 통째로 비므로, 상세/채팅/팀/일정까지
+// 함께 연동되기 전까지는 mock을 그대로 두고 서버 프로젝트를 뒤에 이어 붙인다.
+// members는 프로젝트끼리 겹치지 않는다 — 실제 서비스에서도 한 사람이 여러
+// 프로젝트에 속하지 않는다.
 
 const MOCK_PROJECTS: Project[] = [
   {
@@ -96,22 +98,107 @@ const MOCK_PROJECTS: Project[] = [
   },
 ];
 
+// ── 백엔드 연동 ───────────────────────────────────────────────────────────────
+// GET /projects (서버 프로젝트 조회) · POST /projects (생성). 계약: api/openapi.yaml.
+// 응답 봉투는 ApiResponse<T> = { success, data, message, error }이고 null 필드는
+// 아예 빠져서 내려오므로, 필드 존재 여부가 아니라 success로 분기한다
+// (AuthContext.tsx가 쓰는 규칙과 같다).
+
+// Render 무료 플랜이라 잠들어 있던 서버의 첫 요청은 1분 가까이 걸릴 수 있다 —
+// 짧게 끊으면 멀쩡한 요청이 실패한다.
+const REQUEST_TIMEOUT_MS = 60_000;
+
+// 서버 프로젝트의 id는 숫자 채번이라 mock의 "1"~"3"과 겹친다. 그대로 두면 상세
+// 화면이 엉뚱한 mock을 열게 되므로 접두사를 붙여 분리한다.
+// (상세까지 실제 연동하면 이 접두사는 걷어낸다)
+const SERVER_ID_PREFIX = "srv-";
+
+// 백엔드 스키마에 색상 개념이 없어서, id로 팔레트를 순환시켜 결정적으로 배정한다.
+const COLOR_PALETTE = ["#CDEA6F", "#F5E03A", "#A78BFA", "#F4A8A8", "#60C8F5"];
+
+function colorForId(id: number): string {
+  return COLOR_PALETTE[Math.abs(id) % COLOR_PALETTE.length];
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useProjects() {
+  // mock은 항상 목록 앞에 고정으로 남고, 서버에서 불러온 프로젝트가 뒤에 붙는다.
   const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const addProject = useCallback(async (draft: ProjectDraft): Promise<Project> => {
-    const newProject: Project = {
-      id: crypto.randomUUID(),
-      name: draft.name,
-      color: draft.color,
-      goal: draft.goal,
-      endDate: draft.endDate,
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const { data, response } = await apiClient.GET("/projects", {
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+        if (cancelled) return;
+
+        if (!response.ok || data?.success === false) {
+          throw new Error("프로젝트 목록을 불러오지 못했습니다.");
+        }
+
+        const fromServer: Project[] = (data?.data ?? []).map((p) => ({
+          id: `${SERVER_ID_PREFIX}${p.id}`,
+          name: p.name ?? "",
+          color: colorForId(p.id ?? 0),
+          endDate: p.endDate,
+        }));
+        setProjects([...MOCK_PROJECTS, ...fromServer]);
+        setError(null);
+      } catch (e) {
+        if (cancelled) return;
+        // 서버를 못 읽어도 mock은 그대로 남는다 — 화면이 비지는 않고, 실패 사실만
+        // error로 올린다.
+        setError(
+          e instanceof Error && e.name !== "TimeoutError"
+            ? e
+            : new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
     };
-    setProjects((prev) => [...prev, newProject]);
-    return newProject;
   }, []);
 
-  return { projects, addProject, loading: false, error: null as Error | null };
+  /**
+   * 프로젝트를 생성한다. 서버에 저장한 뒤, 응답으로 받은 프로젝트를 목록에 추가한다.
+   * 실패하면 예외를 던진다 — 화면(CreateProject)이 생성 실패로 처리한다.
+   */
+  const addProject = useCallback(async (draft: ProjectDraft): Promise<Project> => {
+    const { data, response } = await apiClient.POST("/projects", {
+      body: {
+        name: draft.name,
+        goal: draft.goal,
+        endDate: draft.endDate,
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+
+    if (!response.ok || data?.success === false || !data?.data) {
+      throw new Error("프로젝트 생성에 실패했습니다.");
+    }
+
+    const created: Project = {
+      id: `${SERVER_ID_PREFIX}${data.data.id}`,
+      name: data.data.name ?? draft.name,
+      // 백엔드 스키마에 색상 필드가 없어서, 사용자가 고른 색은 이 세션에만 남는다.
+      color: draft.color,
+      goal: data.data.goal ?? draft.goal,
+      endDate: data.data.endDate ?? draft.endDate,
+    };
+    setProjects((prev) => [...prev, created]);
+    return created;
+  }, []);
+
+  return { projects, addProject, loading, error };
 }
