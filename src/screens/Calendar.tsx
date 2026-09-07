@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
@@ -604,7 +604,22 @@ export default function CalendarScreen() {
   /** null이면 날짜 선택 해제 — 마감 리마인드는 다시 전체(다가오는 순)로 돌아간다. */
   const [selectedDay, setSelectedDay] = useState<PickedDate | null>(todayPicked());
   const [activeTab, setActiveTab] = useState<TabId>("mine");
-  const [registerOpen, setRegisterOpen] = useState(false);
+  /**
+   * 프로젝트 상세의 "일정 추가"가 /calendar?register=1&project=<id>로 넘어온다.
+   * 등록 시트는 이 화면 안의 상태라 라우트로 못 여니 쿼리로 받는다.
+   * 한 번 읽고 쿼리는 지운다 — 남겨두면 시트를 닫고 뒤로가기 했을 때 다시 열린다.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const registerParam = searchParams.get("register") === "1";
+  // 쿼리를 지우기 전에 첫 렌더에서 한 번 붙잡아 둔다.
+  const [registerProjectId] = useState(() => searchParams.get("project"));
+  const [registerOpen, setRegisterOpen] = useState(registerParam);
+
+  useEffect(() => {
+    if (!registerParam) return;
+    setRegisterOpen(true);
+    setSearchParams({}, { replace: true });
+  }, [registerParam, setSearchParams]);
   /** 펼쳐진 마감 리마인드 카드 — 한 번에 하나만 */
   const [openReminderId, setOpenReminderId] = useState<string | null>(null);
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -976,7 +991,7 @@ export default function CalendarScreen() {
 
       {registerOpen && (
         <RegisterSheet
-          defaultProjectId={filterProjectId}
+          defaultProjectId={registerProjectId ?? filterProjectId}
           onClose={() => setRegisterOpen(false)}
           onSubmit={handleRegister}
         />

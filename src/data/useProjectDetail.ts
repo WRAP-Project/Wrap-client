@@ -1,5 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { apiClient } from "@/lib/api/client";
+import { avatarBgOf, initialsOf, roleLabelOf } from "./projectMemberDisplay";
 import { useProjectSchedules } from "./SchedulesContext";
+import { REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
 import { daysLeft, formatScheduleDatetime, type Schedule as ScheduleSource } from "./useSchedules";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -147,9 +150,60 @@ function buildDetail(seed: ProjectDetailSeed, projectSchedules: ScheduleSource[]
 
 export function useProjectDetail(projectId: string | undefined) {
   const projectSchedules = useProjectSchedules(projectId);
-  const data = useMemo(
-    () => buildDetail((projectId && MOCK_BY_PROJECT[projectId]) || EMPTY_SEED, projectSchedules),
-    [projectId, projectSchedules],
-  );
-  return { data, loading: false, error: null as Error | null };
+  const serverId = useMemo(() => serverIdOf(projectId), [projectId]);
+
+  // 서버 프로젝트의 팀원은 실제로 불러온다. mock 프로젝트는 서버에 없으므로
+  // 호출하지 않고 위의 seed를 그대로 쓴다.
+  const [serverMembers, setServerMembers] = useState<Member[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (serverId === null) {
+      setServerMembers(null);
+      return;
+    }
+    let cancelled = false;
+
+    async function load(id: number) {
+      setLoading(true);
+      try {
+        const { data } = await apiClient.GET("/projects/{projectId}/members", {
+          params: { path: { projectId: id } },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+        if (cancelled) return;
+        // 실패해도 화면은 "팀원 없음"으로 두고 넘어간다 — 상세 화면 전체를
+        // 막을 만한 정보가 아니다.
+        const members: Member[] = (data?.data ?? [])
+          .filter((m) => m.status !== "LEFT")
+          .map((m) => {
+            const name = m.nickname ?? "이름 없음";
+            return {
+              initials: initialsOf(name),
+              role: roleLabelOf(m.role),
+              avatarBg: avatarBgOf(name),
+              active: m.status === "JOINED",
+            };
+          });
+        setServerMembers(members);
+      } catch {
+        if (!cancelled) setServerMembers([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load(serverId);
+    return () => {
+      cancelled = true;
+    };
+  }, [serverId]);
+
+  const data = useMemo(() => {
+    const seed = (projectId && MOCK_BY_PROJECT[projectId]) || EMPTY_SEED;
+    const detail = buildDetail(seed, projectSchedules);
+    return serverMembers ? { ...detail, members: serverMembers } : detail;
+  }, [projectId, projectSchedules, serverMembers]);
+
+  return { data, loading, error: null as Error | null };
 }

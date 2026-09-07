@@ -1,8 +1,38 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, Plus } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProjectDetail } from "@/data/useProjectDetail";
+
+// ── 섹션 추가 버튼 ────────────────────────────────────────────────────────────
+// 섹션마다 "여기에 뭘 넣는다"를 같은 모양으로 보여준다. 새로 만든 프로젝트는
+// 모든 섹션이 비어 있으므로, 이 버튼이 없으면 다음에 뭘 해야 할지 알 수 없다.
+// 흰 카드 안(onDark=false)과 어두운 배경 위(onDark=true) 두 곳에 쓰인다.
+
+function AddButton({
+  label,
+  onClick,
+  onDark = false,
+}: {
+  label: string;
+  onClick: () => void;
+  onDark?: boolean;
+}) {
+  return (
+    <button
+      aria-label={label}
+      onClick={(e) => {
+        // 섹션 카드 전체가 클릭 가능한 경우가 있어 상위로 전파되면 안 된다.
+        e.stopPropagation();
+        onClick();
+      }}
+      className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+      style={{ background: onDark ? "rgba(240,240,236,0.10)" : "rgba(28,28,30,0.06)" }}
+    >
+      <Plus size={15} strokeWidth={2.5} color={onDark ? "#F0F0EC" : "#1C1C1E"} />
+    </button>
+  );
+}
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +62,12 @@ export default function ProjectDetail() {
   // 디자인 시안이 항상 보라색이므로 고정
   const ddayBg = "#7B46F8";
 
+  // 일정 추가는 캘린더의 등록 시트를 재사용한다 — 이 프로젝트를 미리 골라둔
+  // 상태로 열린다. 팀원 추가는 초대 화면으로 보낸다.
+  const goAddSchedule = () =>
+    navigate(`/calendar?register=1&project=${encodeURIComponent(project?.id ?? "")}`);
+  const goInviteMember = () => navigate(`/create-project/${project?.id}/invite`);
+
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -59,23 +95,27 @@ export default function ProjectDetail() {
 
         {/* ── 섹션: 지금 가장 중요한 것 ── */}
         <section className="flex flex-col gap-3">
-          <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
-            지금 가장 중요한 것
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
+              지금 가장 중요한 것
+            </p>
+            <AddButton label="일정 추가" onClick={goAddSchedule} onDark />
+          </div>
 
           {/* D-Day 카드 */}
           {!urgentTask ? (
-            <div
-              className="rounded-2xl px-5 py-8 text-center"
+            <button
+              onClick={goAddSchedule}
+              className="rounded-2xl px-5 py-8 text-center transition-opacity active:opacity-70"
               style={{ background: "rgba(240,240,236,0.06)" }}
             >
               <p className="text-[13px] font-bold" style={{ color: "rgba(240,240,236,0.7)" }}>
                 등록된 일정이 없어요
               </p>
               <p className="mt-1 text-[11px]" style={{ color: "rgba(240,240,236,0.35)" }}>
-                캘린더에서 일정을 추가해보세요
+                첫 일정을 추가해보세요
               </p>
-            </div>
+            </button>
           ) : (
           <div
             className="relative rounded-2xl p-5 flex flex-col gap-3"
@@ -133,7 +173,6 @@ export default function ProjectDetail() {
         </section>
 
         {/* ── 섹션: 팀원 ── */}
-        {members.length > 0 && (
         <section
           className="rounded-2xl p-5 flex flex-col gap-4 text-left transition-opacity active:opacity-80"
           style={{ background: "#fff", color: "#1C1C1E" }}
@@ -150,30 +189,38 @@ export default function ProjectDetail() {
               </span>
             </div>
 
-            {/* 미리보기 이니셜 (겹쳐 표시) */}
-            <div className="flex items-center">
-              {members.map((m, i) => (
-                <div
-                  key={m.initials}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white"
-                  style={{
-                    background: m.avatarBg,
-                    color: "#1C1C1E",
-                    marginLeft: i > 0 ? -6 : 0,
-                    zIndex: members.length - i,
-                    position: "relative",
-                  }}
-                >
-                  {m.initials}
-                </div>
-              ))}
+            <div className="flex items-center gap-2">
+              {/* 미리보기 이니셜 (겹쳐 표시) */}
+              <div className="flex items-center">
+                {members.map((m, i) => (
+                  <div
+                    key={`${m.initials}-${i}`}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white"
+                    style={{
+                      background: m.avatarBg,
+                      color: "#1C1C1E",
+                      marginLeft: i > 0 ? -6 : 0,
+                      zIndex: members.length - i,
+                      position: "relative",
+                    }}
+                  >
+                    {m.initials}
+                  </div>
+                ))}
+              </div>
+              <AddButton label="팀원 초대" onClick={goInviteMember} />
             </div>
           </div>
 
           {/* 아바타 목록 — 팀 규모가 프로젝트마다 달라 좌측 정렬 + 줄바꿈 */}
+          {members.length === 0 ? (
+            <p className="text-[12px]" style={{ color: "rgba(28,28,30,0.45)" }}>
+              아직 팀원이 없어요. + 를 눌러 초대해보세요
+            </p>
+          ) : (
           <div className="flex flex-wrap gap-x-5 gap-y-3">
-            {members.map((m) => (
-              <div key={m.initials} className="flex flex-col items-center gap-1.5">
+            {members.map((m, i) => (
+              <div key={`${m.initials}-${i}`} className="flex flex-col items-center gap-1.5">
                 {/* 아바타 */}
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-black"
@@ -196,16 +243,29 @@ export default function ProjectDetail() {
               </div>
             ))}
           </div>
+          )}
         </section>
-        )}
 
         {/* ── 섹션: 다가오는 일정 ── */}
-        {schedules.length > 0 && (
         <section className="flex flex-col gap-2">
-          <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
-            다가오는 일정
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
+              다가오는 일정
+            </p>
+            <AddButton label="일정 추가" onClick={goAddSchedule} onDark />
+          </div>
 
+          {schedules.length === 0 ? (
+            <button
+              onClick={goAddSchedule}
+              className="rounded-2xl px-4 py-5 text-left transition-opacity active:opacity-70"
+              style={{ background: "rgba(240,240,236,0.06)" }}
+            >
+              <span className="text-[12px]" style={{ color: "rgba(240,240,236,0.45)" }}>
+                예정된 일정이 없어요. + 를 눌러 추가해보세요
+              </span>
+            </button>
+          ) : (
           <div
             className="rounded-2xl overflow-hidden text-left transition-opacity active:opacity-80"
             style={{ background: "#fff" }}
@@ -237,8 +297,8 @@ export default function ProjectDetail() {
               </div>
             ))}
           </div>
+          )}
         </section>
-        )}
 
         {/* ── 섹션: 전체 진행률 ── */}
         <section

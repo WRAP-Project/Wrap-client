@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api/client";
 import { useAuthContext } from "./AuthContext";
+import { avatarBgOf, initialsOf, roleLabelOf } from "./projectMemberDisplay";
 import { REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
 
 /**
@@ -38,28 +39,6 @@ export interface Invitee {
   status: InviteeStatus;
   /** 로그인한 본인인지 — 목록에서 "나"로 표시하고 맨 앞에 둔다. */
   isMe: boolean;
-}
-
-// ── 표시용 변환 ───────────────────────────────────────────────────────────────
-
-const ROLE_LABEL: Record<string, string> = {
-  OWNER: "관리자",
-  MEMBER: "팀원",
-};
-
-// 아바타 배경. 이름이 같으면 항상 같은 색이 나오도록 해시로 고른다.
-const AVATAR_COLORS = ["#7B46F8", "#5B39C4", "#EB3E88", "#3A6EA5", "#3A3A3C"];
-
-function avatarBgOf(seed: string): string {
-  let hash = 0;
-  for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
-
-/** 닉네임은 앞 2자, 이메일은 @ 앞 2자를 이니셜로 쓴다. */
-function initialsOf(name: string): string {
-  const base = name.includes("@") ? name.slice(0, name.indexOf("@")) : name;
-  return base.slice(0, 2).toUpperCase();
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -105,7 +84,7 @@ export function useProjectInvite(projectId: string | undefined) {
             id: `member-${m.projectMemberId}`,
             name,
             initials: initialsOf(name),
-            role: ROLE_LABEL[m.role ?? "MEMBER"] ?? "팀원",
+            role: roleLabelOf(m.role),
             avatarBg: avatarBgOf(name),
             status: "JOINED" as const,
             isMe: myId !== undefined && m.memberId === myId,
@@ -120,7 +99,7 @@ export function useProjectInvite(projectId: string | undefined) {
             id: `invitation-${i.invitationId}`,
             name,
             initials: initialsOf(name),
-            role: ROLE_LABEL[i.role ?? "MEMBER"] ?? "팀원",
+            role: roleLabelOf(i.role),
             avatarBg: avatarBgOf(name),
             status: "INVITED" as const,
             isMe: false,
