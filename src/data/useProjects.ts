@@ -16,7 +16,7 @@ export interface ProjectMember {
 export interface Project {
   id: string;
   name: string;
-  color: string;          // 프론트 전용 (백엔드 스키마에 없음)
+  color: string;          // "#RRGGBB" (백엔드 color 필드와 동일 — 생성 시 필수)
   description?: string;
   progress?: number;
   tags?: string[];
@@ -113,12 +113,9 @@ const REQUEST_TIMEOUT_MS = 60_000;
 // (상세까지 실제 연동하면 이 접두사는 걷어낸다)
 const SERVER_ID_PREFIX = "srv-";
 
-// 백엔드 스키마에 색상 개념이 없어서, id로 팔레트를 순환시켜 결정적으로 배정한다.
-const COLOR_PALETTE = ["#CDEA6F", "#F5E03A", "#A78BFA", "#F4A8A8", "#60C8F5"];
-
-function colorForId(id: number): string {
-  return COLOR_PALETTE[Math.abs(id) % COLOR_PALETTE.length];
-}
+// 색상은 서버가 저장하고 돌려준다(#RRGGBB). 다만 응답에서 color는 optional이라 —
+// color가 필수가 되기 전에 만들어진 프로젝트는 값이 비어서 내려온다. 그때만 쓰는 대체색.
+const FALLBACK_COLOR = "#CDEA6F";
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
@@ -145,7 +142,7 @@ export function useProjects() {
         const fromServer: Project[] = (data?.data ?? []).map((p) => ({
           id: `${SERVER_ID_PREFIX}${p.id}`,
           name: p.name ?? "",
-          color: colorForId(p.id ?? 0),
+          color: p.color ?? FALLBACK_COLOR,
           endDate: p.endDate,
         }));
         setProjects([...MOCK_PROJECTS, ...fromServer]);
@@ -180,6 +177,9 @@ export function useProjects() {
         name: draft.name,
         goal: draft.goal,
         endDate: draft.endDate,
+        // 필수 필드다. 빠지면 400 VALIDATION_FAILED. 형식은 "#RRGGBB"로 고정
+        // (스펙의 pattern: ^#[0-9A-Fa-f]{6}$) — CreateProject의 COLOR_OPTIONS와 같다.
+        color: draft.color,
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -191,8 +191,7 @@ export function useProjects() {
     const created: Project = {
       id: `${SERVER_ID_PREFIX}${data.data.id}`,
       name: data.data.name ?? draft.name,
-      // 백엔드 스키마에 색상 필드가 없어서, 사용자가 고른 색은 이 세션에만 남는다.
-      color: draft.color,
+      color: data.data.color ?? draft.color,
       goal: data.data.goal ?? draft.goal,
       endDate: data.data.endDate ?? draft.endDate,
     };
