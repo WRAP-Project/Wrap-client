@@ -7,7 +7,7 @@ import type { paths } from "./schema.gen";
 //   정확히 일치해야 한다. 로컬은 http://localhost:5173 고정 (vite.config.ts에서 강제).
 // - 배포 환경의 세션 쿠키는 Secure; SameSite=None이라 프론트도 HTTPS여야 한다.
 export const apiClient = createClient<paths>({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? "https://wrap-backend-ko54.onrender.com",
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "/api" : "https://wrap-backend-ko54.onrender.com"),
   credentials: "include",
 });
 

@@ -1,8 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiClient } from "@/lib/api/client";
+import type { components } from "@/lib/api/schema.gen";
+import { clientIdOfServerProject, REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
+import { useProjectsContext } from "./ProjectsContext";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
-/** 일정 유형·마감 리마인드 여부는 백엔드 스키마(ScheduleResponse)에 없는 프론트 전용 필드. */
 export type ScheduleType = "deadline" | "meeting" | "milestone";
 
 /** 마감 리마인드 체크리스트 항목의 진행 상태 */
@@ -10,7 +13,8 @@ export type ChecklistState = "done" | "inProgress" | "blocked";
 
 /**
  * 마감 리마인드 카드를 펼치면 보이는 체크리스트 항목.
- * 백엔드 스키마에 없는 프론트 전용 mock — 엔드포인트가 생기면 훅 내부만 교체한다.
+ * 백엔드 일정 체크 API는 일정 단위 checked만 제공한다. 서버 일정은 화면 호환을 위해
+ * 단일 체크 항목으로 보여주고, mock 일정은 기존 체크리스트를 그대로 쓴다.
  */
 export interface ChecklistItem {
   id: string;
@@ -38,6 +42,7 @@ export interface Schedule {
   assignees?: string[];
   /** 마감 리마인드 체크리스트 — reminder가 true인 일정에만 채워진다. */
   checklist?: ChecklistItem[];
+  source?: "mock" | "server";
 }
 
 /** Calendar 화면의 일정 등록 폼이 넘기는 입력값 */
@@ -108,8 +113,8 @@ export function formatScheduleDatetime(s: Schedule): string {
 }
 
 // ── Mock 데이터 ───────────────────────────────────────────────────────────────
-// 백엔드가 아직 준비되지 않아 하드코딩만 사용한다. 백엔드 GET /schedules/me가
-// 준비되면 이 파일 내부만 fetch 기반으로 교체 — 화면 쪽은 건드릴 필요 없음.
+// mock 프로젝트("1"~"3")는 서버 프로젝트가 아니므로 기존 데모 일정을 유지한다.
+// 서버 프로젝트 일정은 GET /schedules/me 결과를 뒤에 붙인다.
 // 오늘 기준 상대 날짜로 만들어 D-day가 항상 유효하다. projectId/이름은
 // useProjects.ts의 MOCK_PROJECTS와 맞춰져 있다.
 
@@ -223,19 +228,172 @@ const MOCK_SCHEDULES: Schedule[] = [
   },
 ];
 
+type ScheduleResponse = components["schemas"]["ScheduleResponse"];
+type ScheduleDetailResponse = components["schemas"]["ScheduleDetailResponse"];
+
+const SERVER_SCHEDULE_PREFIX = "srv-sch-";
+
+function clientScheduleIdOf(id: number): string {
+  return `${SERVER_SCHEDULE_PREFIX}${id}`;
+}
+
+function serverScheduleIdOf(id: string): number | null {
+  if (!id.startsWith(SERVER_SCHEDULE_PREFIX)) return null;
+  const n = Number(id.slice(SERVER_SCHEDULE_PREFIX.length));
+  return Number.isInteger(n) ? n : null;
+}
+
+function dateTimeOf(date: string, time: string): string {
+  return `${date}T${time.length === 5 ? `${time}:00` : time}`;
+}
+
+function splitDateTime(value: string | undefined): { date: string; time: string } {
+  if (!value) return { date: toLocalDateStr(new Date()), time: "00:00" };
+  const [date, rawTime = "00:00:00"] = value.split("T");
+  return { date, time: rawTime.slice(0, 5) };
+}
+
+function normalizeType(type: ScheduleResponse["type"] | undefined): ScheduleType {
+  return type ?? "meeting";
+}
+
+function serverProjectName(projectId: number | undefined, projects: { id: string; name: string }[]): string | undefined {
+  if (projectId === undefined) return undefined;
+  return projects.find((p) => serverIdOf(p.id) === projectId)?.name;
+}
+
+function serverProjectClientId(projectId: number | undefined): string {
+  return projectId === undefined ? "" : clientIdOfServerProject(projectId);
+}
+
+function checklistForServerSchedule(schedule: ScheduleDetailResponse | ScheduleResponse): ChecklistItem[] | undefined {
+  if (!schedule.reminder || schedule.id === undefined) return undefined;
+  const checked = "checked" in schedule ? schedule.checked === true : false;
+  const assignee = "creatorNickname" in schedule ? schedule.creatorNickname : undefined;
+  return [
+    {
+      id: `${clientScheduleIdOf(schedule.id)}-checked`,
+      title: "일정 확인",
+      state: checked ? "done" : "inProgress",
+      statusLabel: checked ? "완료" : "진행 중",
+      assignee: assignee ?? "담당자",
+      assigneeInitials: assignee?.slice(0, 2).toUpperCase(),
+    },
+  ];
+}
+
+function mapScheduleResponse(
+  schedule: ScheduleResponse | ScheduleDetailResponse,
+  projects: { id: string; name: string }[],
+): Schedule | null {
+  if (schedule.id === undefined || !schedule.title || !schedule.startAt || !schedule.endAt) return null;
+  const start = splitDateTime(schedule.startAt);
+  const end = splitDateTime(schedule.endAt);
+  return {
+    id: clientScheduleIdOf(schedule.id),
+    projectId: serverProjectClientId(schedule.projectId),
+    projectName: "projectName" in schedule ? schedule.projectName : serverProjectName(schedule.projectId, projects),
+    title: schedule.title,
+    date: start.date,
+    startTime: start.time,
+    endTime: end.time,
+    type: normalizeType(schedule.type),
+    reminder: schedule.reminder ?? false,
+    assignees: "creatorNickname" in schedule && schedule.creatorNickname ? [schedule.creatorNickname.slice(0, 2).toUpperCase()] : [],
+    checklist: checklistForServerSchedule(schedule),
+    source: "server",
+  };
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useSchedules() {
+  const { projects } = useProjectsContext();
   const [schedules, setSchedules] = useState<Schedule[]>(MOCK_SCHEDULES);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const loadSchedules = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, response } = await apiClient.GET("/schedules/me", {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error?.message ?? "일정을 불러오지 못했습니다.");
+      }
+      const serverSchedules = (data?.data ?? [])
+        .map((schedule) => mapScheduleResponse(schedule, projects))
+        .filter((schedule): schedule is Schedule => schedule !== null);
+      setSchedules([...MOCK_SCHEDULES, ...serverSchedules]);
+      setError(null);
+    } catch (e) {
+      setSchedules(MOCK_SCHEDULES);
+      setError(
+        e instanceof Error && e.name !== "TimeoutError"
+          ? e
+          : new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    void loadSchedules();
+  }, [loadSchedules]);
 
   const addSchedule = useCallback(async (draft: ScheduleDraft): Promise<Schedule> => {
-    const created: Schedule = { id: crypto.randomUUID(), ...draft };
+    const projectId = serverIdOf(draft.projectId);
+    if (projectId === null) {
+      const created: Schedule = { id: crypto.randomUUID(), ...draft, source: "mock" };
+      setSchedules((prev) => [...prev, created]);
+      return created;
+    }
+
+    const { data, response } = await apiClient.POST("/schedules", {
+      body: {
+        projectId,
+        title: draft.title,
+        startAt: dateTimeOf(draft.date, draft.startTime),
+        endAt: dateTimeOf(draft.date, draft.endTime),
+        shared: true,
+        type: draft.type,
+        reminder: draft.reminder,
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+
+    if (!response.ok || data?.success === false || !data?.data) {
+      throw new Error(data?.error?.message ?? "일정 등록에 실패했습니다.");
+    }
+
+    const created = mapScheduleResponse(data.data, projects);
+    if (!created) throw new Error("일정 응답을 해석하지 못했습니다.");
     setSchedules((prev) => [...prev, created]);
     return created;
-  }, []);
+  }, [projects]);
 
   /** 체크리스트 항목 완료 토글 — 완료 ↔ 진행 중(막힘 항목도 완료 처리 가능). */
-  const toggleChecklistItem = useCallback((scheduleId: string, itemId: string) => {
+  const toggleChecklistItem = useCallback(async (scheduleId: string, itemId: string) => {
+    const serverScheduleId = serverScheduleIdOf(scheduleId);
+    if (serverScheduleId !== null) {
+      const current = schedules.find((s) => s.id === scheduleId);
+      const checked = current?.checklist?.find((item) => item.id === itemId)?.state === "done";
+      const path = checked ? "/schedules/{scheduleId}/uncheck" : "/schedules/{scheduleId}/check";
+      const { data, response } = await apiClient.PATCH(path, {
+        params: { path: { scheduleId: serverScheduleId } },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok || data?.success === false || !data?.data) {
+        throw new Error(data?.error?.message ?? "일정 체크 상태를 변경하지 못했습니다.");
+      }
+      const updated = mapScheduleResponse(data.data, projects);
+      if (!updated) return;
+      setSchedules((prev) => prev.map((s) => (s.id === scheduleId ? updated : s)));
+      return;
+    }
+
     setSchedules((prev) =>
       prev.map((s) => {
         if (s.id !== scheduleId || !s.checklist) return s;
@@ -250,7 +408,7 @@ export function useSchedules() {
         };
       }),
     );
-  }, []);
+  }, [projects, schedules]);
 
-  return { schedules, addSchedule, toggleChecklistItem, loading: false };
+  return { schedules, addSchedule, toggleChecklistItem, reload: loadSchedules, loading, error };
 }

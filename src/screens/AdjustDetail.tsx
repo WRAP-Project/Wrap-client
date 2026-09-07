@@ -86,12 +86,19 @@ function TimeGrid({ req, renderCell }: { req: AdjustRequest; renderCell: (key: s
 /** 시간 확정 — 캘린더에 미팅으로 등록하고 요청을 마감 처리한다. */
 function useFinalize(req: AdjustRequest | undefined) {
   const navigate = useNavigate();
-  const { addSchedule } = useSchedulesContext();
-  const { closeRequest } = useAdjustRequests();
+  const { addSchedule, reload } = useSchedulesContext();
+  const { closeRequest, confirmRequest } = useAdjustRequests();
   const { projects, selectedProjectId } = useProjectsContext();
 
   return async (date: string, hour: number) => {
     if (!req) return;
+    if (req.id.startsWith("srv-av-")) {
+      await confirmRequest(req.id, req.title, date, hour);
+      await reload();
+      navigate("/calendar");
+      return;
+    }
+
     const project = projects.find((p) => p.id === selectedProjectId) ?? projects[0];
     await addSchedule({
       projectId: project?.id ?? "",
@@ -120,6 +127,7 @@ function PaintView({ req, onSubmitted }: { req: AdjustRequest; onSubmitted: () =
   const navigate = useNavigate();
   const { schedules } = useSchedulesContext();
   const { submitAvailability } = useAdjustRequests();
+  const [submitting, setSubmitting] = useState(false);
 
   // 첫 진입이면 내 캘린더 기준으로 비어 있는 칸을 미리 칠해둔다.
   const [slots, setSlots] = useState<Set<string>>(() => {
@@ -230,14 +238,22 @@ function PaintView({ req, onSubmitted }: { req: AdjustRequest; onSubmitted: () =
 
       <div className="sticky bottom-0 shrink-0 px-5 pb-8 pt-3" style={{ background: INK }}>
         <button
-          onClick={() => {
-            submitAvailability(req.id, ME_ID, [...slots]);
-            onSubmitted();
+          onClick={async () => {
+            setSubmitting(true);
+            try {
+              await submitAvailability(req.id, ME_ID, [...slots]);
+              onSubmitted();
+            } catch {
+              alert("가능 시간 제출에 실패했습니다.");
+            } finally {
+              setSubmitting(false);
+            }
           }}
+          disabled={submitting}
           className="w-full rounded-2xl py-4 text-[15px] font-bold transition-opacity active:opacity-70"
-          style={{ background: "#fff", color: INK }}
+          style={{ background: submitting ? SURFACE_HIGH : "#fff", color: submitting ? FG35 : INK }}
         >
-          제출하기
+          {submitting ? "제출 중" : "제출하기"}
         </button>
       </div>
     </div>
@@ -251,7 +267,7 @@ function ResultView({ req, onEdit }: { req: AdjustRequest; onEdit: () => void })
   const finalize = useFinalize(req);
   const nameOf = useMemberName();
 
-  const total = req.memberIds.length;
+  const total = req.totalMemberCount ?? req.memberIds.length;
   const submitted = Object.keys(req.submissions);
   const missing = req.memberIds.filter((id) => !(id in req.submissions));
   const slots = useMemo(() => recommendSlots(req), [req]);
@@ -366,7 +382,7 @@ export default function AdjustDetail() {
     );
   }
 
-  const mineSubmitted = ME_ID in req.submissions;
+  const mineSubmitted = req.mineSubmitted ?? ME_ID in req.submissions;
   return mineSubmitted && !editing
     ? <ResultView req={req} onEdit={() => setEditing(true)} />
     : <PaintView req={req} onSubmitted={() => setEditing(false)} />;
@@ -393,8 +409,8 @@ export function AdjustHeatmap() {
     );
   }
 
-  const total = req.memberIds.length;
-  const submitted = Object.keys(req.submissions).length;
+  const total = req.totalMemberCount ?? req.memberIds.length;
+  const submitted = req.submittedMemberCount ?? Object.keys(req.submissions).length;
 
   function cellColor(count: number): string {
     if (count === 0) return "rgba(240,246,236,0.05)";

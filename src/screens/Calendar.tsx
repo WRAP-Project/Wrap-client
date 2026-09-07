@@ -6,6 +6,8 @@ import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { daysLeft, ddayLabel, type ChecklistItem, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
 import { useSchedulesContext } from "@/data/SchedulesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
+import { useCalendarRiskChecks, type CalendarRiskSignal } from "@/data/useCalendarRiskChecks";
+import { serverIdOf } from "@/data/useProjects";
 import {
   DAY_END_MIN,
   DAY_START_MIN,
@@ -107,11 +109,12 @@ function RegisterSheet({
 }: {
   defaultProjectId: string | null;
   onClose: () => void;
-  onSubmit: (draft: ScheduleDraft) => void;
+  onSubmit: (draft: ScheduleDraft) => Promise<void>;
 }) {
   const { projects } = useProjectsContext();
+  const defaultServerProject = projects.find((p) => serverIdOf(p.id) !== null)?.id;
   const [title, setTitle] = useState("");
-  const [projectId, setProjectId] = useState(defaultProjectId ?? projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(defaultProjectId ?? defaultServerProject ?? projects[0]?.id ?? "");
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [date, setDate] = useState<PickedDate>(todayPicked());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -119,22 +122,28 @@ function RegisterSheet({
   const [endTime, setEndTime] = useState("15:00");
   const [type, setType] = useState<ScheduleType>("deadline");
   const [reminder, setReminder] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const projectName = projects.find((p) => p.id === projectId)?.name ?? "";
   const canSubmit = title.trim().length > 0 && projectId.length > 0;
 
-  function handleSubmit() {
-    if (!canSubmit) return;
-    onSubmit({
-      projectId,
-      projectName,
-      title: title.trim(),
-      date: pickedToDateStr(date),
-      startTime,
-      endTime,
-      type,
-      reminder,
-    });
+  async function handleSubmit() {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        projectId,
+        projectName,
+        title: title.trim(),
+        date: pickedToDateStr(date),
+        startTime,
+        endTime,
+        type,
+        reminder,
+      });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -156,9 +165,9 @@ function RegisterSheet({
             </span>
             <button
               onClick={handleSubmit}
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               className="text-[14px] font-bold"
-              style={{ color: canSubmit ? INK : "rgba(28,28,30,0.25)" }}
+              style={{ color: canSubmit && !submitting ? INK : "rgba(28,28,30,0.25)" }}
             >
               저장
             </button>
@@ -286,15 +295,14 @@ function RegisterSheet({
           </div>
         </div>
 
-        {/* 등록하기 — 실제 등록 동작은 아직 미완성 */}
         <div className="shrink-0 px-5 pb-8 pt-2">
           <button
-            onClick={() => alert("구현 완료되지 않은 기능입니다.")}
-            disabled={!canSubmit}
+            onClick={handleSubmit}
+            disabled={!canSubmit || submitting}
             className="w-full rounded-2xl py-4 text-[15px] font-bold transition-opacity active:opacity-70"
-            style={{ background: canSubmit ? INK : "rgba(28,28,30,0.15)", color: "#fff" }}
+            style={{ background: canSubmit && !submitting ? INK : "rgba(28,28,30,0.15)", color: "#fff" }}
           >
-            등록하기
+            {submitting ? "등록 중" : "등록하기"}
           </button>
         </div>
       </div>
@@ -628,6 +636,7 @@ export default function CalendarScreen() {
    * 기본값은 채팅 탭과 동일하게 홈에서 선택한 프로젝트(전역 선택 상태).
    */
   const [filterProjectId, setFilterProjectId] = useState<string | null>(selectedProjectId);
+  const { signals: riskSignals } = useCalendarRiskChecks(filterProjectId);
 
   /** 캘린더 탭에서 고른 프로젝트도 전역 선택 상태에 반영한다. */
   function pickProject(id: string | null) {
@@ -695,12 +704,13 @@ export default function CalendarScreen() {
     setActiveTab(id);
   }
 
-  /** 전체 일정의 막힘(BLOCK) 체크리스트 항목 — 상단 막힘 신호 배너의 데이터 */
-  const blockedSignals = schedules.flatMap((s) =>
+  /** 전체 일정의 막힘(BLOCK) 체크리스트 항목 + 서버 리스크 체크 — 상단 막힘 신호 배너의 데이터 */
+  const mockBlockedSignals: CalendarRiskSignal[] = schedules.flatMap((s) =>
     (s.checklist ?? [])
       .filter((i) => i.state === "blocked")
       .map((i) => ({ ...i, projectId: s.projectId })),
   );
+  const blockedSignals = [...mockBlockedSignals, ...riskSignals];
 
   return (
     <div className="relative flex min-h-full flex-col" style={{ background: INK, color: FG }}>

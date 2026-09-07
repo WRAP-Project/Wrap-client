@@ -84,17 +84,26 @@ export default function AdjustCreate() {
 
   const canSubmit = title.trim().length > 0 && excluded.length < members.length;
 
-  function handleSubmit() {
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
     if (!canSubmit) return;
-    addRequest({
-      title: title.trim(),
-      startDate: pickedToDateStr(startDate),
-      endDate: pickedToDateStr(endDate),
-      startTime,
-      endTime,
-      memberIds: [ME_ID, ...members.filter((m) => !excluded.includes(m.id)).map((m) => m.id)],
-    });
-    navigate("/calendar/adjust");
+    setSubmitting(true);
+    try {
+      await addRequest({
+        title: title.trim(),
+        startDate: pickedToDateStr(startDate),
+        endDate: pickedToDateStr(endDate),
+        startTime,
+        endTime,
+        memberIds: [ME_ID, ...members.filter((m) => !excluded.includes(m.id)).map((m) => m.id)],
+      });
+      navigate("/calendar/adjust");
+    } catch {
+      alert("일정 조정 요청 생성에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -220,11 +229,11 @@ export default function AdjustCreate() {
       <div className="sticky bottom-0 shrink-0 px-5 pb-8 pt-3" style={{ background: INK }}>
         <button
           onClick={handleSubmit}
-          disabled={!canSubmit}
+          disabled={!canSubmit || submitting}
           className="w-full rounded-2xl py-4 text-[15px] font-bold transition-opacity active:opacity-70"
-          style={{ background: canSubmit ? "#fff" : SURFACE_HIGH, color: canSubmit ? INK : FG35 }}
+          style={{ background: canSubmit && !submitting ? "#fff" : SURFACE_HIGH, color: canSubmit && !submitting ? INK : FG35 }}
         >
-          이 시간으로 일정 조정하기
+          {submitting ? "요청 중" : "이 시간으로 일정 조정하기"}
         </button>
       </div>
 

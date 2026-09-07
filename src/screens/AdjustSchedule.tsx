@@ -18,12 +18,16 @@ function rangeLabel(req: AdjustRequest): string {
 }
 
 function submittedCount(req: AdjustRequest): number {
-  return Object.keys(req.submissions).length;
+  return req.submittedMemberCount ?? Object.keys(req.submissions).length;
+}
+
+function totalCount(req: AdjustRequest): number {
+  return req.totalMemberCount ?? req.memberIds.length;
 }
 
 export default function AdjustSchedule() {
   const navigate = useNavigate();
-  const { requests } = useAdjustRequests();
+  const { requests, loading, error } = useAdjustRequests();
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: INK, color: FG }}>
@@ -41,7 +45,7 @@ export default function AdjustSchedule() {
       <div className="flex flex-1 flex-col gap-4 px-5 pb-6 pt-6">
         {requests.length === 0 && (
           <p className="rounded-2xl px-4 py-10 text-center text-[12px]" style={{ background: SURFACE_HIGH, color: FG35 }}>
-            진행 중인 일정 조정이 없어요
+            {loading ? "일정 조정을 불러오는 중이에요" : error ? error.message : "진행 중인 일정 조정이 없어요"}
           </p>
         )}
         {requests.map((req) => {
@@ -72,7 +76,7 @@ export default function AdjustSchedule() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
                   <span className="text-[13px] font-bold" style={{ color: active ? "rgba(28,28,30,0.6)" : "rgba(28,28,30,0.75)" }}>
-                    {submittedCount(req)}/{req.memberIds.length}
+                    {submittedCount(req)}/{totalCount(req)}
                   </span>
                   {active ? (
                     <span className="text-[12px] font-black" style={{ color: PINK }}>등록 현황</span>

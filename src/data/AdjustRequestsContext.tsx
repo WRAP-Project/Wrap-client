@@ -1,29 +1,26 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-
-// ── 일정 조정 요청 ─────────────────────────────────────────────────────────────
-// 캘린더 아이콘 → 일정 조정 흐름(요청 목록 → 가능 시간 칠하기 → 추천 시간 →
-// 전체 시간 대조)의 데이터. 백엔드에 관련 엔드포인트가 아직 없어(openapi.yaml
-// 기준) 전부 mock이며, 준비되면 이 파일 내부만 교체한다.
-//
-// "나"는 memberId "me"로 표현한다(프로필 사용자). 나머지 memberIds는
-// useTeamMembers의 id(`${projectId}-${initials}`)를 그대로 쓴다.
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { apiClient } from "@/lib/api/client";
+import type { components } from "@/lib/api/schema.gen";
+import { REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
+import { useProjectsContext } from "./ProjectsContext";
 
 export const ME_ID = "me";
 
 export interface AdjustRequest {
   id: string;
   title: string;
-  startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
-  startTime: string; // HH:mm
-  endTime: string;   // HH:mm
-  /** 공유 대상 팀원(나 포함) */
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
   memberIds: string[];
-  /** 팀원별 제출한 가능 시간 — memberId → 슬롯 키("YYYY-MM-DDTHH") 배열 */
   submissions: Record<string, string[]>;
   status: "active" | "closed";
-  /** 마감(확정) 표시용 라벨 — "07.11" */
   closedOn?: string;
+  totalMemberCount?: number;
+  submittedMemberCount?: number;
+  mineSubmitted?: boolean;
+  recommendedSlots?: RecommendedSlot[];
 }
 
 export interface AdjustRequestDraft {
@@ -35,10 +32,44 @@ export interface AdjustRequestDraft {
   memberIds: string[];
 }
 
-// ── 슬롯 헬퍼 ─────────────────────────────────────────────────────────────────
+type AvailabilitySummary = components["schemas"]["AvailabilityRequestSummaryResponse"];
+type AvailabilityDetail = components["schemas"]["AvailabilityRequestDetailResponse"];
+type AvailabilityResponses = components["schemas"]["AvailabilityResponsesResponse"];
+type MyAvailability = components["schemas"]["MyAvailabilityResponse"];
+type RecommendedSlotResponse = components["schemas"]["RecommendedSlotResponse"];
 
 export function slotKey(date: string, hour: number): string {
   return `${date}T${String(hour).padStart(2, "0")}`;
+}
+
+function dateTimeOf(date: string, hour: number): string {
+  return `${date}T${String(hour).padStart(2, "0")}:00:00`;
+}
+
+function slotKeyFromDateTime(value: string | undefined): string | null {
+  if (!value) return null;
+  const [date, time = "00:00:00"] = value.split("T");
+  const hour = Number(time.slice(0, 2));
+  if (!date || !Number.isInteger(hour)) return null;
+  return slotKey(date, hour);
+}
+
+function slotRequestFromKey(key: string) {
+  const [date, rawHour] = key.split("T");
+  const hour = Number(rawHour);
+  return {
+    startAt: dateTimeOf(date, hour),
+    endAt: dateTimeOf(date, hour + 1),
+  };
+}
+
+function closedLabel(dateStr: string | undefined): string | undefined {
+  if (!dateStr) return undefined;
+  return `${dateStr.slice(5, 7)}.${dateStr.slice(8, 10)}`;
+}
+
+function normalizeTime(value: string | undefined, fallback: string): string {
+  return value ? value.slice(0, 5) : fallback;
 }
 
 /** 요청의 날짜 범위 — 그리드가 감당 가능하게 최대 7일까지만 */
@@ -80,14 +111,14 @@ export interface RecommendedSlot {
   key: string;
   date: string;
   hour: number;
-  /** 가능한 인원 수 */
   count: number;
-  /** 불가(미제출 포함) 팀원 id */
   unavailable: string[];
 }
 
 /** 가능한 인원이 많은 순 → 빠른 시간 순으로 상위 slot들을 추천한다. */
 export function recommendSlots(req: AdjustRequest, limit = 3): RecommendedSlot[] {
+  if (req.recommendedSlots) return req.recommendedSlots.slice(0, limit);
+
   const avail = cellAvailability(req);
   const slots: RecommendedSlot[] = [];
   for (const date of requestDays(req)) {
@@ -96,7 +127,9 @@ export function recommendSlots(req: AdjustRequest, limit = 3): RecommendedSlot[]
       const ok = avail.get(key) ?? [];
       if (ok.length === 0) continue;
       slots.push({
-        key, date, hour,
+        key,
+        date,
+        hour,
         count: ok.length,
         unavailable: req.memberIds.filter((id) => !ok.includes(id)),
       });
@@ -106,13 +139,12 @@ export function recommendSlots(req: AdjustRequest, limit = 3): RecommendedSlot[]
   return slots.slice(0, limit);
 }
 
-// ── Mock 데이터 ───────────────────────────────────────────────────────────────
-
 function toDateStr(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${day}`;
 }
+
 function shiftDays(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() + n);
@@ -126,14 +158,12 @@ function mockSlots(memberId: string, days: string[], hours: number[]): string[] 
   const out: string[] = [];
   days.forEach((date, di) => {
     hours.forEach((hour, hi) => {
-      // 팀원마다 다른 패턴으로 6~7할 정도 가능
       if ((hash + di * 7 + hi * 3) % 10 < 7) out.push(slotKey(date, hour));
     });
   });
   return out;
 }
 
-/** 시드 요청: 나를 제외한 팀원 4명은 이미 제출한 상태 — 카드에 4/5로 보인다. */
 function seedRequests(): AdjustRequest[] {
   const others = ["1-KM", "1-LJ", "1-PJ", "1-CS"];
   const active: AdjustRequest = {
@@ -172,42 +202,253 @@ function seedRequests(): AdjustRequest[] {
   return [active, closed];
 }
 
-// ── Context ───────────────────────────────────────────────────────────────────
-// 목록·생성 폼·칠하기·추천·대조 화면이 같은 요청 상태를 공유하므로 전역화한다.
+const SERVER_REQUEST_PREFIX = "srv-av-";
+
+function clientRequestIdOf(id: number): string {
+  return `${SERVER_REQUEST_PREFIX}${id}`;
+}
+
+function serverRequestIdOf(id: string): number | null {
+  if (!id.startsWith(SERVER_REQUEST_PREFIX)) return null;
+  const n = Number(id.slice(SERVER_REQUEST_PREFIX.length));
+  return Number.isInteger(n) ? n : null;
+}
+
+function memberKey(projectMemberId: number | undefined, fallback: number): string {
+  return projectMemberId === undefined ? `member-${fallback}` : `pm-${projectMemberId}`;
+}
+
+function slotsFromResponse(slots: { startAt?: string }[] | undefined): string[] {
+  return (slots ?? [])
+    .map((slot) => slotKeyFromDateTime(slot.startAt))
+    .filter((key): key is string => key !== null);
+}
+
+function recommendedFromResponse(slots: RecommendedSlotResponse[] | undefined): RecommendedSlot[] | undefined {
+  if (!slots) return undefined;
+  return slots
+    .map((slot) => {
+      const key = slotKeyFromDateTime(slot.startAt);
+      if (!key) return null;
+      const [date, rawHour] = key.split("T");
+      return {
+        key,
+        date,
+        hour: Number(rawHour),
+        count: slot.availableCount ?? 0,
+        unavailable: [] as string[],
+      };
+    })
+    .filter((slot): slot is RecommendedSlot => slot !== null);
+}
+
+function mapServerRequest(
+  summary: AvailabilitySummary,
+  detail: AvailabilityDetail | undefined,
+  responses: AvailabilityResponses | undefined,
+  myResponse: MyAvailability | undefined,
+  recommended: RecommendedSlotResponse[] | undefined,
+): AdjustRequest | null {
+  const id = detail?.availabilityRequestId ?? summary.availabilityRequestId;
+  if (id === undefined || !summary.title) return null;
+
+  const members = responses?.members ?? [];
+  const memberIds = members.length
+    ? members.map((member, index) => memberKey(member.projectMemberId, index))
+    : Array.from({ length: detail?.totalMemberCount ?? 0 }, (_, index) => `member-${index + 1}`);
+
+  const submissions: Record<string, string[]> = {};
+  members.forEach((member, index) => {
+    if (!member.submitted) return;
+    submissions[memberKey(member.projectMemberId, index)] = slotsFromResponse(member.slots);
+  });
+
+  const mySlots = slotsFromResponse(myResponse?.selectedAvailableSlots);
+  const mineSubmitted = myResponse !== undefined && (myResponse.selectedAvailableSlots !== undefined || mySlots.length > 0);
+  if (mineSubmitted) submissions[ME_ID] = mySlots;
+
+  const status = detail?.status ?? summary.status;
+  const totalMemberCount = detail?.totalMemberCount ?? memberIds.length;
+  const submittedMemberCount = detail?.submittedMemberCount ?? Object.keys(submissions).length;
+
+  return {
+    id: clientRequestIdOf(id),
+    title: summary.title,
+    startDate: detail?.startDate ?? summary.startDate ?? toDateStr(new Date()),
+    endDate: detail?.endDate ?? summary.endDate ?? toDateStr(new Date()),
+    startTime: normalizeTime(detail?.startTime ?? summary.startTime, "09:00"),
+    endTime: normalizeTime(detail?.endTime ?? summary.endTime, "20:00"),
+    memberIds: memberIds.length ? memberIds : Array.from({ length: totalMemberCount }, (_, index) => `member-${index + 1}`),
+    submissions,
+    status: status === "OPEN" ? "active" : "closed",
+    closedOn: status === "OPEN" ? undefined : closedLabel(detail?.endDate ?? summary.endDate),
+    totalMemberCount,
+    submittedMemberCount,
+    mineSubmitted,
+    recommendedSlots: recommendedFromResponse(recommended),
+  };
+}
 
 interface AdjustRequestsContextValue {
   requests: AdjustRequest[];
-  addRequest: (draft: AdjustRequestDraft) => AdjustRequest;
-  /** 가능 시간 제출(다시 제출하면 덮어쓴다) */
-  submitAvailability: (requestId: string, memberId: string, slots: string[]) => void;
-  /** 시간 확정 — 요청을 마감 처리한다 */
+  addRequest: (draft: AdjustRequestDraft) => Promise<AdjustRequest>;
+  submitAvailability: (requestId: string, memberId: string, slots: string[]) => Promise<void>;
   closeRequest: (requestId: string) => void;
+  confirmRequest: (requestId: string, title: string, date: string, hour: number) => Promise<void>;
   loading: boolean;
+  error: Error | null;
 }
 
 const AdjustRequestsContext = createContext<AdjustRequestsContextValue | null>(null);
 
 export function AdjustRequestsProvider({ children }: { children: ReactNode }) {
+  const { projects, selectedProjectId } = useProjectsContext();
   const [requests, setRequests] = useState<AdjustRequest[]>(seedRequests);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
-  const addRequest = useCallback((draft: AdjustRequestDraft): AdjustRequest => {
-    const created: AdjustRequest = {
-      id: crypto.randomUUID(),
-      ...draft,
-      submissions: {},
-      status: "active",
-    };
-    setRequests((prev) => [created, ...prev]);
-    return created;
-  }, []);
+  const serverProjectId = useMemo(() => {
+    const selected = serverIdOf(selectedProjectId ?? undefined);
+    if (selected !== null) return selected;
+    return projects
+      .map((project) => serverIdOf(project.id))
+      .find((id): id is number => id !== null) ?? null;
+  }, [projects, selectedProjectId]);
 
-  const submitAvailability = useCallback((requestId: string, memberId: string, slots: string[]) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId ? { ...r, submissions: { ...r.submissions, [memberId]: slots } } : r,
-      ),
-    );
-  }, []);
+  const loadRequests = useCallback(async () => {
+    if (serverProjectId === null) {
+      setRequests(seedRequests());
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, response } = await apiClient.GET("/projects/{projectId}/availability-requests", {
+        params: { path: { projectId: serverProjectId } },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error?.message ?? "가능 시간 요청 목록을 불러오지 못했습니다.");
+      }
+
+      const mapped = await Promise.all(
+        (data?.data ?? []).map(async (summary) => {
+          if (summary.availabilityRequestId === undefined) return null;
+          const availabilityRequestId = summary.availabilityRequestId;
+          const [detailRes, responsesRes, myRes, recommendedRes] = await Promise.all([
+            apiClient.GET("/projects/{projectId}/availability-requests/{availabilityRequestId}", {
+              params: { path: { projectId: serverProjectId, availabilityRequestId } },
+              signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            }),
+            apiClient.GET("/projects/{projectId}/availability-requests/{availabilityRequestId}/responses", {
+              params: { path: { projectId: serverProjectId, availabilityRequestId } },
+              signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            }),
+            apiClient.GET("/projects/{projectId}/availability-requests/{availabilityRequestId}/me/response", {
+              params: { path: { projectId: serverProjectId, availabilityRequestId } },
+              signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            }),
+            apiClient.GET("/projects/{projectId}/availability-requests/{availabilityRequestId}/recommended-slots", {
+              params: { path: { projectId: serverProjectId, availabilityRequestId } },
+              signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            }),
+          ]);
+          return mapServerRequest(
+            summary,
+            detailRes.data?.data,
+            responsesRes.data?.data,
+            myRes.response.ok ? myRes.data?.data : undefined,
+            recommendedRes.response.ok ? recommendedRes.data?.data : undefined,
+          );
+        }),
+      );
+
+      setRequests(mapped.filter((request): request is AdjustRequest => request !== null));
+      setError(null);
+    } catch (e) {
+      setRequests([]);
+      setError(
+        e instanceof Error && e.name !== "TimeoutError"
+          ? e
+          : new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [serverProjectId]);
+
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
+
+  const addRequest = useCallback(
+    async (draft: AdjustRequestDraft): Promise<AdjustRequest> => {
+      if (serverProjectId === null) {
+        const created: AdjustRequest = {
+          id: crypto.randomUUID(),
+          ...draft,
+          submissions: {},
+          status: "active",
+        };
+        setRequests((prev) => [created, ...prev]);
+        return created;
+      }
+
+      const { data, response } = await apiClient.POST("/projects/{projectId}/availability-requests", {
+        params: { path: { projectId: serverProjectId } },
+        body: {
+          title: draft.title,
+          startDate: draft.startDate,
+          endDate: draft.endDate,
+          startTime: draft.startTime,
+          endTime: draft.endTime,
+          slotUnitMinutes: 60,
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+
+      if (!response.ok || data?.success === false || !data?.data) {
+        throw new Error(data?.error?.message ?? "가능 시간 요청 생성에 실패했습니다.");
+      }
+
+      const created = mapServerRequest({ ...data.data, title: data.data.title }, data.data, undefined, undefined, undefined);
+      if (!created) throw new Error("가능 시간 요청 응답을 해석하지 못했습니다.");
+      setRequests((prev) => [created, ...prev]);
+      void loadRequests();
+      return created;
+    },
+    [loadRequests, serverProjectId],
+  );
+
+  const submitAvailability = useCallback(
+    async (requestId: string, memberId: string, slots: string[]) => {
+      const availabilityRequestId = serverRequestIdOf(requestId);
+      if (serverProjectId !== null && availabilityRequestId !== null && memberId === ME_ID) {
+        const { data, response } = await apiClient.PUT(
+          "/projects/{projectId}/availability-requests/{availabilityRequestId}/me/response",
+          {
+            params: { path: { projectId: serverProjectId, availabilityRequestId } },
+            body: { slots: slots.map(slotRequestFromKey) },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          },
+        );
+        if (!response.ok || data?.success === false) {
+          throw new Error(data?.error?.message ?? "가능 시간 제출에 실패했습니다.");
+        }
+        await loadRequests();
+        return;
+      }
+
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, submissions: { ...r.submissions, [memberId]: slots } } : r,
+        ),
+      );
+    },
+    [loadRequests, serverProjectId],
+  );
 
   const closeRequest = useCallback((requestId: string) => {
     const today = new Date();
@@ -217,9 +458,38 @@ export function AdjustRequestsProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const confirmRequest = useCallback(
+    async (requestId: string, title: string, date: string, hour: number) => {
+      const availabilityRequestId = serverRequestIdOf(requestId);
+      const request = requests.find((r) => r.id === requestId);
+      if (serverProjectId === null || availabilityRequestId === null || !request) {
+        closeRequest(requestId);
+        return;
+      }
+
+      const { data, response } = await apiClient.POST(
+        "/projects/{projectId}/availability-requests/{availabilityRequestId}/confirm",
+        {
+          params: { path: { projectId: serverProjectId, availabilityRequestId } },
+          body: {
+            title,
+            startAt: dateTimeOf(date, hour),
+            endAt: dateTimeOf(date, hour + 1),
+          },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        },
+      );
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error?.message ?? "일정 확정에 실패했습니다.");
+      }
+      await loadRequests();
+    },
+    [closeRequest, loadRequests, requests, serverProjectId],
+  );
+
   const value = useMemo(
-    () => ({ requests, addRequest, submitAvailability, closeRequest, loading: false }),
-    [requests, addRequest, submitAvailability, closeRequest],
+    () => ({ requests, addRequest, submitAvailability, closeRequest, confirmRequest, loading, error }),
+    [requests, addRequest, submitAvailability, closeRequest, confirmRequest, loading, error],
   );
 
   return <AdjustRequestsContext.Provider value={value}>{children}</AdjustRequestsContext.Provider>;
