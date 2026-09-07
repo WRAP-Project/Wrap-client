@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, LogOut, Plus } from "lucide-react";
 import { C, rgba, Sheet } from "./chatShared";
@@ -214,24 +214,48 @@ function RolesSheet({ project, accent, onClose }: { project: Project; accent: st
   );
 }
 
-// 초대 링크 시트
+// 팀원 초대 시트 — 백엔드 초대가 이메일 기반이라 링크 공유가 아니라 이메일 입력이다.
 function InviteSheet({ project, accent, onClose }: { project: Project; accent: string; onClose: () => void }) {
-  const { invite, copyLink, copied } = useProjectInvite(project.id);
+  const { inviteByEmail, inviting } = useProjectInvite(project.id);
+  const [email, setEmail] = useState("");
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleInvite = async (e: FormEvent) => {
+    e.preventDefault();
+    const value = email.trim();
+    if (!value || inviting) return;
+    try {
+      await inviteByEmail(value);
+      setEmail("");
+      setResult({ ok: true, message: `${value} 님에게 초대장을 보냈어요` });
+    } catch (err) {
+      setResult({ ok: false, message: err instanceof Error ? err.message : "초대에 실패했습니다." });
+    }
+  };
 
   return (
-    <Sheet title={`초대 링크 · ${project.name}`} onClose={onClose}>
-      <div className="flex h-14 items-center gap-2 rounded-xl pl-4 pr-2" style={{ background: rgba(C.fg, 0.06) }}>
-        <span className="flex-1 truncate text-[14px]" style={{ color: C.fg }}>{invite.link}</span>
+    <Sheet title={`팀원 초대 · ${project.name}`} onClose={onClose}>
+      <form onSubmit={handleInvite} className="flex h-14 items-center gap-2 rounded-xl pl-4 pr-2" style={{ background: rgba(C.fg, 0.06) }}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="name@example.com"
+          autoComplete="off"
+          className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+          style={{ color: C.fg }}
+        />
         <button
-          onClick={copyLink}
-          className="h-9 shrink-0 rounded-lg px-3.5 text-[13px] font-bold transition-opacity active:opacity-60"
+          type="submit"
+          disabled={!email.trim() || inviting}
+          className="h-9 shrink-0 rounded-lg px-3.5 text-[13px] font-bold transition-opacity active:opacity-60 disabled:opacity-40"
           style={{ background: accent, color: C.ink }}
         >
-          {copied ? "복사됨" : "복사"}
+          {inviting ? "보내는 중" : "초대"}
         </button>
-      </div>
-      <p className="mt-3 text-[12px]" style={{ color: C.fg50 }}>
-        이 링크로 가입하면 팀원 권한으로 프로젝트에 참여합니다.
+      </form>
+      <p className="mt-3 text-[12px]" style={{ color: result && !result.ok ? "#EB3E88" : C.fg50 }}>
+        {result?.message ?? "초대를 수락하면 팀원 권한으로 프로젝트에 참여합니다."}
       </p>
       <CloseBtn onClose={onClose} />
     </Sheet>

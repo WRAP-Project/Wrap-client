@@ -106,12 +106,23 @@ const MOCK_PROJECTS: Project[] = [
 
 // Render 무료 플랜이라 잠들어 있던 서버의 첫 요청은 1분 가까이 걸릴 수 있다 —
 // 짧게 끊으면 멀쩡한 요청이 실패한다.
-const REQUEST_TIMEOUT_MS = 60_000;
+export const REQUEST_TIMEOUT_MS = 60_000;
 
 // 서버 프로젝트의 id는 숫자 채번이라 mock의 "1"~"3"과 겹친다. 그대로 두면 상세
 // 화면이 엉뚱한 mock을 열게 되므로 접두사를 붙여 분리한다.
 // (상세까지 실제 연동하면 이 접두사는 걷어낸다)
 const SERVER_ID_PREFIX = "srv-";
+
+/**
+ * 화면이 들고 다니는 문자열 id("srv-12")를 백엔드가 path에 요구하는 숫자 id(12)로
+ * 바꾼다. mock 프로젝트("1"~"3")는 서버에 존재하지 않으므로 null을 돌려주고,
+ * 호출 측은 그때 API를 아예 건너뛴다 — 그대로 보내면 남의 프로젝트를 열거나 404가 난다.
+ */
+export function serverIdOf(projectId: string | undefined): number | null {
+  if (!projectId?.startsWith(SERVER_ID_PREFIX)) return null;
+  const n = Number(projectId.slice(SERVER_ID_PREFIX.length));
+  return Number.isInteger(n) ? n : null;
+}
 
 // 색상은 서버가 저장하고 돌려준다(#RRGGBB). 다만 응답에서 color는 optional이라 —
 // color가 필수가 되기 전에 만들어진 프로젝트는 값이 비어서 내려온다. 그때만 쓰는 대체색.
