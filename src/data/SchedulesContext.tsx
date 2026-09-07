@@ -19,8 +19,10 @@ interface SchedulesContextValue {
   schedules: Schedule[];
   addSchedule: (draft: ScheduleDraft) => Promise<Schedule>;
   /** 마감 리마인드 체크리스트 항목의 완료 토글 */
-  toggleChecklistItem: (scheduleId: string, itemId: string) => void;
+  toggleChecklistItem: (scheduleId: string, itemId: string) => Promise<void>;
+  reload: () => Promise<void>;
   loading: boolean;
+  error: Error | null;
 }
 
 const SchedulesContext = createContext<SchedulesContextValue | null>(null);

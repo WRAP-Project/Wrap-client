@@ -111,7 +111,7 @@ export const REQUEST_TIMEOUT_MS = 60_000;
 // 서버 프로젝트의 id는 숫자 채번이라 mock의 "1"~"3"과 겹친다. 그대로 두면 상세
 // 화면이 엉뚱한 mock을 열게 되므로 접두사를 붙여 분리한다.
 // (상세까지 실제 연동하면 이 접두사는 걷어낸다)
-const SERVER_ID_PREFIX = "srv-";
+export const SERVER_ID_PREFIX = "srv-";
 
 /**
  * 화면이 들고 다니는 문자열 id("srv-12")를 백엔드가 path에 요구하는 숫자 id(12)로
@@ -122,6 +122,10 @@ export function serverIdOf(projectId: string | undefined): number | null {
   if (!projectId?.startsWith(SERVER_ID_PREFIX)) return null;
   const n = Number(projectId.slice(SERVER_ID_PREFIX.length));
   return Number.isInteger(n) ? n : null;
+}
+
+export function clientIdOfServerProject(projectId: number): string {
+  return `${SERVER_ID_PREFIX}${projectId}`;
 }
 
 // 색상은 서버가 저장하고 돌려준다(#RRGGBB). 다만 응답에서 color는 optional이라 —

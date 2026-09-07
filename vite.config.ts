@@ -10,6 +10,14 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      "/api": {
+        target: "https://wrap-backend-ko54.onrender.com",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (pathName) => pathName.replace(/^\/api/, ""),
+      },
+    },
   },
   resolve: {
     alias: {

@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { getProjectMembers } from "./useTeamActivity";
 import { useSchedulesContext } from "./SchedulesContext";
 import { useProjectsContext } from "./ProjectsContext";
+import { serverIdOf } from "./useProjects";
+import { useTeamMembers } from "./useTeamMembers";
 
 /**
  * 캘린더 "팀원 일정" 탭 전용 훅.
@@ -102,6 +104,7 @@ function normalize(tasks: TeamTaskBlock[]): TeamTaskBlock[] {
 export function useTeamDaySchedule(projectId: string | null, date: string) {
   const { projects } = useProjectsContext();
   const { schedules } = useSchedulesContext();
+  const { members: serverMembers, loading } = useTeamMembers(projectId);
 
   const rows = useMemo<TeamMemberDay[]>(() => {
     const targets = projectId ? projects.filter((p) => p.id === projectId) : projects;
@@ -112,8 +115,11 @@ export function useTeamDaySchedule(projectId: string | null, date: string) {
     // 전체 보기에서도 중복 제거 없이 프로젝트 순서대로 이어 붙이면 된다.
     targets.forEach((project) => {
       const pool = TASK_POOL[project.id] ?? FALLBACK_POOL;
+      const members = serverIdOf(project.id) !== null && projectId === project.id
+        ? serverMembers.map((member) => ({ ...member, blocked: false }))
+        : getProjectMembers(project.id);
 
-      getProjectMembers(project.id).forEach((member, i) => {
+      members.forEach((member, i) => {
         // 1) 실제 등록된 일정 — 담당자 이니셜이 맞는 것만
         const fromSchedules: TeamTaskBlock[] = schedules
           .filter(
@@ -163,7 +169,7 @@ export function useTeamDaySchedule(projectId: string | null, date: string) {
     });
 
     return out;
-  }, [projectId, projects, schedules, date]);
+  }, [projectId, projects, schedules, date, serverMembers]);
 
-  return { rows, loading: false };
+  return { rows, loading };
 }
