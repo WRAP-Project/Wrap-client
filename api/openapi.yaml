@@ -4,16 +4,79 @@ info:
   description: Wrap project operation platform API documentation
   version: v1.0.0
 servers:
-- url: http://localhost:8080
+- url: https://wrap-backend-ko54.onrender.com
   description: Generated server url
 tags:
 - name: Project
   description: 프로젝트 관련 API
+- name: Availability
+  description: Team availability request APIs
 - name: Member
   description: 회원 관련 API
+- name: Invitation
+  description: 프로젝트 초대 관련 API
+- name: Project Member
+  description: 프로젝트 멤버 관련 API
 - name: Test API
   description: Swagger connection test API
 paths:
+  /projects/{projectId}/availability-requests/{availabilityRequestId}/me/response:
+    get:
+      tags:
+      - Availability
+      summary: Get my availability response
+      operationId: findMyResponse
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: availabilityRequestId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMyAvailabilityResponse"
+    put:
+      tags:
+      - Availability
+      summary: Submit my availability response
+      operationId: upsertMyResponse
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: availabilityRequestId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityResponseUpsertRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMyAvailabilityResponse"
   /schedules:
     post:
       tags:
@@ -63,6 +126,149 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /projects/{projectId}/invitations:
+    get:
+      tags:
+      - Invitation
+      summary: 보낸 프로젝트 초대 목록 조회
+      operationId: getSentInvitations
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListInvitationResponse"
+    post:
+      tags:
+      - Invitation
+      summary: 프로젝트 팀원 초대 생성
+      operationId: create_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseInvitationResponse"
+  /projects/{projectId}/availability-requests:
+    get:
+      tags:
+      - Availability
+      summary: List availability requests
+      operationId: findAll
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - OPEN
+          - CONFIRMED
+          - CANCELED
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListAvailabilityRequestSummaryResponse"
+    post:
+      tags:
+      - Availability
+      summary: Create availability request
+      operationId: create_3
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRequestCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseAvailabilityRequestDetailResponse"
+  /projects/{projectId}/availability-requests/{availabilityRequestId}/confirm:
+    post:
+      tags:
+      - Availability
+      summary: Confirm availability request
+      operationId: confirm
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: availabilityRequestId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityConfirmRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseScheduleResponse"
   /members/signup:
     post:
       tags:
@@ -115,6 +321,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiResponseMemberResponse"
   /schedules/{scheduleId}:
+    get:
+      tags:
+      - schedule-controller
+      operationId: findDetail
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseScheduleDetailResponse"
     delete:
       tags:
       - schedule-controller
@@ -157,6 +381,44 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseScheduleResponse"
+  /schedules/{scheduleId}/uncheck:
+    patch:
+      tags:
+      - schedule-controller
+      operationId: uncheck
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseScheduleDetailResponse"
+  /schedules/{scheduleId}/check:
+    patch:
+      tags:
+      - schedule-controller
+      operationId: check
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseScheduleDetailResponse"
   /projects/{projectId}:
     get:
       tags:
@@ -241,6 +503,38 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /projects/{projectId}/members/{projectMemberId}/role:
+    patch:
+      tags:
+      - Project Member
+      summary: 프로젝트 멤버 역할 변경
+      operationId: changeRole
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: projectMemberId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectMemberRoleUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
   /projects/{projectId}/complete:
     patch:
       tags:
@@ -261,6 +555,77 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /members/me:
+    get:
+      tags:
+      - Member
+      summary: 내 정보 조회
+      operationId: getMe
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMemberResponse"
+    patch:
+      tags:
+      - Member
+      summary: 내 정보 수정
+      operationId: updateMe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMemberResponse"
+  /invitations/{invitationId}/reject:
+    patch:
+      tags:
+      - Invitation
+      summary: 프로젝트 초대 거절
+      operationId: reject
+      parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseInvitationResponse"
+  /invitations/{invitationId}/accept:
+    patch:
+      tags:
+      - Invitation
+      summary: 프로젝트 초대 수락
+      operationId: accept
+      parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseInvitationResponse"
   /schedules/me:
     get:
       tags:
@@ -354,6 +719,165 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseListScheduleReminderResponse"
+  /projects/{projectId}/members:
+    get:
+      tags:
+      - Project Member
+      summary: 프로젝트 멤버 목록 조회
+      operationId: getProjectMembers
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListProjectMemberResponse"
+  /projects/{projectId}/calendar/risk-checks:
+    get:
+      tags:
+      - calendar-controller
+      operationId: findRiskChecks
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - NEEDS_REVIEW
+          - DONE
+          - HOLD
+      - name: assigneeProjectMemberId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: dueFrom
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: dueTo
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListCalendarRiskCheckResponse"
+  /projects/{projectId}/availability-requests/{availabilityRequestId}:
+    get:
+      tags:
+      - Availability
+      summary: Get availability request detail
+      operationId: findDetail_1
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: availabilityRequestId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseAvailabilityRequestDetailResponse"
+  /projects/{projectId}/availability-requests/{availabilityRequestId}/responses:
+    get:
+      tags:
+      - Availability
+      summary: Get member availability responses
+      operationId: findResponses
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: availabilityRequestId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseAvailabilityResponsesResponse"
+  /projects/{projectId}/availability-requests/{availabilityRequestId}/recommended-slots:
+    get:
+      tags:
+      - Availability
+      summary: Get recommended availability slots
+      operationId: findRecommendedSlots
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: availabilityRequestId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListRecommendedSlotResponse"
+  /invitations:
+    get:
+      tags:
+      - Invitation
+      summary: 받은 프로젝트 초대 목록 조회
+      operationId: getReceivedInvitations
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListReceivedInvitationResponse"
   /api/test:
     get:
       tags:
@@ -368,8 +892,177 @@ paths:
             '*/*':
               schema:
                 type: string
+  /projects/{projectId}/members/{projectMemberId}:
+    delete:
+      tags:
+      - Project Member
+      summary: 프로젝트 멤버 내보내기
+      operationId: removeMember
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: projectMemberId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+  /projects/{projectId}/members/me:
+    delete:
+      tags:
+      - Project Member
+      summary: 프로젝트 탈퇴
+      operationId: leaveProject
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+  /projects/{projectId}/invitations/{invitationId}:
+    delete:
+      tags:
+      - Invitation
+      summary: 보낸 프로젝트 초대 취소
+      operationId: cancel
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
 components:
   schemas:
+    AvailabilityResponseUpsertRequest:
+      type: object
+      properties:
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilitySlotRequest"
+      required:
+      - slots
+    AvailabilitySlotRequest:
+      type: object
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+      required:
+      - endAt
+      - startAt
+    ApiResponseMyAvailabilityResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/MyAvailabilityResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    AvailabilitySlotResponse:
+      type: object
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+    BusySlotResponse:
+      type: object
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+    ErrorBody:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+    FieldError:
+      type: object
+      properties:
+        field:
+          type: string
+        reason:
+          type: string
+    MyAvailabilityResponse:
+      type: object
+      properties:
+        availabilityRequestId:
+          type: integer
+          format: int64
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        slotUnitMinutes:
+          type: integer
+          format: int32
+        existingBusySlots:
+          type: array
+          items:
+            $ref: "#/components/schemas/BusySlotResponse"
+        selectedAvailableSlots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilitySlotResponse"
     ScheduleCreateRequest:
       type: object
       properties:
@@ -390,6 +1083,14 @@ components:
           format: date-time
         shared:
           type: boolean
+        type:
+          type: string
+          enum:
+          - deadline
+          - meeting
+          - milestone
+        reminder:
+          type: boolean
         validDateRange:
           type: boolean
       required:
@@ -407,24 +1108,6 @@ components:
           type: string
         error:
           $ref: "#/components/schemas/ErrorBody"
-    ErrorBody:
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        details:
-          type: array
-          items:
-            $ref: "#/components/schemas/FieldError"
-    FieldError:
-      type: object
-      properties:
-        field:
-          type: string
-        reason:
-          type: string
     ScheduleResponse:
       type: object
       properties:
@@ -448,6 +1131,14 @@ components:
           type: string
           format: date-time
         shared:
+          type: boolean
+        type:
+          type: string
+          enum:
+          - deadline
+          - meeting
+          - milestone
+        reminder:
           type: boolean
     ProjectCreateRequest:
       type: object
@@ -474,7 +1165,12 @@ components:
         endDate:
           type: string
           format: date
+        color:
+          type: string
+          minLength: 1
+          pattern: "^#[0-9A-Fa-f]{6}$"
       required:
+      - color
       - name
     ApiResponseProjectResponse:
       type: object
@@ -507,6 +1203,8 @@ components:
         endDate:
           type: string
           format: date
+        color:
+          type: string
         status:
           type: string
           enum:
@@ -521,6 +1219,161 @@ components:
         updatedAt:
           type: string
           format: date-time
+    InvitationCreateRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        role:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+      required:
+      - email
+      - role
+    ApiResponseInvitationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/InvitationResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    InvitationResponse:
+      type: object
+      properties:
+        invitationId:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        projectName:
+          type: string
+        inviteeMemberId:
+          type: integer
+          format: int64
+        inviteeEmail:
+          type: string
+        role:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+        status:
+          type: string
+          enum:
+          - INVITED
+          - ACCEPTED
+          - REJECTED
+          - CANCELED
+        createdAt:
+          type: string
+          format: date-time
+    AvailabilityRequestCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          minLength: 0
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        slotUnitMinutes:
+          type: integer
+          format: int32
+      required:
+      - endDate
+      - slotUnitMinutes
+      - startDate
+      - title
+    ApiResponseAvailabilityRequestDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/AvailabilityRequestDetailResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    AvailabilityRequestDetailResponse:
+      type: object
+      properties:
+        availabilityRequestId:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        slotUnitMinutes:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+          - OPEN
+          - CONFIRMED
+          - CANCELED
+        totalMemberCount:
+          type: integer
+          format: int32
+        submittedMemberCount:
+          type: integer
+          format: int64
+        confirmedScheduleId:
+          type: integer
+          format: int64
+    AvailabilityConfirmRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          minLength: 0
+        description:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+      required:
+      - endAt
+      - startAt
+      - title
     SignupRequest:
       type: object
       properties:
@@ -560,6 +1413,14 @@ components:
         email:
           type: string
         nickname:
+          type: string
+        team:
+          type: string
+        role:
+          type: string
+        bio:
+          type: string
+        accentColor:
           type: string
         createdAt:
           type: string
@@ -607,7 +1468,64 @@ components:
           format: date-time
         shared:
           type: boolean
+        type:
+          type: string
+          enum:
+          - deadline
+          - meeting
+          - milestone
+        reminder:
+          type: boolean
         validDateRange:
+          type: boolean
+    ApiResponseScheduleDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ScheduleDetailResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ScheduleDetailResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        projectName:
+          type: string
+        creatorId:
+          type: integer
+          format: int64
+        creatorNickname:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        shared:
+          type: boolean
+        type:
+          type: string
+          enum:
+          - deadline
+          - meeting
+          - milestone
+        reminder:
+          type: boolean
+        checked:
           type: boolean
     ProjectUpdateRequest:
       type: object
@@ -634,8 +1552,82 @@ components:
         endDate:
           type: string
           format: date
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
       required:
       - name
+    ProjectMemberRoleUpdateRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+      required:
+      - role
+    ApiResponseProjectMemberResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ProjectMemberResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ProjectMemberResponse:
+      type: object
+      properties:
+        projectMemberId:
+          type: integer
+          format: int64
+        memberId:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        profileImage:
+          type: string
+        role:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+        status:
+          type: string
+          enum:
+          - INVITED
+          - JOINED
+          - LEFT
+        joinedAt:
+          type: string
+          format: date-time
+    MemberUpdateRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+          maxLength: 50
+          minLength: 0
+          pattern: ^(?!\s*$).+
+        team:
+          type: string
+          maxLength: 50
+          minLength: 0
+        role:
+          type: string
+          maxLength: 50
+          minLength: 0
+        bio:
+          type: string
+          maxLength: 200
+          minLength: 0
+        accentColor:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
     ApiResponseListScheduleResponse:
       type: object
       properties:
@@ -681,6 +1673,8 @@ components:
         endDate:
           type: string
           format: date
+        color:
+          type: string
     ApiResponseListScheduleReminderResponse:
       type: object
       properties:
@@ -715,6 +1709,250 @@ components:
           format: date-time
         shared:
           type: boolean
+        type:
+          type: string
+          enum:
+          - deadline
+          - meeting
+          - milestone
+        reminder:
+          type: boolean
         daysLeft:
           type: integer
           format: int64
+    ApiResponseListProjectMemberResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectMemberResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ApiResponseListInvitationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvitationResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ApiResponseListCalendarRiskCheckResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarRiskCheckResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    CalendarRiskCheckResponse:
+      type: object
+      properties:
+        taskId:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - NEEDS_REVIEW
+          - DONE
+          - HOLD
+        dueDate:
+          type: string
+          format: date
+        assigneeProjectMemberId:
+          type: integer
+          format: int64
+        assigneeNickname:
+          type: string
+        assigneeRole:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+        riskLevel:
+          type: string
+          enum:
+          - BLOCKED
+          - OVERDUE
+          - DUE_SOON
+          - NEEDS_CHECK
+        reason:
+          type: string
+    ApiResponseListAvailabilityRequestSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityRequestSummaryResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    AvailabilityRequestSummaryResponse:
+      type: object
+      properties:
+        availabilityRequestId:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        creatorProjectMemberId:
+          type: integer
+          format: int64
+        creatorNickname:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        slotUnitMinutes:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+          - OPEN
+          - CONFIRMED
+          - CANCELED
+    ApiResponseAvailabilityResponsesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/AvailabilityResponsesResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    AvailabilityResponsesResponse:
+      type: object
+      properties:
+        availabilityRequestId:
+          type: integer
+          format: int64
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberAvailabilityResponse"
+    MemberAvailabilityResponse:
+      type: object
+      properties:
+        projectMemberId:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        submitted:
+          type: boolean
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilitySlotResponse"
+    ApiResponseListRecommendedSlotResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecommendedSlotResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    RecommendedSlotResponse:
+      type: object
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        availableCount:
+          type: integer
+          format: int32
+        totalMemberCount:
+          type: integer
+          format: int32
+    ApiResponseListReceivedInvitationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReceivedInvitationResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ReceivedInvitationResponse:
+      type: object
+      properties:
+        invitationId:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        projectName:
+          type: string
+        inviterNickname:
+          type: string
+        role:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+        status:
+          type: string
+          enum:
+          - INVITED
+          - ACCEPTED
+          - REJECTED
+          - CANCELED
+        createdAt:
+          type: string
+          format: date-time

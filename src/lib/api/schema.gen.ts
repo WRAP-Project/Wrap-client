@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+    "/projects/{projectId}/availability-requests/{availabilityRequestId}/me/response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get my availability response */
+        get: operations["findMyResponse"];
+        /** Submit my availability response */
+        put: operations["upsertMyResponse"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/schedules": {
         parameters: {
             query?: never;
@@ -32,6 +50,59 @@ export interface paths {
         put?: never;
         /** 프로젝트 생성 */
         post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 보낸 프로젝트 초대 목록 조회 */
+        get: operations["getSentInvitations"];
+        put?: never;
+        /** 프로젝트 팀원 초대 생성 */
+        post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/availability-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List availability requests */
+        get: operations["findAll"];
+        put?: never;
+        /** Create availability request */
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/availability-requests/{availabilityRequestId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm availability request */
+        post: operations["confirm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -96,13 +167,45 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["findDetail"];
         put?: never;
         post?: never;
         delete: operations["delete"];
         options?: never;
         head?: never;
         patch: operations["update"];
+        trace?: never;
+    };
+    "/schedules/{scheduleId}/uncheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["uncheck"];
+        trace?: never;
+    };
+    "/schedules/{scheduleId}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["check"];
         trace?: never;
     };
     "/projects/{projectId}": {
@@ -141,6 +244,23 @@ export interface paths {
         patch: operations["reopen"];
         trace?: never;
     };
+    "/projects/{projectId}/members/{projectMemberId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 프로젝트 멤버 역할 변경 */
+        patch: operations["changeRole"];
+        trace?: never;
+    };
     "/projects/{projectId}/complete": {
         parameters: {
             query?: never;
@@ -156,6 +276,58 @@ export interface paths {
         head?: never;
         /** 프로젝트 완료 */
         patch: operations["complete"];
+        trace?: never;
+    };
+    "/members/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 내 정보 조회 */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 내 정보 수정 */
+        patch: operations["updateMe"];
+        trace?: never;
+    };
+    "/invitations/{invitationId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 프로젝트 초대 거절 */
+        patch: operations["reject"];
+        trace?: never;
+    };
+    "/invitations/{invitationId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 프로젝트 초대 수락 */
+        patch: operations["accept"];
         trace?: never;
     };
     "/schedules/me": {
@@ -206,6 +378,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 프로젝트 멤버 목록 조회 */
+        get: operations["getProjectMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/calendar/risk-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["findRiskChecks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/availability-requests/{availabilityRequestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get availability request detail */
+        get: operations["findDetail_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/availability-requests/{availabilityRequestId}/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get member availability responses */
+        get: operations["findResponses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/availability-requests/{availabilityRequestId}/recommended-slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get recommended availability slots */
+        get: operations["findRecommendedSlots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 받은 프로젝트 초대 목록 조회 */
+        get: operations["getReceivedInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/test": {
         parameters: {
             query?: never;
@@ -226,10 +499,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/members/{projectMemberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 프로젝트 멤버 내보내기 */
+        delete: operations["removeMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/members/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 프로젝트 탈퇴 */
+        delete: operations["leaveProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 보낸 프로젝트 초대 취소 */
+        delete: operations["cancel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AvailabilityResponseUpsertRequest: {
+            slots: components["schemas"]["AvailabilitySlotRequest"][];
+        };
+        AvailabilitySlotRequest: {
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+        };
+        ApiResponseMyAvailabilityResponse: {
+            success?: boolean;
+            data?: components["schemas"]["MyAvailabilityResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        AvailabilitySlotResponse: {
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+        };
+        BusySlotResponse: {
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            source?: string;
+        };
+        ErrorBody: {
+            code?: string;
+            message?: string;
+            details?: components["schemas"]["FieldError"][];
+        };
+        FieldError: {
+            field?: string;
+            reason?: string;
+        };
+        MyAvailabilityResponse: {
+            /** Format: int64 */
+            availabilityRequestId?: number;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            startTime?: string;
+            endTime?: string;
+            /** Format: int32 */
+            slotUnitMinutes?: number;
+            existingBusySlots?: components["schemas"]["BusySlotResponse"][];
+            selectedAvailableSlots?: components["schemas"]["AvailabilitySlotResponse"][];
+        };
         ScheduleCreateRequest: {
             /** Format: int64 */
             projectId?: number;
@@ -240,6 +615,9 @@ export interface components {
             /** Format: date-time */
             endAt: string;
             shared?: boolean;
+            /** @enum {string} */
+            type?: "deadline" | "meeting" | "milestone";
+            reminder?: boolean;
             validDateRange?: boolean;
         };
         ApiResponseScheduleResponse: {
@@ -247,15 +625,6 @@ export interface components {
             data?: components["schemas"]["ScheduleResponse"];
             message?: string;
             error?: components["schemas"]["ErrorBody"];
-        };
-        ErrorBody: {
-            code?: string;
-            message?: string;
-            details?: components["schemas"]["FieldError"][];
-        };
-        FieldError: {
-            field?: string;
-            reason?: string;
         };
         ScheduleResponse: {
             /** Format: int64 */
@@ -271,6 +640,9 @@ export interface components {
             /** Format: date-time */
             endAt?: string;
             shared?: boolean;
+            /** @enum {string} */
+            type?: "deadline" | "meeting" | "milestone";
+            reminder?: boolean;
         };
         ProjectCreateRequest: {
             name: string;
@@ -281,6 +653,7 @@ export interface components {
             startDate?: string;
             /** Format: date */
             endDate?: string;
+            color: string;
         };
         ApiResponseProjectResponse: {
             success?: boolean;
@@ -299,6 +672,7 @@ export interface components {
             startDate?: string;
             /** Format: date */
             endDate?: string;
+            color?: string;
             /** @enum {string} */
             status?: "IN_PROGRESS" | "COMPLETED";
             /** Format: date-time */
@@ -307,6 +681,84 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        InvitationCreateRequest: {
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            role: "OWNER" | "MEMBER";
+        };
+        ApiResponseInvitationResponse: {
+            success?: boolean;
+            data?: components["schemas"]["InvitationResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        InvitationResponse: {
+            /** Format: int64 */
+            invitationId?: number;
+            /** Format: int64 */
+            projectId?: number;
+            projectName?: string;
+            /** Format: int64 */
+            inviteeMemberId?: number;
+            inviteeEmail?: string;
+            /** @enum {string} */
+            role?: "OWNER" | "MEMBER";
+            /** @enum {string} */
+            status?: "INVITED" | "ACCEPTED" | "REJECTED" | "CANCELED";
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        AvailabilityRequestCreateRequest: {
+            title: string;
+            description?: string;
+            /** Format: date */
+            startDate: string;
+            /** Format: date */
+            endDate: string;
+            startTime?: string;
+            endTime?: string;
+            /** Format: int32 */
+            slotUnitMinutes: number;
+        };
+        ApiResponseAvailabilityRequestDetailResponse: {
+            success?: boolean;
+            data?: components["schemas"]["AvailabilityRequestDetailResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        AvailabilityRequestDetailResponse: {
+            /** Format: int64 */
+            availabilityRequestId?: number;
+            /** Format: int64 */
+            projectId?: number;
+            title?: string;
+            description?: string;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            startTime?: string;
+            endTime?: string;
+            /** Format: int32 */
+            slotUnitMinutes?: number;
+            /** @enum {string} */
+            status?: "OPEN" | "CONFIRMED" | "CANCELED";
+            /** Format: int32 */
+            totalMemberCount?: number;
+            /** Format: int64 */
+            submittedMemberCount?: number;
+            /** Format: int64 */
+            confirmedScheduleId?: number;
+        };
+        AvailabilityConfirmRequest: {
+            title: string;
+            description?: string;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
         };
         SignupRequest: {
             /** Format: email */
@@ -325,6 +777,10 @@ export interface components {
             id?: number;
             email?: string;
             nickname?: string;
+            team?: string;
+            role?: string;
+            bio?: string;
+            accentColor?: string;
             /** Format: date-time */
             createdAt?: string;
         };
@@ -349,7 +805,37 @@ export interface components {
             /** Format: date-time */
             endAt?: string;
             shared?: boolean;
+            /** @enum {string} */
+            type?: "deadline" | "meeting" | "milestone";
+            reminder?: boolean;
             validDateRange?: boolean;
+        };
+        ApiResponseScheduleDetailResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ScheduleDetailResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ScheduleDetailResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            projectId?: number;
+            projectName?: string;
+            /** Format: int64 */
+            creatorId?: number;
+            creatorNickname?: string;
+            title?: string;
+            description?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            shared?: boolean;
+            /** @enum {string} */
+            type?: "deadline" | "meeting" | "milestone";
+            reminder?: boolean;
+            checked?: boolean;
         };
         ProjectUpdateRequest: {
             name: string;
@@ -360,6 +846,38 @@ export interface components {
             startDate?: string;
             /** Format: date */
             endDate?: string;
+            color?: string;
+        };
+        ProjectMemberRoleUpdateRequest: {
+            /** @enum {string} */
+            role: "OWNER" | "MEMBER";
+        };
+        ApiResponseProjectMemberResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectMemberResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ProjectMemberResponse: {
+            /** Format: int64 */
+            projectMemberId?: number;
+            /** Format: int64 */
+            memberId?: number;
+            nickname?: string;
+            profileImage?: string;
+            /** @enum {string} */
+            role?: "OWNER" | "MEMBER";
+            /** @enum {string} */
+            status?: "INVITED" | "JOINED" | "LEFT";
+            /** Format: date-time */
+            joinedAt?: string;
+        };
+        MemberUpdateRequest: {
+            nickname?: string;
+            team?: string;
+            role?: string;
+            bio?: string;
+            accentColor?: string;
         };
         ApiResponseListScheduleResponse: {
             success?: boolean;
@@ -383,6 +901,7 @@ export interface components {
             startDate?: string;
             /** Format: date */
             endDate?: string;
+            color?: string;
         };
         ApiResponseListScheduleReminderResponse: {
             success?: boolean;
@@ -402,8 +921,130 @@ export interface components {
             /** Format: date-time */
             endAt?: string;
             shared?: boolean;
+            /** @enum {string} */
+            type?: "deadline" | "meeting" | "milestone";
+            reminder?: boolean;
             /** Format: int64 */
             daysLeft?: number;
+        };
+        ApiResponseListProjectMemberResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectMemberResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ApiResponseListInvitationResponse: {
+            success?: boolean;
+            data?: components["schemas"]["InvitationResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ApiResponseListCalendarRiskCheckResponse: {
+            success?: boolean;
+            data?: components["schemas"]["CalendarRiskCheckResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        CalendarRiskCheckResponse: {
+            /** Format: int64 */
+            taskId?: number;
+            /** Format: int64 */
+            projectId?: number;
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            assigneeProjectMemberId?: number;
+            assigneeNickname?: string;
+            /** @enum {string} */
+            assigneeRole?: "OWNER" | "MEMBER";
+            /** @enum {string} */
+            riskLevel?: "BLOCKED" | "OVERDUE" | "DUE_SOON" | "NEEDS_CHECK";
+            reason?: string;
+        };
+        ApiResponseListAvailabilityRequestSummaryResponse: {
+            success?: boolean;
+            data?: components["schemas"]["AvailabilityRequestSummaryResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        AvailabilityRequestSummaryResponse: {
+            /** Format: int64 */
+            availabilityRequestId?: number;
+            /** Format: int64 */
+            projectId?: number;
+            /** Format: int64 */
+            creatorProjectMemberId?: number;
+            creatorNickname?: string;
+            title?: string;
+            description?: string;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            startTime?: string;
+            endTime?: string;
+            /** Format: int32 */
+            slotUnitMinutes?: number;
+            /** @enum {string} */
+            status?: "OPEN" | "CONFIRMED" | "CANCELED";
+        };
+        ApiResponseAvailabilityResponsesResponse: {
+            success?: boolean;
+            data?: components["schemas"]["AvailabilityResponsesResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        AvailabilityResponsesResponse: {
+            /** Format: int64 */
+            availabilityRequestId?: number;
+            members?: components["schemas"]["MemberAvailabilityResponse"][];
+        };
+        MemberAvailabilityResponse: {
+            /** Format: int64 */
+            projectMemberId?: number;
+            nickname?: string;
+            submitted?: boolean;
+            slots?: components["schemas"]["AvailabilitySlotResponse"][];
+        };
+        ApiResponseListRecommendedSlotResponse: {
+            success?: boolean;
+            data?: components["schemas"]["RecommendedSlotResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        RecommendedSlotResponse: {
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            /** Format: int32 */
+            availableCount?: number;
+            /** Format: int32 */
+            totalMemberCount?: number;
+        };
+        ApiResponseListReceivedInvitationResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ReceivedInvitationResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ReceivedInvitationResponse: {
+            /** Format: int64 */
+            invitationId?: number;
+            /** Format: int64 */
+            projectId?: number;
+            projectName?: string;
+            inviterNickname?: string;
+            /** @enum {string} */
+            role?: "OWNER" | "MEMBER";
+            /** @enum {string} */
+            status?: "INVITED" | "ACCEPTED" | "REJECTED" | "CANCELED";
+            /** Format: date-time */
+            createdAt?: string;
         };
     };
     responses: never;
@@ -414,6 +1055,56 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    findMyResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                availabilityRequestId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMyAvailabilityResponse"];
+                };
+            };
+        };
+    };
+    upsertMyResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                availabilityRequestId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityResponseUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMyAvailabilityResponse"];
+                };
+            };
+        };
+    };
     create: {
         parameters: {
             query?: never;
@@ -478,6 +1169,133 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+        };
+    };
+    getSentInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListInvitationResponse"];
+                };
+            };
+        };
+    };
+    create_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitationResponse"];
+                };
+            };
+        };
+    };
+    findAll: {
+        parameters: {
+            query?: {
+                status?: "OPEN" | "CONFIRMED" | "CANCELED";
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAvailabilityRequestSummaryResponse"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityRequestCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAvailabilityRequestDetailResponse"];
+                };
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                availabilityRequestId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseScheduleResponse"];
                 };
             };
         };
@@ -550,6 +1368,28 @@ export interface operations {
             };
         };
     };
+    findDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseScheduleDetailResponse"];
+                };
+            };
+        };
+    };
     delete: {
         parameters: {
             query?: never;
@@ -594,6 +1434,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseScheduleResponse"];
+                };
+            };
+        };
+    };
+    uncheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseScheduleDetailResponse"];
+                };
+            };
+        };
+    };
+    check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseScheduleDetailResponse"];
                 };
             };
         };
@@ -690,6 +1574,33 @@ export interface operations {
             };
         };
     };
+    changeRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                projectMemberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectMemberRoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+        };
+    };
     complete: {
         parameters: {
             query?: never;
@@ -708,6 +1619,94 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberResponse"];
+                };
+            };
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberResponse"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitationResponse"];
+                };
+            };
+        };
+    };
+    accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitationResponse"];
                 };
             };
         };
@@ -786,6 +1785,144 @@ export interface operations {
             };
         };
     };
+    getProjectMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectMemberResponse"];
+                };
+            };
+        };
+    };
+    findRiskChecks: {
+        parameters: {
+            query?: {
+                status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
+                assigneeProjectMemberId?: number;
+                dueFrom?: string;
+                dueTo?: string;
+            };
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListCalendarRiskCheckResponse"];
+                };
+            };
+        };
+    };
+    findDetail_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                availabilityRequestId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAvailabilityRequestDetailResponse"];
+                };
+            };
+        };
+    };
+    findResponses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                availabilityRequestId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAvailabilityResponsesResponse"];
+                };
+            };
+        };
+    };
+    findRecommendedSlots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                availabilityRequestId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListRecommendedSlotResponse"];
+                };
+            };
+        };
+    };
+    getReceivedInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListReceivedInvitationResponse"];
+                };
+            };
+        };
+    };
     test: {
         parameters: {
             query?: never;
@@ -802,6 +1939,74 @@ export interface operations {
                 };
                 content: {
                     "*/*": string;
+                };
+            };
+        };
+    };
+    removeMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                projectMemberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    leaveProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                invitationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
