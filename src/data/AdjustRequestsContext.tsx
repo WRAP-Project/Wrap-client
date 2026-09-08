@@ -302,20 +302,28 @@ interface AdjustRequestsContextValue {
 const AdjustRequestsContext = createContext<AdjustRequestsContextValue | null>(null);
 
 export function AdjustRequestsProvider({ children }: { children: ReactNode }) {
-  const { projects, selectedProjectId } = useProjectsContext();
-  const [requests, setRequests] = useState<AdjustRequest[]>(seedRequests);
+  const { projects, selectedProjectId, loading: projectsLoading } = useProjectsContext();
+  const [requests, setRequests] = useState<AdjustRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const serverProjectId = useMemo(() => {
+    if (projectsLoading) return undefined;
     const selected = serverIdOf(selectedProjectId ?? undefined);
     if (selected !== null) return selected;
     return projects
       .map((project) => serverIdOf(project.id))
       .find((id): id is number => id !== null) ?? null;
-  }, [projects, selectedProjectId]);
+  }, [projects, projectsLoading, selectedProjectId]);
 
   const loadRequests = useCallback(async () => {
+    if (serverProjectId === undefined) {
+      setRequests([]);
+      setError(null);
+      setLoading(true);
+      return;
+    }
+
     if (serverProjectId === null) {
       setRequests(seedRequests());
       setError(null);
@@ -385,6 +393,10 @@ export function AdjustRequestsProvider({ children }: { children: ReactNode }) {
 
   const addRequest = useCallback(
     async (draft: AdjustRequestDraft): Promise<AdjustRequest> => {
+      if (serverProjectId === undefined) {
+        throw new Error("프로젝트 정보를 불러오는 중입니다.");
+      }
+
       if (serverProjectId === null) {
         const created: AdjustRequest = {
           id: crypto.randomUUID(),
@@ -425,7 +437,7 @@ export function AdjustRequestsProvider({ children }: { children: ReactNode }) {
   const submitAvailability = useCallback(
     async (requestId: string, memberId: string, slots: string[]) => {
       const availabilityRequestId = serverRequestIdOf(requestId);
-      if (serverProjectId !== null && availabilityRequestId !== null && memberId === ME_ID) {
+      if (serverProjectId !== undefined && serverProjectId !== null && availabilityRequestId !== null && memberId === ME_ID) {
         const { data, response } = await apiClient.PUT(
           "/projects/{projectId}/availability-requests/{availabilityRequestId}/me/response",
           {
@@ -462,7 +474,7 @@ export function AdjustRequestsProvider({ children }: { children: ReactNode }) {
     async (requestId: string, title: string, date: string, hour: number) => {
       const availabilityRequestId = serverRequestIdOf(requestId);
       const request = requests.find((r) => r.id === requestId);
-      if (serverProjectId === null || availabilityRequestId === null || !request) {
+      if (serverProjectId === undefined || serverProjectId === null || availabilityRequestId === null || !request) {
         closeRequest(requestId);
         return;
       }

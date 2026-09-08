@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
-import { daysLeft, ddayLabel, type ChecklistItem, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
+import { daysLeft, ddayLabel, type ReminderChecklistItem, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
 import { useSchedulesContext } from "@/data/SchedulesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useCalendarRiskChecks, type CalendarRiskSignal } from "@/data/useCalendarRiskChecks";
@@ -322,21 +322,20 @@ function RegisterSheet({
 // 누르면 체크리스트(담당자·상태·BLOCK 배지)가 카드 안에 펼쳐진다.
 
 function ChecklistRow({
-  item, bright, onToggle,
+  item, bright,
 }: {
-  item: ChecklistItem; bright: boolean; onToggle: () => void;
+  item: ReminderChecklistItem; bright: boolean;
 }) {
   const done = item.state === "done";
   const blocked = item.state === "blocked";
   return (
     <div className="flex items-center gap-3.5">
-      <button
-        onClick={onToggle}
+      <span
         className="grid size-7 shrink-0 place-items-center rounded-lg transition-colors"
         style={done ? { background: INK } : { border: `2px solid ${bright ? INK : "#fff"}` }}
       >
         {done && <Check size={14} color="#fff" strokeWidth={3} />}
-      </button>
+      </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-bold" style={{ color: bright ? INK : "#fff" }}>
           {item.title}
@@ -345,7 +344,7 @@ function ChecklistRow({
           className="mt-0.5 truncate text-[11px] font-semibold"
           style={{ color: blocked ? PINK : bright ? "rgba(28,28,30,0.45)" : "rgba(255,255,255,0.6)" }}
         >
-          {item.statusLabel} · {item.assignee}
+          {item.assignee ? `${item.statusLabel} · ${item.assignee}` : item.statusLabel}
         </p>
       </div>
       {blocked && (
@@ -361,16 +360,15 @@ function ChecklistRow({
 }
 
 function ReminderCard({
-  schedule, color, open, onToggleOpen, onToggleItem,
+  schedule, color, open, onToggleOpen,
 }: {
   schedule: Schedule;
   color: string;
   open: boolean;
   onToggleOpen: () => void;
-  onToggleItem: (itemId: string) => void;
 }) {
   const bright = isBright(color);
-  const hasBlocked = schedule.checklist?.some((i) => i.state === "blocked") ?? false;
+  const hasBlocked = schedule.reminderChecklist?.some((i) => i.state === "blocked") ?? false;
 
   return (
     <div className="rounded-3xl rounded-tl-lg px-5 py-4" style={{ background: color }}>
@@ -403,9 +401,9 @@ function ReminderCard({
 
       {open && (
         <div className="mt-5 flex flex-col gap-4 pb-1">
-          {schedule.checklist?.length ? (
-            schedule.checklist.map((item) => (
-              <ChecklistRow key={item.id} item={item} bright={bright} onToggle={() => onToggleItem(item.id)} />
+          {schedule.reminderChecklist?.length ? (
+            schedule.reminderChecklist.map((item) => (
+              <ChecklistRow key={item.id} item={item} bright={bright} />
             ))
           ) : (
             <p className="text-[12px]" style={{ color: bright ? "rgba(28,28,30,0.5)" : "rgba(255,255,255,0.6)" }}>
@@ -603,7 +601,7 @@ function TeamTimeline({ rows, color }: { rows: TeamMemberDay[]; color: (projectI
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
-  const { schedules, addSchedule, toggleChecklistItem } = useSchedulesContext();
+  const { schedules, addSchedule } = useSchedulesContext();
   const { projects, selectedProjectId, selectProject } = useProjectsContext();
   const navigate = useNavigate();
   const today = new Date();
@@ -705,11 +703,20 @@ export default function CalendarScreen() {
   }
 
   /** 전체 일정의 막힘(BLOCK) 체크리스트 항목 + 서버 리스크 체크 — 상단 막힘 신호 배너의 데이터 */
-  const mockBlockedSignals: CalendarRiskSignal[] = schedules.flatMap((s) =>
-    (s.checklist ?? [])
-      .filter((i) => i.state === "blocked")
-      .map((i) => ({ ...i, projectId: s.projectId })),
-  );
+  const isFilteringServerProject = serverIdOf(filterProjectId ?? undefined) !== null;
+  const mockBlockedSignals: CalendarRiskSignal[] = isFilteringServerProject
+    ? []
+    : schedules
+        .filter((s) =>
+          filterProjectId
+            ? s.projectId === filterProjectId
+            : serverIdOf(s.projectId) === null,
+        )
+        .flatMap((s) =>
+          (s.reminderChecklist ?? [])
+            .filter((i) => i.state === "blocked")
+            .map((i) => ({ ...i, assignee: i.assignee ?? "담당자", projectId: s.projectId })),
+        );
   const blockedSignals = [...mockBlockedSignals, ...riskSignals];
 
   return (
@@ -937,7 +944,6 @@ export default function CalendarScreen() {
                         color={colorOfProject(s.projectId)}
                         open={openReminderId === s.id}
                         onToggleOpen={() => setOpenReminderId((cur) => (cur === s.id ? null : s.id))}
-                        onToggleItem={(itemId) => toggleChecklistItem(s.id, itemId)}
                       />
                     ))}
                   </div>
