@@ -39,8 +39,8 @@ function AddButton({
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, selectProject } = useProjectsContext();
-  const project = projects.find((p) => p.id === projectId) ?? projects[0];
+  const { projects, selectProject, loading: projectsLoading } = useProjectsContext();
+  const project = projects.find((p) => p.id === projectId);
   const { data } = useProjectDetail(project?.id);
 
   const accentColor = project?.color ?? "#A78BFA";
@@ -56,6 +56,33 @@ export default function ProjectDetail() {
     navigate("/");
   };
 
+  if (!project) {
+    const message = projectsLoading
+      ? "프로젝트를 불러오는 중이에요"
+      : "프로젝트를 찾을 수 없어요";
+
+    return (
+      <div
+        className="flex min-h-screen flex-col"
+        style={{ background: "#1C1C1E", color: "#F0F0EC" }}
+      >
+        <div className="flex-1 px-4 pt-6">
+          <button
+            onClick={handleBack}
+            className="flex h-8 w-8 items-center justify-center rounded-full transition-opacity active:opacity-60"
+            style={{ background: "rgba(240,240,236,0.08)" }}
+            aria-label="뒤로가기"
+          >
+            <ArrowLeft size={16} strokeWidth={2.5} color="#F0F0EC" />
+          </button>
+          <p className="pt-16 text-center text-[13px]" style={{ color: "rgba(240,240,236,0.45)" }}>
+            {message}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const { urgentTask, members, schedules, progress } = data;
   const activeCount = members.filter((m) => m.active).length;
 
@@ -65,8 +92,8 @@ export default function ProjectDetail() {
   // 일정 추가는 캘린더의 등록 시트를 재사용한다 — 이 프로젝트를 미리 골라둔
   // 상태로 열린다. 팀원 추가는 초대 화면으로 보낸다.
   const goAddSchedule = () =>
-    navigate(`/calendar?register=1&project=${encodeURIComponent(project?.id ?? "")}`);
-  const goInviteMember = () => navigate(`/create-project/${project?.id}/invite`);
+    navigate(`/calendar?register=1&project=${encodeURIComponent(project.id)}`);
+  const goInviteMember = () => navigate(`/create-project/${project.id}/invite`);
 
   return (
     <div
@@ -130,7 +157,7 @@ export default function ProjectDetail() {
                 마감 임박
               </span>
               <button
-                onClick={() => navigate(`/project/${project?.id}/milestone`)}
+                onClick={() => navigate(`/project/${project.id}/milestone`)}
                 className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
                 style={{ background: "rgba(255,255,255,0.18)" }}
               >
@@ -176,7 +203,7 @@ export default function ProjectDetail() {
         <section
           className="rounded-2xl p-5 flex flex-col gap-4 text-left transition-opacity active:opacity-80"
           style={{ background: "#fff", color: "#1C1C1E" }}
-          onClick={() => navigate(`/project/${project?.id}/team`)}
+          onClick={() => navigate(`/project/${project.id}/team`)}
         >
           {/* 헤더: 활동 중 카운트 + 이니셜 미리보기 */}
           <div className="flex items-center justify-between">
@@ -269,7 +296,7 @@ export default function ProjectDetail() {
           <div
             className="rounded-2xl overflow-hidden text-left transition-opacity active:opacity-80"
             style={{ background: "#fff" }}
-            onClick={() => navigate(`/project/${project?.id}/schedule`)}
+            onClick={() => navigate(`/project/${project.id}/schedule`)}
           >
             {schedules.map((s, i) => (
               <div
@@ -304,7 +331,7 @@ export default function ProjectDetail() {
         <section
           className="rounded-2xl p-5 flex flex-col gap-4 text-left transition-opacity active:opacity-80"
           style={{ background: "#fff" }}
-          onClick={() => navigate(`/project/${project?.id}/report`)}
+          onClick={() => navigate(`/project/${project.id}/report`)}
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between">

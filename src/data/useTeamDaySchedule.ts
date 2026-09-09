@@ -114,8 +114,9 @@ export function useTeamDaySchedule(projectId: string | null, date: string) {
     // 팀원은 프로젝트 간 겹치지 않는다(useTeamActivity.ts 참고) —
     // 전체 보기에서도 중복 제거 없이 프로젝트 순서대로 이어 붙이면 된다.
     targets.forEach((project) => {
+      const isServerProject = serverIdOf(project.id) !== null;
       const pool = TASK_POOL[project.id] ?? FALLBACK_POOL;
-      const members = serverIdOf(project.id) !== null && projectId === project.id
+      const members = isServerProject && projectId === project.id
         ? serverMembers.map((member) => ({ ...member, blocked: false }))
         : getProjectMembers(project.id);
 
@@ -136,18 +137,21 @@ export function useTeamDaySchedule(projectId: string | null, date: string) {
             done: false,
           }));
 
-        // 2) 남는 자리를 일과 mock으로 채운다
+        // 2) mock 프로젝트만 남는 자리를 일과 mock으로 채운다.
+        // 서버 프로젝트는 실제 일정/멤버만 보여줘야 선택 직후 mock 업무가 섞이지 않는다.
         const fillerCount = 1 + ((seed + i) % 2);
-        const filler: TeamTaskBlock[] = Array.from({ length: fillerCount }, (_, k) => {
-          const [start, end] = SLOTS[(seed + i * 3 + k * 5) % SLOTS.length];
-          return {
-            id: `${project.id}-${member.initials}-${date}-${k}`,
-            title: pool[(seed + i * 2 + k * 3) % pool.length],
-            startTime: start,
-            endTime: end,
-            done: false,
-          };
-        });
+        const filler: TeamTaskBlock[] = isServerProject
+          ? []
+          : Array.from({ length: fillerCount }, (_, k) => {
+              const [start, end] = SLOTS[(seed + i * 3 + k * 5) % SLOTS.length];
+              return {
+                id: `${project.id}-${member.initials}-${date}-${k}`,
+                title: pool[(seed + i * 2 + k * 3) % pool.length],
+                startTime: start,
+                endTime: end,
+                done: false,
+              };
+            });
 
         const memberDone = !member.blocked && (seed + i) % 4 === 2;
         const tasks = normalize([...fromSchedules, ...filler]).map((t) => ({

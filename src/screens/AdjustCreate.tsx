@@ -5,6 +5,7 @@ import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useTeamMembers } from "@/data/useTeamMembers";
 import { ME_ID, useAdjustRequests } from "@/data/AdjustRequestsContext";
+import { serverIdOf } from "@/data/useProjects";
 
 // 일정 조정 요청 생성 폼 — 조정 요청 목록(/calendar/adjust)의 "일정 조정하기"
 // 버튼에서 들어온다. 제출하면 요청이 목록에 추가되고, 팀원들이 각자 가능한
@@ -61,8 +62,12 @@ function RangeField({
 
 export default function AdjustCreate() {
   const navigate = useNavigate();
-  const { selectedProjectId } = useProjectsContext();
-  const { members } = useTeamMembers(selectedProjectId);
+  const { projects, selectedProjectId, loading: projectsLoading } = useProjectsContext();
+  const defaultServerProjectId = projects.find((project) => serverIdOf(project.id) !== null)?.id;
+  const memberProjectId = projectsLoading && selectedProjectId === null
+    ? "__projects-loading__"
+    : selectedProjectId ?? defaultServerProjectId ?? null;
+  const { members } = useTeamMembers(memberProjectId);
   const { addRequest } = useAdjustRequests();
 
   const [title, setTitle] = useState("");
