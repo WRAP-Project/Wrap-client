@@ -45,7 +45,9 @@ export interface Schedule {
   checked?: boolean;
   /** 담당자 이니셜 — 프론트 전용(백엔드 스키마에 없음). 마감 임박 카드 등에서 쓴다. */
   assignees?: string[];
-  /** 마감 리마인드 집계 체크리스트 — reminder가 true인 일정에만 채워진다. */
+  /** 마감 리마인드 API가 내려준 표시 대상 여부. */
+  isDeadlineReminder?: boolean;
+  /** 마감 리마인드 집계 체크리스트. */
   reminderChecklist?: ReminderChecklistItem[];
   source?: "mock" | "server";
 }
@@ -352,6 +354,7 @@ export function useSchedules() {
 
   const loadSchedules = useCallback(async () => {
     setLoading(true);
+    const hasServerProject = projects.some((project) => serverIdOf(project.id) !== null);
     try {
       const { data, response } = await apiClient.GET("/schedules/me", {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -363,6 +366,7 @@ export function useSchedules() {
         .map((schedule) => mapScheduleResponse(schedule, projects))
         .filter((schedule): schedule is Schedule => schedule !== null);
       const reminderByScheduleId = new Map<string, ReminderChecklistItem[]>();
+      const deadlineReminderScheduleIds = new Set<string>();
       const serverProjectIds = projects
         .map((project) => serverIdOf(project.id))
         .filter((projectId): projectId is number => projectId !== null);
@@ -377,11 +381,13 @@ export function useSchedules() {
             if (!result.response.ok || result.data?.success === false) return;
 
             ((result.data?.data ?? []) as ScheduleReminderResponse[]).forEach((reminder) => {
-              if (reminder.id === undefined || !reminder.checklist) return;
-              const checklist = reminder.checklist
+              if (reminder.id === undefined) return;
+              const scheduleId = clientScheduleIdOf(reminder.id);
+              deadlineReminderScheduleIds.add(scheduleId);
+              const checklist = (reminder.checklist ?? [])
                 .map(mapReminderChecklistItem)
                 .filter((item): item is ReminderChecklistItem => item !== null);
-              reminderByScheduleId.set(clientScheduleIdOf(reminder.id), checklist);
+              reminderByScheduleId.set(scheduleId, checklist);
             });
           } catch {
             // 리마인드 체크리스트는 보조 정보이므로 일정 목록 자체는 유지한다.
@@ -391,12 +397,13 @@ export function useSchedules() {
 
       const schedulesWithReminderChecklist = serverSchedules.map((schedule) => ({
         ...schedule,
+        isDeadlineReminder: deadlineReminderScheduleIds.has(schedule.id),
         reminderChecklist: reminderByScheduleId.get(schedule.id) ?? schedule.reminderChecklist,
       }));
-      setSchedules([...MOCK_SCHEDULES, ...schedulesWithReminderChecklist]);
+      setSchedules(hasServerProject ? schedulesWithReminderChecklist : [...MOCK_SCHEDULES, ...schedulesWithReminderChecklist]);
       setError(null);
     } catch (e) {
-      setSchedules(MOCK_SCHEDULES);
+      setSchedules(hasServerProject ? [] : MOCK_SCHEDULES);
       setError(
         e instanceof Error && e.name !== "TimeoutError"
           ? e
