@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { useAuthContext } from "./AuthContext";
 import { avatarBgOf, initialsOf, roleLabelOf } from "./projectMemberDisplay";
 import { REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
@@ -72,8 +72,18 @@ export function useProjectInvite(projectId: string | undefined) {
         }),
       ]);
 
-      if (membersRes.data?.success === false || invitationsRes.data?.success === false) {
-        throw new Error("팀원 목록을 불러오지 못했습니다.");
+      // 실패 본문은 data가 아니라 error에 담긴다 — data만 보면 404/500이 조용히
+      // "빈 목록"으로 둔갑한다.
+      for (const res of [membersRes, invitationsRes]) {
+        if (!res.response.ok || res.data?.success === false) {
+          throw new Error(
+            apiErrorMessage(
+              res.error ?? res.data,
+              res.response.status,
+              "팀원 목록을 불러오지 못했습니다.",
+            ),
+          );
+        }
       }
 
       const joined: Invitee[] = (membersRes.data?.data ?? [])
@@ -134,13 +144,22 @@ export function useProjectInvite(projectId: string | undefined) {
       if (serverId === null) throw new Error("아직 서버에 저장되지 않은 프로젝트입니다.");
       setInviting(true);
       try {
-        const { data, response } = await apiClient.POST("/projects/{projectId}/invitations", {
-          params: { path: { projectId: serverId } },
-          body: { email, role: "MEMBER" },
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        });
+        const { data, error, response } = await apiClient.POST(
+          "/projects/{projectId}/invitations",
+          {
+            params: { path: { projectId: serverId } },
+            body: { email, role: "MEMBER" },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          },
+        );
         if (!response.ok || data?.success === false) {
-          throw new Error(data?.error?.message ?? "초대에 실패했습니다.");
+          // 404는 라우트가 없어서가 아니다 — 엔드포인트는 배포돼 있다(없으면 401이
+          // 아니라 404가 인증 전에 떨어진다). 서버가 대상을 못 찾은 경우다.
+          const fallback =
+            response.status === 404
+              ? "가입되지 않은 이메일이거나 프로젝트를 찾을 수 없어요."
+              : "초대에 실패했습니다.";
+          throw new Error(apiErrorMessage(error ?? data, response.status, fallback));
         }
         await load();
       } finally {

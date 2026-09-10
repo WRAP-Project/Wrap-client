@@ -11,6 +11,18 @@ export const apiClient = createClient<paths>({
   credentials: "include",
 });
 
+// ── 실패 응답에서 서버 메시지 꺼내기 ──────────────────────────────────────────
+// openapi-fetch는 2xx 본문만 `data`에 넣고, 그 외 상태의 본문은 `error`에 넣는다.
+// 그래서 `data?.error?.message`로 읽으면 실패 사유가 항상 undefined가 되고 화면에는
+// 기본 문구만 뜬다 — 실패 본문은 반드시 `error` 쪽에서 읽어야 한다.
+// 스펙(api/openapi.yaml)이 에러 응답을 문서화하지 않아 `error`는 타입이 없으므로
+// 여기서 한 번만 좁힌다.
+export function apiErrorMessage(body: unknown, status: number, fallback: string): string {
+  const message = (body as { error?: { message?: unknown } } | null | undefined)?.error?.message;
+  if (typeof message === "string" && message.trim() !== "") return message;
+  return `${fallback} (HTTP ${status})`;
+}
+
 // ── 401 인터셉터 ──────────────────────────────────────────────────────────────
 // 세션은 30분 뒤 만료되고, 그 다음 요청부터 401 UNAUTHORIZED가 온다. 화면마다
 // 이걸 처리하지 않도록 여기서 한 번에 가로채고, 실제 동작(세션 비우기 + 로그인 화면
