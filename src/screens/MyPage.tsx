@@ -16,7 +16,7 @@ import type { Project } from "@/data/useProjects";
 // 배지·타일·토글 등 모든 액센트에 일관되게 반영된다.
 
 type SectionId = "profile" | "projects" | "tools" | "alerts";
-type SheetState = { type: "roles" | "invite"; project: Project } | null;
+type SheetState = { type: "roles" | "invite" | "leave"; project: Project } | null;
 
 // ─── 화면 전용 조각들 (MyPage.tsx에서만 쓰이므로 인라인 정의) ─────────────────
 
@@ -141,20 +141,32 @@ function ProjectSectionBody({
               )}
             </button>
             {open && (
-              <div className="flex gap-2 px-4 pb-4">
+              <div className="flex flex-col gap-2 px-4 pb-4">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onOpenSheet({ type: "roles", project })}
+                    className="h-12 flex-1 rounded-xl text-[14px] font-bold transition-opacity active:opacity-60"
+                    style={{ background: rgba(C.fg, 0.07), color: C.fg70 }}
+                  >
+                    권한 설정
+                  </button>
+                  <button
+                    onClick={() => onOpenSheet({ type: "invite", project })}
+                    className="h-12 flex-[1.4] rounded-xl text-[14px] font-bold transition-opacity active:opacity-60"
+                    style={{ background: accent, color: C.ink }}
+                  >
+                    초대하기
+                  </button>
+                </div>
+                {/* 나가기는 되돌릴 수 없어 위 두 버튼과 같은 무게로 두지 않는다 —
+                    한 단계 낮은 강조로 깔고, 실제 실행은 확인 시트에서 한다. */}
                 <button
-                  onClick={() => onOpenSheet({ type: "roles", project })}
-                  className="h-12 flex-1 rounded-xl text-[14px] font-bold transition-opacity active:opacity-60"
-                  style={{ background: rgba(C.fg, 0.07), color: C.fg70 }}
+                  onClick={() => onOpenSheet({ type: "leave", project })}
+                  className="flex h-10 items-center justify-center gap-1.5 rounded-xl text-[13px] font-bold transition-opacity active:opacity-60"
+                  style={{ background: rgba(C.red, 0.1), color: C.red }}
                 >
-                  권한 설정
-                </button>
-                <button
-                  onClick={() => onOpenSheet({ type: "invite", project })}
-                  className="h-12 flex-[1.4] rounded-xl text-[14px] font-bold transition-opacity active:opacity-60"
-                  style={{ background: accent, color: C.ink }}
-                >
-                  초대하기
+                  <LogOut size={13} strokeWidth={2.4} />
+                  프로젝트 나가기
                 </button>
               </div>
             )}
@@ -257,6 +269,63 @@ function InviteSheet({ project, accent, onClose }: { project: Project; accent: s
       <p className="mt-3 text-[12px]" style={{ color: result && !result.ok ? "#EB3E88" : C.fg50 }}>
         {result?.message ?? "초대를 수락하면 팀원 권한으로 프로젝트에 참여합니다."}
       </p>
+      <CloseBtn onClose={onClose} />
+    </Sheet>
+  );
+}
+
+// 프로젝트 나가기 확인 시트 — DELETE /projects/{projectId}/members/me.
+// 되돌릴 수 없는 동작이라 목록에서 바로 실행하지 않고 여기서 한 번 더 확인받는다.
+function LeaveSheet({ project, onClose }: { project: Project; onClose: () => void }) {
+  const { leaveProject } = useProjectsContext();
+  const [leaving, setLeaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLeave = async () => {
+    if (leaving) return;
+    setLeaving(true);
+    setError(null);
+    try {
+      await leaveProject(project.id);
+      // 목록에서 이미 사라졌으므로 시트만 닫으면 된다.
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "프로젝트에서 나가지 못했습니다.");
+      setLeaving(false);
+    }
+  };
+
+  return (
+    <Sheet title={`나가기 · ${project.name}`} onClose={onClose}>
+      <p className="text-[14px] leading-relaxed" style={{ color: C.fg70 }}>
+        이 프로젝트에서 나가면 일정과 대화에 더 이상 접근할 수 없어요.
+        다시 들어오려면 팀원의 초대가 필요해요.
+      </p>
+
+      <div className="mt-5 flex gap-2">
+        <button
+          onClick={onClose}
+          disabled={leaving}
+          className="h-12 flex-1 rounded-xl text-[14px] font-bold transition-opacity active:opacity-60 disabled:opacity-40"
+          style={{ background: rgba(C.fg, 0.07), color: C.fg70 }}
+        >
+          취소
+        </button>
+        <button
+          onClick={handleLeave}
+          disabled={leaving}
+          className="h-12 flex-1 rounded-xl text-[14px] font-bold text-white transition-opacity active:opacity-60 disabled:opacity-40"
+          style={{ background: C.red }}
+        >
+          {leaving ? "나가는 중" : "나가기"}
+        </button>
+      </div>
+
+      {error && (
+        <p className="mt-3 text-[12px]" style={{ color: C.red }}>
+          {error}
+        </p>
+      )}
       <CloseBtn onClose={onClose} />
     </Sheet>
   );
@@ -423,6 +492,9 @@ export default function MyPage() {
       )}
       {sheet?.type === "invite" && (
         <InviteSheet project={sheet.project} accent={accent} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.type === "leave" && (
+        <LeaveSheet project={sheet.project} onClose={() => setSheet(null)} />
       )}
     </main>
   );

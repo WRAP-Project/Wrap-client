@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { C } from "@/screens/chatShared";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -214,5 +214,38 @@ export function useProjects() {
     return created;
   }, []);
 
-  return { projects, addProject, loading, error };
+  /**
+   * 참여 중인 프로젝트에서 나간다(DELETE /projects/{projectId}/members/me).
+   * 성공하면 목록에서 바로 뺀다 — 다시 조회하지 않는다.
+   *
+   * mock 프로젝트는 서버에 없으므로 호출 자체를 막는다. 그대로 보내면 남의
+   * 프로젝트를 건드리거나 404가 난다.
+   *
+   * OWNER가 나갈 때 서버가 어떻게 처리하는지는 스펙에 없다 — 거절한다면 그
+   * 사유가 그대로 예외 메시지로 올라오므로 화면이 보여준다.
+   */
+  const leaveProject = useCallback(async (projectId: string): Promise<void> => {
+    const serverId = serverIdOf(projectId);
+    if (serverId === null) {
+      throw new Error("샘플 프로젝트라 나갈 수 없어요.");
+    }
+
+    const { data, error, response } = await apiClient.DELETE(
+      "/projects/{projectId}/members/me",
+      {
+        params: { path: { projectId: serverId } },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      },
+    );
+
+    if (!response.ok || data?.success === false) {
+      throw new Error(
+        apiErrorMessage(error ?? data, response.status, "프로젝트에서 나가지 못했습니다."),
+      );
+    }
+
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+  }, []);
+
+  return { projects, addProject, leaveProject, loading, error };
 }

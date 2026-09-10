@@ -19,6 +19,8 @@ export type { Project, ProjectDraft, ProjectMember };
 interface ProjectsContextValue {
   projects: Project[];
   addProject: (draft: ProjectDraft) => Promise<Project>;
+  /** 참여 중인 프로젝트에서 나간다. 성공하면 목록에서 사라진다. */
+  leaveProject: (projectId: string) => Promise<void>;
   loading: boolean;
   error: Error | null;
   /** 홈에서 선택한(또는 마지막으로 본) 프로젝트 — 하단 탭 홈 버튼이 이 프로젝트로 이동한다. */
@@ -35,8 +37,16 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const projectsValue = useProjects();
   const [selectedProjectId, selectProject] = useState<string | null>(null);
 
+  // 나간 프로젝트가 "선택된 프로젝트"로 남으면 하단 탭 홈 버튼이 사라진
+  // 프로젝트로 가려다 빈 화면에 부딪힌다 — 나갈 때 선택도 같이 푼다.
+  const leaveProject = async (projectId: string) => {
+    await projectsValue.leaveProject(projectId);
+    selectProject((cur) => (cur === projectId ? null : cur));
+  };
+
   const value: ProjectsContextValue = {
     ...projectsValue,
+    leaveProject,
     selectedProjectId,
     selectedProject: projectsValue.projects.find((p) => p.id === selectedProjectId),
     selectProject,
