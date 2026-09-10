@@ -4,6 +4,33 @@ import { ArrowLeft, ArrowRight, ChevronRight, Plus } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProjectDetail } from "@/data/useProjectDetail";
 
+// ── 액센트 위에 올릴 글자색 ──────────────────────────────────────────────────
+// D-Day 카드 배경은 프로젝트마다 다른 색(project.color)이다. 기본값인 연두색처럼
+// 밝은 색에서는 흰 글씨가 읽히지 않으므로, 배경 밝기를 재서 글자색을 뒤집는다.
+
+function onAccentPalette(hex: string) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  // 알 수 없는 형식이면 어두운 배경으로 가정 — 기존 동작(흰 글씨)과 같다.
+  const rgb = m
+    ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255)
+    : [0, 0, 0];
+  // WCAG 상대 휘도.
+  const [r, g, b] = rgb.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const light = 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45;
+
+  return light
+    ? { fg: "#1C1C1E", dim: "rgba(28,28,30,0.62)", faint: "rgba(28,28,30,0.45)", veil: "rgba(28,28,30,0.10)", line: "rgba(28,28,30,0.14)" }
+    : { fg: "#FFFFFF", dim: "rgba(255,255,255,0.60)", faint: "rgba(255,255,255,0.65)", veil: "rgba(255,255,255,0.18)", line: "rgba(255,255,255,0.22)" };
+}
+
+/** #RRGGBB를 그대로 투명도만 입혀서 쓴다 — 뱃지 배경처럼 옅게 깔 때. */
+function tint(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return `rgba(0,0,0,${alpha})`;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 // ── 섹션 추가 버튼 ────────────────────────────────────────────────────────────
 // 섹션마다 "여기에 뭘 넣는다"를 같은 모양으로 보여준다. 새로 만든 프로젝트는
 // 모든 섹션이 비어 있으므로, 이 버튼이 없으면 다음에 뭘 해야 할지 알 수 없다.
@@ -86,8 +113,8 @@ export default function ProjectDetail() {
   const { urgentTask, members, schedules, progress } = data;
   const activeCount = members.filter((m) => m.active).length;
 
-  // 디자인 시안이 항상 보라색이므로 고정
-  const ddayBg = "#7B46F8";
+  // D-Day 카드는 프로젝트 색을 그대로 쓴다. 글자색은 배경 밝기에 따라 뒤집힌다.
+  const onAccent = onAccentPalette(accentColor);
 
   // 일정 추가는 캘린더의 등록 시트를 재사용한다 — 이 프로젝트를 미리 골라둔
   // 상태로 열린다. 팀원 추가는 초대 화면으로 보낸다.
@@ -144,56 +171,77 @@ export default function ProjectDetail() {
               </p>
             </button>
           ) : (
-          <div
-            className="relative rounded-2xl p-5 flex flex-col gap-3"
-            style={{ background: ddayBg }}
-          >
-            {/* 상단: 태그 + 화살표 버튼 */}
-            <div className="flex items-center justify-between">
-              <span
-                className="text-[11px] font-bold tracking-[0.04em]"
-                style={{ color: "rgba(255,255,255,0.65)" }}
-              >
-                마감 임박
-              </span>
-              <button
-                onClick={() => navigate(`/project/${project.id}/milestone`)}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
-                style={{ background: "rgba(255,255,255,0.18)" }}
-              >
-                <ArrowRight size={15} strokeWidth={2.5} color="#fff" />
-              </button>
-            </div>
-
-            {/* D-Day 숫자 */}
-            <p
-              className="text-[56px] font-black leading-none tracking-[-0.04em]"
-              style={{ color: "#fff" }}
+          // 폴더 탭 + 본체. 탭이 카드 위에 붙어 "프로젝트 파일" 한 장처럼 보인다.
+          <div className="flex flex-col items-start">
+            {/* 폴더 탭 */}
+            <div
+              className="rounded-t-[14px] pl-5 pr-8 pt-2.5 pb-2"
+              style={{ background: accentColor }}
             >
-              D-{urgentTask.dday}
-            </p>
-
-            {/* 태스크 제목 */}
-            <div className="flex flex-col gap-1">
-              <p className="text-[17px] font-bold" style={{ color: "#fff" }}>
-                {urgentTask.title}
-              </p>
-              <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.60)" }}>
-                {urgentTask.datetime}
-              </p>
+              <span
+                className="text-[11px] font-bold tracking-[0.08em]"
+                style={{ color: onAccent.faint }}
+              >
+                PROJECT FILE
+              </span>
             </div>
 
-            {/* 태그 뱃지들 */}
-            <div className="flex flex-wrap gap-2">
-              {urgentTask.tags.map((tag) => (
+            {/* 본체 */}
+            <div
+              className="relative w-full rounded-2xl rounded-tl-none p-5 flex flex-col gap-3.5"
+              style={{ background: accentColor, boxShadow: "6px 8px 0 rgba(0,0,0,0.22)" }}
+            >
+              {/* 상단: 라벨 + 화살표 버튼 */}
+              <div className="flex items-start justify-between">
                 <span
-                  key={tag}
-                  className="text-[11px] font-semibold px-3 py-1 rounded-full"
-                  style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}
+                  className="text-[13px] font-bold tracking-[0.02em]"
+                  style={{ color: onAccent.faint }}
                 >
-                  {tag}
+                  마감 임박
                 </span>
-              ))}
+                <button
+                  onClick={() => navigate(`/project/${project.id}/milestone`)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+                  style={{ background: onAccent.veil }}
+                  aria-label="마감 임박 일정 자세히 보기"
+                >
+                  <ArrowRight size={16} strokeWidth={2.5} color={onAccent.fg} />
+                </button>
+              </div>
+
+              {/* D-Day 숫자 */}
+              <p
+                className="text-[64px] font-black leading-[0.9] tracking-[-0.05em]"
+                style={{ color: onAccent.fg }}
+              >
+                D-{urgentTask.dday}
+              </p>
+
+              {/* 숫자와 상세 정보를 가르는 선 */}
+              <div className="h-px w-full" style={{ background: onAccent.line }} />
+
+              {/* 태스크 제목 */}
+              <div className="flex flex-col gap-1">
+                <p className="text-[17px] font-bold" style={{ color: onAccent.fg }}>
+                  {urgentTask.title}
+                </p>
+                <p className="text-[12px] font-medium" style={{ color: onAccent.dim }}>
+                  {urgentTask.datetime}
+                </p>
+              </div>
+
+              {/* 태그 뱃지들 */}
+              <div className="flex flex-wrap gap-2">
+                {urgentTask.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
+                    style={{ background: onAccent.veil, color: onAccent.fg }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
           )}
@@ -308,10 +356,15 @@ export default function ProjectDetail() {
                     : "none",
                 }}
               >
-                {/* D-Day 뱃지 */}
+                {/* D-Day 뱃지 — 급한 것(D-3 이하)만 꽉 채우고, 나머지는 옅게 깐다.
+                    목록에서 어느 게 먼저인지 색 농도로 바로 읽히게. */}
                 <span
-                  className="text-[11px] font-black px-2.5 py-1 rounded-lg shrink-0 min-w-[40px] text-center"
-                  style={{ background: s.ddayColor, color: "#fff" }}
+                  className="text-[11px] font-black px-2.5 py-1.5 rounded-lg shrink-0 min-w-[44px] text-center"
+                  style={
+                    s.dday <= 3
+                      ? { background: s.ddayColor, color: "#fff" }
+                      : { background: tint(s.ddayColor, 0.14), color: s.ddayColor }
+                  }
                 >
                   D-{s.dday}
                 </span>
@@ -349,7 +402,7 @@ export default function ProjectDetail() {
               className="absolute left-0 top-0 h-full rounded-full"
               style={{
                 width: `${progress.percent}%`,
-                background: `linear-gradient(90deg, ${accentColor}, #7B46F8)`,
+                background: accentColor,
               }}
             />
             {/* 현재 위치 닷 */}
@@ -357,7 +410,7 @@ export default function ProjectDetail() {
               className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm"
               style={{
                 left: `calc(${progress.percent}% - 6px)`,
-                background: "#7B46F8",
+                background: accentColor,
               }}
             />
           </div>
@@ -366,7 +419,7 @@ export default function ProjectDetail() {
           <div className="flex items-center justify-between text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.45)" }}>
             <span>착수 ({progress.done}/{progress.total})</span>
             <span className="font-bold" style={{ color: "#1C1C1E" }}>현재</span>
-            <span>남음 ({progress.remaining}/{progress.remainingTotal})</span>
+            <span>출품 ({progress.remaining}/{progress.remainingTotal})</span>
           </div>
         </section>
 
