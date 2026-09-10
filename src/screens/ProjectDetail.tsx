@@ -3,33 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ChevronRight, Plus } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProjectDetail } from "@/data/useProjectDetail";
-
-// ── 액센트 위에 올릴 글자색 ──────────────────────────────────────────────────
-// D-Day 카드 배경은 프로젝트마다 다른 색(project.color)이다. 기본값인 연두색처럼
-// 밝은 색에서는 흰 글씨가 읽히지 않으므로, 배경 밝기를 재서 글자색을 뒤집는다.
-
-function onAccentPalette(hex: string) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  // 알 수 없는 형식이면 어두운 배경으로 가정 — 기존 동작(흰 글씨)과 같다.
-  const rgb = m
-    ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255)
-    : [0, 0, 0];
-  // WCAG 상대 휘도.
-  const [r, g, b] = rgb.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  const light = 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45;
-
-  return light
-    ? { fg: "#1C1C1E", dim: "rgba(28,28,30,0.62)", faint: "rgba(28,28,30,0.45)", veil: "rgba(28,28,30,0.10)", line: "rgba(28,28,30,0.14)" }
-    : { fg: "#FFFFFF", dim: "rgba(255,255,255,0.60)", faint: "rgba(255,255,255,0.65)", veil: "rgba(255,255,255,0.18)", line: "rgba(255,255,255,0.22)" };
-}
-
-/** #RRGGBB를 그대로 투명도만 입혀서 쓴다 — 뱃지 배경처럼 옅게 깔 때. */
-function tint(hex: string, alpha: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return `rgba(0,0,0,${alpha})`;
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
-  return `rgba(${r},${g},${b},${alpha})`;
-}
+import { onAccentPalette, tint } from "@/lib/color";
 
 // ── 섹션 추가 버튼 ────────────────────────────────────────────────────────────
 // 섹션마다 "여기에 뭘 넣는다"를 같은 모양으로 보여준다. 새로 만든 프로젝트는
