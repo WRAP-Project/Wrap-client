@@ -5,6 +5,7 @@ import { ArrowRight, Calendar, MoreHorizontal, Search, Users } from "lucide-reac
 import { Btn, C, rgba } from "./chatTheme";
 import { useChatRoomGroups } from "@/data/useChatData";
 import { useProjectsContext } from "@/data/ProjectsContext";
+import { isBrightColor } from "@/lib/color";
 
 const springLayout = { type: "spring" as const, damping: 36, stiffness: 380, mass: 0.9 };
 
@@ -43,7 +44,8 @@ export default function Chat() {
         )}
         {groups.map((group, gIdx) => {
           const isOpen = group.projectId === openProjectId;
-          const brightGroup = group.color === C.lime || group.color === C.pink;
+          // 프로젝트 색은 사용자가 고른 값이라 무슨 색이 올지 모른다 — 밝기로 판단한다.
+          const brightGroup = isBrightColor(group.color);
           const totalUnread = group.rooms.reduce((s, r) => s + r.unread, 0);
 
           if (!isOpen) {
@@ -101,6 +103,26 @@ export default function Chat() {
 
               {/* 룸 목록 — 스태거 진입 */}
               <div className="flex-1 overflow-y-auto px-4 pb-5 [scrollbar-width:none]">
+                {/* 채팅 API가 아직 없어서 mock이 없는 프로젝트는 방이 비어 있다. */}
+                {group.rooms.length === 0 && (
+                  <div
+                    className="flex flex-col items-center gap-1 rounded-xl px-4 py-8 text-center"
+                    style={{ background: brightGroup ? rgba(C.ink, 0.06) : "rgba(255,255,255,0.10)" }}
+                  >
+                    <p
+                      className="text-[13px] font-bold"
+                      style={{ color: brightGroup ? C.ink70 : "rgba(255,255,255,0.75)" }}
+                    >
+                      아직 채팅방이 없어요
+                    </p>
+                    <p
+                      className="text-[11px]"
+                      style={{ color: brightGroup ? C.ink45 : "rgba(255,255,255,0.45)" }}
+                    >
+                      팀원과 대화가 시작되면 여기에 모여요
+                    </p>
+                  </div>
+                )}
                 {group.rooms.map((room, rIdx) => (
                   <motion.button
                     key={room.id}

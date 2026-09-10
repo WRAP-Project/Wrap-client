@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { C } from "@/screens/chatTheme";
+import { useProjectsContext } from "./ProjectsContext";
 
 export interface ChatRoom {
   id: number;
@@ -75,9 +76,33 @@ const MOCK_PARTICIPANTS: ChatParticipant[] = [
   { name: "서준 박", role: "개발", initials: "SP", color: C.yellow },
 ];
 
+/**
+ * 채팅 탭의 프로젝트 그룹.
+ *
+ * 그룹 목록은 mock이 아니라 실제 프로젝트 목록(ProjectsContext)에서 만든다 —
+ * 서버에 저장한 프로젝트도 채팅 탭에 보여야 하기 때문이다. 이름·색도 프로젝트
+ * 쪽 값을 그대로 따라가므로 홈 화면과 어긋나지 않는다.
+ *
+ * 다만 백엔드에 채팅 엔드포인트가 없어서(api/openapi.yaml에 chat 경로 없음)
+ * 방 목록은 아직 mock뿐이다. mock이 없는 프로젝트는 빈 배열로 두고, 화면이
+ * "아직 채팅방이 없어요"를 보여준다. 채팅 API가 생기면 아래 rooms만 fetch로
+ * 바꾸면 된다.
+ */
 export function useChatRoomGroups() {
-  const [groups] = useState<ChatRoomGroup[]>(MOCK_ROOM_GROUPS);
-  return { groups, loading: false, error: null as Error | null };
+  const { projects, loading, error } = useProjectsContext();
+
+  const groups = useMemo<ChatRoomGroup[]>(
+    () =>
+      projects.map((p) => ({
+        projectId: p.id,
+        project: p.name,
+        color: p.color,
+        rooms: MOCK_ROOM_GROUPS.find((g) => g.projectId === p.id)?.rooms ?? [],
+      })),
+    [projects],
+  );
+
+  return { groups, loading, error };
 }
 
 export function useChatRoom(roomId: number) {
