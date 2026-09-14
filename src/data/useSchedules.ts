@@ -449,5 +449,34 @@ export function useSchedules() {
     return created;
   }, [projects]);
 
-  return { schedules, addSchedule, reload: loadSchedules, loading, error };
+  /**
+   * 마감 리마인드 체크리스트 항목의 상태를 바꾼다(완료 / 막힘 / 해제).
+   *
+   * 아직 로컬 상태만 갱신한다 — 체크리스트 항목의 상태를 바꾸는 엔드포인트가
+   * api/openapi.yaml에 없다. 생기면 이 함수 안에서 요청을 보내고 응답으로
+   * 갱신하도록 바꾸면 되고, 화면은 그대로다.
+   *
+   * 상태를 바꾸면 statusLabel도 그 상태의 기본 문구로 맞춘다. "데이터 미수신"처럼
+   * 서버가 준 구체적인 사유는 사라지는데, 사용자가 직접 상태를 바꾼 이상 그 사유는
+   * 더 이상 맞지 않기 때문이다.
+   */
+  const setChecklistState = useCallback(
+    (scheduleId: string, itemId: string, state: ReminderChecklistState) => {
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id !== scheduleId
+            ? s
+            : {
+                ...s,
+                reminderChecklist: s.reminderChecklist?.map((i) =>
+                  i.id !== itemId ? i : { ...i, state, statusLabel: statusLabelOf(state) },
+                ),
+              },
+        ),
+      );
+    },
+    [],
+  );
+
+  return { schedules, addSchedule, setChecklistState, reload: loadSchedules, loading, error };
 }

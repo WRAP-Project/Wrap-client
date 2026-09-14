@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
-import { daysLeft, ddayLabel, type ReminderChecklistItem, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
+import { daysLeft, ddayLabel, type ReminderChecklistItem, type ReminderChecklistState, type Schedule, type ScheduleDraft, type ScheduleType } from "@/data/useSchedules";
 import { useSchedulesContext } from "@/data/SchedulesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useCalendarRiskChecks, type CalendarRiskSignal } from "@/data/useCalendarRiskChecks";
@@ -330,51 +330,82 @@ function RegisterSheet({
 // ── 마감 리마인드 카드 ────────────────────────────────────────────────────────
 // 누르면 체크리스트(담당자·상태·BLOCK 배지)가 카드 안에 펼쳐진다.
 
+/**
+ * 체크리스트 한 줄 — 내용과 [완료 | Block] 선택 버튼.
+ *
+ * 셋 중 하나다: 완료 / 막힘 / 어느 쪽도 아님(진행 중). 고른 버튼을 한 번 더 누르면
+ * 진행 중으로 돌아간다 — 실수로 누른 Block을 취소할 수 있어야 상단 막힘 신호 건수도
+ * 다시 줄일 수 있다.
+ */
 function ChecklistRow({
-  item, bright,
+  item, bright, onChange,
 }: {
-  item: ReminderChecklistItem; bright: boolean;
+  item: ReminderChecklistItem;
+  bright: boolean;
+  onChange: (state: ReminderChecklistState) => void;
 }) {
   const done = item.state === "done";
   const blocked = item.state === "blocked";
+  // 카드 배경이 밝으면(라임) 잉크색으로, 어두우면 흰색으로 대비를 잡는다.
+  const ink = bright ? INK : "#fff";
+  const muted = bright ? "rgba(28,28,30,0.45)" : "rgba(255,255,255,0.6)";
+
+  /** 같은 버튼을 다시 누르면 해제 — 진행 중으로 돌아간다. */
+  function pick(next: ReminderChecklistState) {
+    onChange(item.state === next ? "inProgress" : next);
+  }
+
   return (
-    <div className="flex items-center gap-3.5">
-      <span
-        className="grid size-7 shrink-0 place-items-center rounded-lg transition-colors"
-        style={done ? { background: INK } : { border: `2px solid ${bright ? INK : "#fff"}` }}
-      >
-        {done && <Check size={14} color="#fff" strokeWidth={3} />}
-      </span>
+    <div className="flex items-center gap-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-bold" style={{ color: bright ? INK : "#fff" }}>
+        <p className="truncate text-[14px] font-bold" style={{ color: ink }}>
           {item.title}
         </p>
         <p
           className="mt-0.5 truncate text-[11px] font-semibold"
-          style={{ color: blocked ? PINK : bright ? "rgba(28,28,30,0.45)" : "rgba(255,255,255,0.6)" }}
+          style={{ color: blocked ? PINK : muted }}
         >
           {item.assignee ? `${item.statusLabel} · ${item.assignee}` : item.statusLabel}
         </p>
       </div>
-      {blocked && (
-        <span
-          className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black tracking-[.04em]"
-          style={{ background: PINK, color: "#fff" }}
+
+      <div
+        className="flex shrink-0 overflow-hidden rounded-lg"
+        style={{ border: `1px solid ${bright ? "rgba(28,28,30,0.25)" : "rgba(255,255,255,0.25)"}` }}
+      >
+        <button
+          onClick={() => pick("done")}
+          aria-pressed={done}
+          className="px-3 py-1.5 text-[12px] font-bold transition-colors active:opacity-70"
+          style={{ background: done ? INK : "transparent", color: done ? "#fff" : ink }}
         >
-          BLOCK
-        </span>
-      )}
+          완료
+        </button>
+        <button
+          onClick={() => pick("blocked")}
+          aria-pressed={blocked}
+          className="px-3 py-1.5 text-[12px] font-bold transition-colors active:opacity-70"
+          style={{
+            background: blocked ? PINK : "transparent",
+            color: blocked ? "#fff" : ink,
+            borderLeft: `1px solid ${bright ? "rgba(28,28,30,0.25)" : "rgba(255,255,255,0.25)"}`,
+          }}
+        >
+          Block
+        </button>
+      </div>
     </div>
   );
 }
 
 function ReminderCard({
-  schedule, color, open, onToggleOpen,
+  schedule, color, open, onToggleOpen, onChangeItem,
 }: {
   schedule: Schedule;
   color: string;
   open: boolean;
   onToggleOpen: () => void;
+  onChangeItem: (itemId: string, state: ReminderChecklistState) => void;
 }) {
   const bright = isBright(color);
   const hasBlocked = schedule.reminderChecklist?.some((i) => i.state === "blocked") ?? false;
@@ -412,7 +443,12 @@ function ReminderCard({
         <div className="mt-5 flex flex-col gap-4 pb-1">
           {schedule.reminderChecklist?.length ? (
             schedule.reminderChecklist.map((item) => (
-              <ChecklistRow key={item.id} item={item} bright={bright} />
+              <ChecklistRow
+                key={item.id}
+                item={item}
+                bright={bright}
+                onChange={(state) => onChangeItem(item.id, state)}
+              />
             ))
           ) : (
             <p className="text-[12px]" style={{ color: bright ? "rgba(28,28,30,0.5)" : "rgba(255,255,255,0.6)" }}>
@@ -614,7 +650,7 @@ function isReminderSchedule(schedule: Schedule): boolean {
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
-  const { schedules, addSchedule } = useSchedulesContext();
+  const { schedules, addSchedule, setChecklistState } = useSchedulesContext();
   const { projects, selectedProjectId, selectProject } = useProjectsContext();
   const navigate = useNavigate();
   const today = new Date();
@@ -739,23 +775,21 @@ export default function CalendarScreen() {
         );
   const blockedSignals = [...mockBlockedSignals, ...riskSignals];
 
+  // 막힘 건수가 "늘어난" 순간에만 배너를 잠시 강조한다. 줄어들 때(해제)는 그대로 둔다 —
+  // 해제는 이미 누른 버튼에서 바로 보이므로 상단까지 끌어올 이유가 없다.
+  const [blockedFlash, setBlockedFlash] = useState(false);
+  const prevBlockedCount = useRef(blockedSignals.length);
+  useEffect(() => {
+    const grew = blockedSignals.length > prevBlockedCount.current;
+    prevBlockedCount.current = blockedSignals.length;
+    if (!grew) return;
+    setBlockedFlash(true);
+    const timer = setTimeout(() => setBlockedFlash(false), 1500);
+    return () => clearTimeout(timer);
+  }, [blockedSignals.length]);
+
   return (
     <div className="relative flex min-h-full flex-col" style={{ background: INK, color: FG }}>
-      {/* 막힘 신호 배너 — 화살표를 누르면 담당자 목록이 아래로 펼쳐진다 */}
-      {blockedSignals.length > 0 && (
-        <button
-          onClick={() => setBlockedOpen(true)}
-          className="flex shrink-0 items-center justify-between px-5 py-3.5"
-          style={{ borderBottom: "1px solid rgba(240,240,236,0.08)" }}
-        >
-          <span className="flex items-center gap-3">
-            <span className="size-4 rounded-full" style={{ background: PINK }} />
-            <span className="text-[14px] font-bold" style={{ color: PINK }}>막힘 신호 {blockedSignals.length}건</span>
-          </span>
-          <ChevronDown size={16} color={FG50} />
-        </button>
-      )}
-
       <header className="flex items-center justify-between px-5 pb-3 pt-5">
         <h1 className="text-[26px] font-black leading-none tracking-[-.03em]">캘린더</h1>
         {/* 일정 조정하기 — 막힘 신호가 있으면 우상단에 경고 점이 붙는다 */}
@@ -770,6 +804,30 @@ export default function CalendarScreen() {
           )}
         </button>
       </header>
+
+      {/*
+        막힘 신호 배너 — 화살표를 누르면 담당자 목록이 아래로 펼쳐진다.
+        제목 아래에 둔다: 위에 두면 "캘린더"가 아래로 밀려 채팅·마이페이지와
+        제목 높이가 어긋난다.
+        Block을 눌러 건수가 늘어난 직후에는 잠시 핑크로 발색해서, 화면 아래쪽
+        체크리스트를 누른 사람이 상단 변화를 놓치지 않게 한다.
+      */}
+      {blockedSignals.length > 0 && (
+        <button
+          onClick={() => setBlockedOpen(true)}
+          className="flex shrink-0 items-center justify-between px-5 py-3 transition-colors duration-300"
+          style={{
+            borderBottom: "1px solid rgba(240,240,236,0.08)",
+            background: blockedFlash ? "rgba(236,72,153,0.18)" : "transparent",
+          }}
+        >
+          <span className="flex items-center gap-3">
+            <span className="size-4 rounded-full" style={{ background: PINK }} />
+            <span className="text-[14px] font-bold" style={{ color: PINK }}>막힘 신호 {blockedSignals.length}건</span>
+          </span>
+          <ChevronDown size={16} color={FG50} />
+        </button>
+      )}
 
       {/* 내 프로젝트 — 누르면 해당 프로젝트 일정만 본다(다시 누르면 전체) */}
       <div className="flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
@@ -964,6 +1022,7 @@ export default function CalendarScreen() {
                         color={colorOfProject(s.projectId)}
                         open={openReminderId === s.id}
                         onToggleOpen={() => setOpenReminderId((cur) => (cur === s.id ? null : s.id))}
+                        onChangeItem={(itemId, state) => setChecklistState(s.id, itemId, state)}
                       />
                     ))}
                   </div>
