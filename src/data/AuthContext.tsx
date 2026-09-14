@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient, setUnauthorizedHandler } from "@/lib/api/client";
+import { AUTH_REQUIRED } from "@/lib/authRequired";
 import type { components } from "@/lib/api/schema.gen";
 
 // 인증 — 이 프로젝트에서 처음으로 실제 백엔드를 호출하는 계층이다.
@@ -75,36 +76,23 @@ const SESSION_EXPIRED: AuthError = {
   fields: {},
 };
 
-// ── 세션 캐시 ────────────────────────────────────────────────────────────────
-// 새로고침해도 로그인 상태가 남아 보이도록 회원 정보를 sessionStorage에 둔다.
-// 어디까지나 임시 수단이다 — 서버 세션이 아직 살아 있는지 확인할 방법(GET /members/me)이
-// openapi.yaml에 없어서, 그 엔드포인트가 생기면 이 캐시 대신 mount 시 조회로 바꾼다.
-
-const STORAGE_KEY = "wrap.auth.member";
-
-function readCachedMember(): Member | null {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Member) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedMember(member: Member | null) {
-  try {
-    if (member) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(member));
-    else sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // 프라이빗 모드 등 저장이 막힌 환경 — 이번 세션 동안 메모리 상태만으로 동작한다.
-  }
-}
+// ── 세션 확인 ────────────────────────────────────────────────────────────────
+// 현재 로그인한 사람이 누구인지의 유일한 판단 근거는 서버다 — 앱 진입·새로고침 때
+// GET /members/me를 호출해 확정한다. 클라이언트 저장소(sessionStorage)에 회원 정보를
+// 캐시해 두던 방식은 제거했다: 서버 세션이 이미 끊겼는데도 로그인 상태로 보이거나,
+// 반대로 남아 있는 캐시 때문에 이전 사용자 정보가 다음 사용자에게 비칠 수 있다.
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
   member: Member | null;
   isAuthenticated: boolean;
+  /**
+   * 앱 진입 직후 GET /members/me로 세션을 확인하는 중인지.
+   * true인 동안은 member가 null이어도 "비로그인"이 아니라 "아직 모름"이다 —
+   * 이때 라우팅을 판단하면 로그인한 사용자가 로그인 화면으로 튕긴다.
+   */
+  checking: boolean;
   /** 로그인·회원가입 요청이 진행 중인지 — 버튼 비활성화용. */
   pending: boolean;
   error: AuthError | null;
@@ -119,18 +107,60 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const [member, setMember] = useState<Member | null>(readCachedMember);
+  const [member, setMember] = useState<Member | null>(null);
+  const [checking, setChecking] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AuthError | null>(null);
 
+  // 401 핸들러가 "지금 로그인 상태였는지"를 읽어야 하는데, member를 의존성에 넣으면
+  // 로그인할 때마다 핸들러를 다시 등록하게 된다 — ref로 최신 값만 따라가게 한다.
+  const memberRef = useRef<Member | null>(null);
   useEffect(() => {
-    writeCachedMember(member);
+    memberRef.current = member;
   }, [member]);
+
+  // 앱 진입·새로고침 시 현재 사용자를 서버에서 확정한다. 401이면 비로그인이다.
+  useEffect(() => {
+    // 로그인 강제를 꺼 둔 모드(백엔드 없이 화면만 훑는 용도)에서는 확인할 세션이
+    // 없다 — 서버가 안 떠 있으면 타임아웃까지 기다리기만 하므로 아예 건너뛴다.
+    if (!AUTH_REQUIRED) {
+      setChecking(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadMe() {
+      try {
+        const result = await apiClient.GET("/members/me", {
+          signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
+        });
+        if (cancelled) return;
+        const ok = result.response.ok && result.data?.success !== false;
+        setMember(ok ? (result.data?.data ?? null) : null);
+      } catch {
+        // 서버에 못 닿으면 로그인 여부를 알 수 없다 — 비로그인으로 둔다.
+        // (로그인 화면에서 다시 시도하면 그때 실패 사유가 표시된다)
+        if (!cancelled) setMember(null);
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    }
+
+    void loadMe();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 세션 만료(30분)로 401이 오면 어느 화면에 있든 로그인으로 돌려보낸다.
   // 로그인·회원가입·로그아웃 자신의 401은 client.ts에서 걸러져 여기 오지 않는다.
   useEffect(() => {
     setUnauthorizedHandler(() => {
+      // 애초에 로그인 상태가 아니었다면 "만료"가 아니다. 진입 직후의 GET /members/me나
+      // 비로그인 상태에서 나가는 조회의 401까지 만료로 처리하면, 한 번도 로그인한 적
+      // 없는 사람에게 "로그인이 만료되었습니다"가 뜬다.
+      if (memberRef.current === null) return;
       setMember(null);
       setError(SESSION_EXPIRED);
       navigate("/login", { replace: true });
@@ -205,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       member,
       isAuthenticated: member !== null,
+      checking,
       pending,
       error,
       login,
@@ -212,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       clearError,
     }),
-    [member, pending, error, login, signup, logout, clearError],
+    [member, checking, pending, error, login, signup, logout, clearError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
