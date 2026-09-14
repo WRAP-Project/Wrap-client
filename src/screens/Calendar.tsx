@@ -112,9 +112,13 @@ function RegisterSheet({
   onSubmit: (draft: ScheduleDraft) => Promise<void>;
 }) {
   const { projects } = useProjectsContext();
-  const defaultServerProject = projects.find((p) => serverIdOf(p.id) !== null)?.id;
+  const serverProjects = projects.filter((p) => serverIdOf(p.id) !== null);
+  const selectableProjects = serverProjects.length > 0 ? serverProjects : projects;
+  const defaultProject = defaultProjectId && selectableProjects.some((p) => p.id === defaultProjectId)
+    ? defaultProjectId
+    : selectableProjects[0]?.id ?? "";
   const [title, setTitle] = useState("");
-  const [projectId, setProjectId] = useState(defaultProjectId ?? defaultServerProject ?? projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(defaultProject);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [date, setDate] = useState<PickedDate>(todayPicked());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -124,7 +128,12 @@ function RegisterSheet({
   const [reminder, setReminder] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? "";
+  useEffect(() => {
+    if (selectableProjects.length === 0 || selectableProjects.some((p) => p.id === projectId)) return;
+    setProjectId(defaultProject);
+  }, [defaultProject, projectId, selectableProjects]);
+
+  const projectName = selectableProjects.find((p) => p.id === projectId)?.name ?? "";
   const canSubmit = title.trim().length > 0 && projectId.length > 0;
 
   async function handleSubmit() {
@@ -207,7 +216,7 @@ function RegisterSheet({
                 className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-2xl shadow-lg"
                 style={{ background: "#fff", border: "1px solid rgba(28,28,30,0.08)" }}
               >
-                {projects.map((p) => (
+                {selectableProjects.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => { setProjectId(p.id); setProjectPickerOpen(false); }}
@@ -598,6 +607,10 @@ function TeamTimeline({ rows, color }: { rows: TeamMemberDay[]; color: (projectI
   );
 }
 
+function isReminderSchedule(schedule: Schedule): boolean {
+  return schedule.reminder || schedule.isDeadlineReminder === true;
+}
+
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
@@ -634,7 +647,14 @@ export default function CalendarScreen() {
    * 기본값은 채팅 탭과 동일하게 홈에서 선택한 프로젝트(전역 선택 상태).
    */
   const [filterProjectId, setFilterProjectId] = useState<string | null>(selectedProjectId);
+  const serverProjects = projects.filter((p) => serverIdOf(p.id) !== null);
+  const calendarProjects = serverProjects.length > 0 ? serverProjects : projects;
   const { signals: riskSignals } = useCalendarRiskChecks(filterProjectId);
+
+  useEffect(() => {
+    if (!filterProjectId || calendarProjects.some((p) => p.id === filterProjectId)) return;
+    setFilterProjectId(null);
+  }, [calendarProjects, filterProjectId]);
 
   /** 캘린더 탭에서 고른 프로젝트도 전역 선택 상태에 반영한다. */
   function pickProject(id: string | null) {
@@ -642,11 +662,11 @@ export default function CalendarScreen() {
     selectProject(id);
   }
 
-  const filterColor = projects.find((p) => p.id === filterProjectId)?.color ?? null;
+  const filterColor = calendarProjects.find((p) => p.id === filterProjectId)?.color ?? null;
 
   /** 일정 색은 상단 원형 아이콘과 동일하게 프로젝트 색을 따른다. */
   function colorOfProject(id: string): string {
-    return projects.find((p) => p.id === id)?.color ?? FALLBACK_COLOR;
+    return calendarProjects.find((p) => p.id === id)?.color ?? FALLBACK_COLOR;
   }
 
   const cells = buildCalendar(viewYear, viewMonth);
@@ -680,9 +700,9 @@ export default function CalendarScreen() {
   /** 날짜를 고르면 그 날짜만, 선택을 풀면 다가오는 리마인드 전체. */
   const selectedDateStr = selectedDay ? pickedToDateStr(selectedDay) : null;
   const reminders = selectedDateStr
-    ? visibleSchedules.filter((s) => s.reminder && s.date === selectedDateStr)
+    ? visibleSchedules.filter((s) => isReminderSchedule(s) && s.date === selectedDateStr)
     : [...visibleSchedules]
-        .filter((s) => s.reminder && daysLeft(s.date) >= 0)
+        .filter((s) => isReminderSchedule(s) && daysLeft(s.date) >= 0)
         .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
 
   /** 팀원 일정 탭은 "선택 없음" 상태가 없다 — 선택이 풀려 있으면 오늘 기준. */
@@ -753,7 +773,7 @@ export default function CalendarScreen() {
 
       {/* 내 프로젝트 — 누르면 해당 프로젝트 일정만 본다(다시 누르면 전체) */}
       <div className="flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
-        {projects.map((p) => {
+        {calendarProjects.map((p) => {
           const on = filterProjectId === p.id;
           return (
             <button
