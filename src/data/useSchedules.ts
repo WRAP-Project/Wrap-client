@@ -354,7 +354,6 @@ export function useSchedules() {
 
   const loadSchedules = useCallback(async () => {
     setLoading(true);
-    const hasServerProject = projects.some((project) => serverIdOf(project.id) !== null);
     try {
       const { data, response } = await apiClient.GET("/schedules/me", {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -400,10 +399,10 @@ export function useSchedules() {
         isDeadlineReminder: deadlineReminderScheduleIds.has(schedule.id),
         reminderChecklist: reminderByScheduleId.get(schedule.id) ?? schedule.reminderChecklist,
       }));
-      setSchedules(hasServerProject ? schedulesWithReminderChecklist : [...MOCK_SCHEDULES, ...schedulesWithReminderChecklist]);
+      setSchedules([...MOCK_SCHEDULES, ...schedulesWithReminderChecklist]);
       setError(null);
     } catch (e) {
-      setSchedules(hasServerProject ? [] : MOCK_SCHEDULES);
+      setSchedules(MOCK_SCHEDULES);
       setError(
         e instanceof Error && e.name !== "TimeoutError"
           ? e

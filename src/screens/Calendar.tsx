@@ -112,8 +112,7 @@ function RegisterSheet({
   onSubmit: (draft: ScheduleDraft) => Promise<void>;
 }) {
   const { projects } = useProjectsContext();
-  const serverProjects = projects.filter((p) => serverIdOf(p.id) !== null);
-  const selectableProjects = serverProjects.length > 0 ? serverProjects : projects;
+  const selectableProjects = projects;
   const defaultProject = defaultProjectId && selectableProjects.some((p) => p.id === defaultProjectId)
     ? defaultProjectId
     : selectableProjects[0]?.id ?? "";
@@ -683,8 +682,7 @@ export default function CalendarScreen() {
    * 기본값은 채팅 탭과 동일하게 홈에서 선택한 프로젝트(전역 선택 상태).
    */
   const [filterProjectId, setFilterProjectId] = useState<string | null>(selectedProjectId);
-  const serverProjects = projects.filter((p) => serverIdOf(p.id) !== null);
-  const calendarProjects = serverProjects.length > 0 ? serverProjects : projects;
+  const calendarProjects = projects;
   const { signals: riskSignals } = useCalendarRiskChecks(filterProjectId);
 
   useEffect(() => {
