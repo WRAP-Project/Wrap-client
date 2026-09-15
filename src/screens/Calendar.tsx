@@ -908,7 +908,7 @@ export default function CalendarScreen() {
             </div>
 
             <button
-              onClick={() => alert("구현 완료되지 않은 기능입니다.")}
+              onClick={() => navigate("/calendar/adjust")}
               className="mt-8 w-full rounded-2xl border py-4 text-[14px] font-bold transition-opacity active:opacity-70"
               style={{ borderColor: FG35, color: FG }}
             >
