@@ -140,47 +140,41 @@ export function useProjects() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  // 최초 1회 + 목록이 바뀔 만한 일이 생겼을 때(초대 수락 등) 다시 부른다.
+  const load = useCallback(async () => {
+    try {
+      const { data, response } = await apiClient.GET("/projects", {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
 
-    async function load() {
-      try {
-        const { data, response } = await apiClient.GET("/projects", {
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        });
-        if (cancelled) return;
-
-        if (!response.ok || data?.success === false) {
-          throw new Error("프로젝트 목록을 불러오지 못했습니다.");
-        }
-
-        const fromServer: Project[] = (data?.data ?? []).map((p) => ({
-          id: `${SERVER_ID_PREFIX}${p.id}`,
-          name: p.name ?? "",
-          color: p.color ?? FALLBACK_COLOR,
-          endDate: p.endDate,
-        }));
-        setProjects([...MOCK_PROJECTS, ...fromServer]);
-        setError(null);
-      } catch (e) {
-        if (cancelled) return;
-        // 서버를 못 읽어도 mock은 그대로 남는다 — 화면이 비지는 않고, 실패 사실만
-        // error로 올린다.
-        setError(
-          e instanceof Error && e.name !== "TimeoutError"
-            ? e
-            : new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."),
-        );
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (!response.ok || data?.success === false) {
+        throw new Error("프로젝트 목록을 불러오지 못했습니다.");
       }
-    }
 
-    void load();
-    return () => {
-      cancelled = true;
-    };
+      const fromServer: Project[] = (data?.data ?? []).map((p) => ({
+        id: `${SERVER_ID_PREFIX}${p.id}`,
+        name: p.name ?? "",
+        color: p.color ?? FALLBACK_COLOR,
+        endDate: p.endDate,
+      }));
+      setProjects([...MOCK_PROJECTS, ...fromServer]);
+      setError(null);
+    } catch (e) {
+      // 서버를 못 읽어도 mock은 그대로 남는다 — 화면이 비지는 않고, 실패 사실만
+      // error로 올린다.
+      setError(
+        e instanceof Error && e.name !== "TimeoutError"
+          ? e
+          : new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   /**
    * 프로젝트를 생성한다. 서버에 저장한 뒤, 응답으로 받은 프로젝트를 목록에 추가한다.
@@ -247,5 +241,5 @@ export function useProjects() {
     setProjects((prev) => prev.filter((p) => p.id !== projectId));
   }, []);
 
-  return { projects, addProject, leaveProject, loading, error };
+  return { projects, addProject, leaveProject, loading, error, reload: load };
 }

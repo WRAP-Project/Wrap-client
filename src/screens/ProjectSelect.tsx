@@ -227,10 +227,11 @@ export default function ProjectSelect() {
         <header>
           <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
-              {/* 알림 — 읽지 않은 알림이 있으면 우상단에 점을 띄운다.
-                  (알림 목록 화면/API는 아직 없어 이동 동작은 비워둔다) */}
+              {/* 알림 — 아직 답하지 않은 초대가 있으면 우상단에 점을 띄운다.
+                  탭하면 받은 초대 목록(/invitations)으로 간다. */}
               <button
                 aria-label="알림"
+                onClick={() => navigate("/invitations")}
                 className="relative text-white/60 hover:text-white transition-colors"
               >
                 <Bell size={19} />

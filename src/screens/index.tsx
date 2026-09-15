@@ -10,6 +10,7 @@ import MilestoneDetail from "./MilestoneDetail";
 import TeamActivity from "./TeamActivity";
 import ProjectSchedule from "./ProjectSchedule";
 import ProgressReport from "./ProgressReport";
+import Invitations from "./Invitations";
 import MyPage from "./MyPage";
 import EditProfile from "./EditProfile";
 import Calendar from "./Calendar";
@@ -46,6 +47,7 @@ export const screens: { path: string; Component: ComponentType; isPublic?: boole
   { path: "/create-project", Component: CreateProject },
   { path: "/create-project/:projectId/done", Component: ProjectCreated },
   { path: "/create-project/:projectId/invite", Component: InviteTeam },
+  { path: "/invitations", Component: Invitations },
   { path: "/mypage", Component: MyPage },
   { path: "/mypage/edit", Component: EditProfile },
 ];

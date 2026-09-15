@@ -21,6 +21,8 @@ interface ProjectsContextValue {
   addProject: (draft: ProjectDraft) => Promise<Project>;
   /** 참여 중인 프로젝트에서 나간다. 성공하면 목록에서 사라진다. */
   leaveProject: (projectId: string) => Promise<void>;
+  /** 목록을 서버에서 다시 불러온다 — 초대 수락처럼 이 화면 밖에서 목록이 바뀐 뒤에 쓴다. */
+  reload: () => Promise<void>;
   loading: boolean;
   error: Error | null;
   /** 홈에서 선택한(또는 마지막으로 본) 프로젝트 — 하단 탭 홈 버튼이 이 프로젝트로 이동한다. */
