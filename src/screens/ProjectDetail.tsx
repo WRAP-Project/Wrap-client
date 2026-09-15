@@ -127,23 +127,23 @@ export default function ProjectDetail() {
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
               지금 가장 중요한 것
             </p>
-            <AddButton label="일정 추가" onClick={goAddSchedule} onDark />
           </div>
 
-          {/* D-Day 카드 */}
+          {/* D-Day 카드 — 다가오는 일정 중 마감이 가장 가까운 것을 자동으로 뽑은
+              파생 뷰다. 여기서 직접 등록하지 않으므로 추가 버튼을 두지 않는다
+              (일정 추가 입구는 아래 "다가오는 일정" 섹션 하나로 통일). */}
           {!urgentTask ? (
-            <button
-              onClick={goAddSchedule}
-              className="rounded-2xl px-5 py-8 text-center transition-opacity active:opacity-70"
+            <div
+              className="rounded-2xl px-5 py-8 text-center"
               style={{ background: "rgba(240,240,236,0.06)" }}
             >
               <p className="text-[13px] font-bold" style={{ color: "rgba(240,240,236,0.7)" }}>
-                등록된 일정이 없어요
+                아직 표시할 일정이 없어요
               </p>
               <p className="mt-1 text-[11px]" style={{ color: "rgba(240,240,236,0.35)" }}>
-                첫 일정을 추가해보세요
+                일정을 추가하면 마감이 가장 가까운 일정이 여기 올라와요
               </p>
-            </button>
+            </div>
           ) : (
           // 폴더 탭 + 본체. 탭이 카드 위에 붙어 "프로젝트 파일" 한 장처럼 보인다.
           <div className="flex flex-col items-start">
