@@ -241,5 +241,36 @@ export function useProjects() {
     setProjects((prev) => prev.filter((p) => p.id !== projectId));
   }, []);
 
-  return { projects, addProject, leaveProject, loading, error, reload: load };
+  /**
+   * 프로젝트를 삭제한다(DELETE /projects/{projectId}).
+   *
+   * 나가기(leaveProject)와 다르다 — 나가기는 나만 빠지지만, 삭제는 프로젝트 자체가
+   * 사라져 모든 팀원이 잃는다. 그래서 화면에서도 한 단계 더 강한 확인을 거친다.
+   *
+   * mock 프로젝트는 서버에 없으므로 호출 자체를 막는다(나가기와 같은 이유).
+   *
+   * 권한(OWNER만 삭제 가능한지)은 스펙에 명시돼 있지 않다 — 서버가 거절하면 그
+   * 사유가 그대로 예외 메시지로 올라오므로 화면이 보여준다.
+   */
+  const deleteProject = useCallback(async (projectId: string): Promise<void> => {
+    const serverId = serverIdOf(projectId);
+    if (serverId === null) {
+      throw new Error("샘플 프로젝트라 삭제할 수 없어요.");
+    }
+
+    const { data, error, response } = await apiClient.DELETE("/projects/{projectId}", {
+      params: { path: { projectId: serverId } },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+
+    if (!response.ok || data?.success === false) {
+      throw new Error(
+        apiErrorMessage(error ?? data, response.status, "프로젝트를 삭제하지 못했습니다."),
+      );
+    }
+
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+  }, []);
+
+  return { projects, addProject, leaveProject, deleteProject, loading, error, reload: load };
 }

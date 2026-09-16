@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, LogOut, Plus } from "lucide-react";
+import { Check, ChevronRight, LogOut, Plus, Trash2 } from "lucide-react";
 import { C, rgba, Sheet } from "./chatShared";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProfile } from "@/data/useProfile";
@@ -16,7 +16,7 @@ import type { Project } from "@/data/useProjects";
 // 배지·타일·토글 등 모든 액센트에 일관되게 반영된다.
 
 type SectionId = "profile" | "projects" | "tools" | "alerts";
-type SheetState = { type: "roles" | "invite" | "leave"; project: Project } | null;
+type SheetState = { type: "roles" | "invite" | "leave" | "delete"; project: Project } | null;
 
 // ─── 화면 전용 조각들 (MyPage.tsx에서만 쓰이므로 인라인 정의) ─────────────────
 
@@ -168,6 +168,17 @@ function ProjectSectionBody({
                   <LogOut size={13} strokeWidth={2.4} />
                   프로젝트 나가기
                 </button>
+                {/* 삭제는 나가기보다 한 단계 더 무겁다(나는 빠지는 게 아니라 팀 전체가
+                    잃는다). 그래서 채움 없는 텍스트 버튼으로 가장 낮은 시각 강조를 주고,
+                    대신 확인 시트에서 체크 한 번을 더 받는다. */}
+                <button
+                  onClick={() => onOpenSheet({ type: "delete", project })}
+                  className="flex h-9 items-center justify-center gap-1.5 rounded-xl text-[12px] font-bold transition-opacity active:opacity-60"
+                  style={{ color: rgba(C.red, 0.7) }}
+                >
+                  <Trash2 size={12} strokeWidth={2.4} />
+                  프로젝트 삭제
+                </button>
               </div>
             )}
           </div>
@@ -318,6 +329,87 @@ function LeaveSheet({ project, onClose }: { project: Project; onClose: () => voi
           style={{ background: C.red }}
         >
           {leaving ? "나가는 중" : "나가기"}
+        </button>
+      </div>
+
+      {error && (
+        <p className="mt-3 text-[12px]" style={{ color: C.red }}>
+          {error}
+        </p>
+      )}
+      <CloseBtn onClose={onClose} />
+    </Sheet>
+  );
+}
+
+// 프로젝트 삭제 확인 시트 — DELETE /projects/{projectId}.
+// 나가기와 달리 프로젝트 자체가 없어져 팀원 전원이 잃는다. 실수로 누르는 것을 막기
+// 위해 확인 체크를 통과해야 삭제 버튼이 눌린다.
+function DeleteSheet({ project, onClose }: { project: Project; onClose: () => void }) {
+  const { deleteProject } = useProjectsContext();
+  const [confirmed, setConfirmed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (deleting || !confirmed) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteProject(project.id);
+      // 목록에서 이미 사라졌으므로 시트만 닫으면 된다.
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "프로젝트를 삭제하지 못했습니다.");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Sheet title={`삭제 · ${project.name}`} onClose={onClose}>
+      <p className="text-[14px] leading-relaxed" style={{ color: C.fg70 }}>
+        <span style={{ color: C.red }}>{project.name}</span>이(가) 팀원 모두에게서
+        사라져요. 일정·대화·기록이 함께 삭제되고 되돌릴 수 없어요.
+      </p>
+
+      {/* 확인 체크 — 켜야만 삭제 버튼이 활성화된다 */}
+      <button
+        onClick={() => setConfirmed((v) => !v)}
+        disabled={deleting}
+        className="mt-4 flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left transition-opacity active:opacity-60 disabled:opacity-40"
+        style={{ background: rgba(C.fg, 0.05) }}
+      >
+        <span
+          className="grid size-5 shrink-0 place-items-center rounded-md transition-colors"
+          style={{
+            background: confirmed ? C.red : "transparent",
+            border: confirmed ? "none" : `1.5px solid ${rgba(C.fg, 0.25)}`,
+          }}
+        >
+          {confirmed && <Check size={13} strokeWidth={3} color="#fff" />}
+        </span>
+        <span className="text-[13px] leading-snug" style={{ color: C.fg70 }}>
+          되돌릴 수 없다는 점을 이해했어요
+        </span>
+      </button>
+
+      <div className="mt-3 flex gap-2">
+        <button
+          onClick={onClose}
+          disabled={deleting}
+          className="h-12 flex-1 rounded-xl text-[14px] font-bold transition-opacity active:opacity-60 disabled:opacity-40"
+          style={{ background: rgba(C.fg, 0.07), color: C.fg70 }}
+        >
+          취소
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={deleting || !confirmed}
+          className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl text-[14px] font-bold text-white transition-opacity active:opacity-60 disabled:opacity-40"
+          style={{ background: C.red }}
+        >
+          {!deleting && <Trash2 size={14} strokeWidth={2.4} />}
+          {deleting ? "삭제하는 중" : "삭제하기"}
         </button>
       </div>
 
@@ -495,6 +587,9 @@ export default function MyPage() {
       )}
       {sheet?.type === "leave" && (
         <LeaveSheet project={sheet.project} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.type === "delete" && (
+        <DeleteSheet project={sheet.project} onClose={() => setSheet(null)} />
       )}
     </main>
   );
