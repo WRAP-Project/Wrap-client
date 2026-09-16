@@ -6,6 +6,7 @@ import { AuthProvider } from "./data/AuthContext";
 import { SessionScope } from "./data/SessionScope";
 import { ProjectsProvider } from "./data/ProjectsContext";
 import { SchedulesProvider } from "./data/SchedulesContext";
+import { MilestoneChecklistProvider } from "./data/MilestoneChecklistContext";
 import { ProfileProvider } from "./data/ProfileContext";
 import { AdjustRequestsProvider } from "./data/AdjustRequestsContext";
 import "./index.css";
@@ -21,11 +22,13 @@ createRoot(document.getElementById("root")!).render(
         <SessionScope>
           <ProjectsProvider>
             <SchedulesProvider>
-              <ProfileProvider>
-                <AdjustRequestsProvider>
-                  <App />
-                </AdjustRequestsProvider>
-              </ProfileProvider>
+              <MilestoneChecklistProvider>
+                <ProfileProvider>
+                  <AdjustRequestsProvider>
+                    <App />
+                  </AdjustRequestsProvider>
+                </ProfileProvider>
+              </MilestoneChecklistProvider>
             </SchedulesProvider>
           </ProjectsProvider>
         </SessionScope>
