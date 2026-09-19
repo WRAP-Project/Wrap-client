@@ -7,7 +7,9 @@ import {
   type ChecklistItem,
   type ChecklistStatus,
 } from "@/data/useMilestoneDetail";
+import { useProjectsContext } from "@/data/ProjectsContext";
 import { useTeamMembers } from "@/data/useTeamMembers";
+import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, onLight, tint } from "@/lib/color";
 
 const STATUS_LABEL: Record<ChecklistStatus, string> = {
   done: "완료",
@@ -19,19 +21,21 @@ const STATUS_LABEL: Record<ChecklistStatus, string> = {
 /** 추가 폼에서 고를 수 있는 상태 — 화면에 보이는 순서 그대로 */
 const STATUS_OPTIONS: ChecklistStatus[] = ["pending", "in_progress", "done", "blocked"];
 
-const ACCENT = "#7B46F8";
-
-function ChecklistRow({ item }: { item: ChecklistItem }) {
+function ChecklistRow({ item, accent }: { item: ChecklistItem; accent: string }) {
   const { label, assignee, status, note } = item;
+  const onAccent = onAccentPalette(accent);
   return (
     <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
       {status === "done" ? (
-        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "#7B46F8" }}>
-          <Check size={13} strokeWidth={3} color="#fff" />
+        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: accent }}>
+          <Check size={13} strokeWidth={3} color={onAccent.fg} />
         </div>
       ) : status === "in_progress" ? (
-        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ border: "2px solid #F5C842" }}>
-          <div className="w-2 h-2 rounded-full" style={{ background: "#F5C842" }} />
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+          style={{ border: `2px solid ${onLight(accent)}` }}
+        >
+          <div className="w-2 h-2 rounded-full" style={{ background: onLight(accent) }} />
         </div>
       ) : (
         <div className="w-6 h-6 rounded-full shrink-0" style={{ border: "2px solid rgba(28,28,30,0.15)" }} />
@@ -40,14 +44,17 @@ function ChecklistRow({ item }: { item: ChecklistItem }) {
         <p className="text-[14px] font-semibold truncate" style={{ color: "#1C1C1E" }}>
           {label}
         </p>
-        <p className="text-[11px] font-medium truncate" style={{ color: "rgba(28,28,30,0.45)" }}>
+        <p
+          className="text-[11px] font-medium truncate"
+          style={{ color: status === "blocked" ? onLight(ALERT) : "rgba(28,28,30,0.45)" }}
+        >
           {note ?? (assignee || "담당 미정")}
         </p>
       </div>
       {status === "blocked" && (
         <span
           className="text-[10px] font-black px-2 py-1 rounded-md shrink-0"
-          style={{ background: "#EB3E88", color: "#fff" }}
+          style={{ background: ALERT, color: "#fff" }}
         >
           {STATUS_LABEL.blocked}
         </span>
@@ -57,15 +64,25 @@ function ChecklistRow({ item }: { item: ChecklistItem }) {
 }
 
 /** 담당자·상태 선택에 쓰는 알약 버튼 — 선택되면 액센트로 채운다 */
-function Chip({ selected, label, onClick }: { selected: boolean; label: string; onClick: () => void }) {
+function Chip({
+  selected,
+  label,
+  accent,
+  onClick,
+}: {
+  selected: boolean;
+  label: string;
+  accent: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold shrink-0 transition-opacity active:opacity-60"
       style={{
-        background: selected ? ACCENT : "rgba(28,28,30,0.06)",
-        color: selected ? "#fff" : "rgba(28,28,30,0.55)",
+        background: selected ? accent : "rgba(28,28,30,0.06)",
+        color: selected ? onAccentPalette(accent).fg : "rgba(28,28,30,0.55)",
       }}
     >
       {label}
@@ -80,10 +97,12 @@ function Chip({ selected, label, onClick }: { selected: boolean; label: string; 
  */
 function ChecklistAddForm({
   projectId,
+  accent,
   onAdd,
   onClose,
 }: {
   projectId: string | undefined;
+  accent: string;
   onAdd: (draft: ChecklistDraft) => void;
   onClose: () => void;
 }) {
@@ -104,7 +123,7 @@ function ChecklistAddForm({
   };
 
   return (
-    <div className="px-4 py-3.5 flex flex-col gap-3" style={{ background: "rgba(123,70,248,0.04)" }}>
+    <div className="px-4 py-3.5 flex flex-col gap-3" style={{ background: tint(accent, 0.05) }}>
       <input
         autoFocus
         value={label}
@@ -123,12 +142,13 @@ function ChecklistAddForm({
           담당
         </span>
         <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
-          <Chip selected={assignee === ""} label="미정" onClick={() => setAssignee("")} />
+          <Chip selected={assignee === ""} label="미정" accent={accent} onClick={() => setAssignee("")} />
           {members.map((m) => (
             <Chip
               key={m.id}
               selected={assignee === m.initials}
               label={m.initials}
+              accent={accent}
               onClick={() => setAssignee(m.initials)}
             />
           ))}
@@ -141,7 +161,13 @@ function ChecklistAddForm({
         </span>
         <div className="flex gap-1.5">
           {STATUS_OPTIONS.map((s) => (
-            <Chip key={s} selected={status === s} label={STATUS_LABEL[s]} onClick={() => setStatus(s)} />
+            <Chip
+              key={s}
+              selected={status === s}
+              label={STATUS_LABEL[s]}
+              accent={accent}
+              onClick={() => setStatus(s)}
+            />
           ))}
         </div>
       </div>
@@ -159,8 +185,8 @@ function ChecklistAddForm({
           type="button"
           onClick={submit}
           disabled={!canSubmit}
-          className="h-10 flex-1 rounded-xl text-[13px] font-bold text-white transition-opacity active:opacity-60 disabled:opacity-30"
-          style={{ background: ACCENT }}
+          className="h-10 flex-1 rounded-xl text-[13px] font-bold transition-opacity active:opacity-60 disabled:opacity-30"
+          style={{ background: accent, color: onAccentPalette(accent).fg }}
         >
           추가
         </button>
@@ -172,9 +198,14 @@ function ChecklistAddForm({
 export default function MilestoneDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const { projects } = useProjectsContext();
   const { data, addChecklistItem } = useMilestoneDetail(projectId);
   const { header, stats, checklist, update } = data;
   const [adding, setAdding] = useState(false);
+
+  // 마일스톤은 프로젝트에 속하므로 강조색은 전부 이 프로젝트의 색이다.
+  const accent = projects.find((p) => p.id === projectId)?.color ?? FALLBACK_ACCENT;
+  const onAccent = onAccentPalette(accent);
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#1C1C1E", color: "#F0F0EC" }}>
@@ -191,28 +222,28 @@ export default function MilestoneDetail() {
         <h1 className="text-[22px] font-black leading-tight tracking-[-0.03em]">마일스톤 상세</h1>
 
         {/* 헤더 카드 */}
-        <div className="rounded-2xl p-5 flex flex-col gap-3" style={{ background: "#7B46F8" }}>
+        <div className="rounded-2xl p-5 flex flex-col gap-3" style={{ background: accent }}>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: onAccent.veil, color: onAccent.fg }}>
               D-{header.dday} 마감
             </span>
-            <span className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.65)" }}>
+            <span className="text-[11px] font-bold" style={{ color: onAccent.faint }}>
               {header.statusBadge}
             </span>
           </div>
 
           <div className="flex flex-col gap-1">
-            <p className="text-[19px] font-bold" style={{ color: "#fff" }}>{header.title}</p>
-            <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.60)" }}>{header.datetime}</p>
+            <p className="text-[19px] font-bold" style={{ color: onAccent.fg }}>{header.title}</p>
+            <p className="text-[12px] font-medium" style={{ color: onAccent.dim }}>{header.datetime}</p>
           </div>
 
-          <div className="relative h-2 rounded-full mt-1" style={{ background: "rgba(255,255,255,0.2)" }}>
+          <div className="relative h-2 rounded-full mt-1" style={{ background: onAccent.veil }}>
             <div
               className="absolute left-0 top-0 h-full rounded-full"
-              style={{ width: `${header.readyPercent}%`, background: "#fff" }}
+              style={{ width: `${header.readyPercent}%`, background: onAccent.fg }}
             />
           </div>
-          <p className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>
+          <p className="text-[11px] font-semibold" style={{ color: onAccent.faint }}>
             준비 진행률 {header.readyPercent}%
           </p>
         </div>
@@ -225,7 +256,7 @@ export default function MilestoneDetail() {
             { value: `${stats.participantCount}명`, label: "참여자" },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl py-3 flex flex-col items-center gap-1" style={{ background: "#fff" }}>
-              <span className="text-[16px] font-black" style={{ color: "#1C1C1E" }}>{s.value}</span>
+              <span className="text-[16px] font-black" style={{ color: onLight(accent) }}>{s.value}</span>
               <span className="text-[10px] font-medium" style={{ color: "rgba(28,28,30,0.45)" }}>{s.label}</span>
             </div>
           ))}
@@ -237,17 +268,18 @@ export default function MilestoneDetail() {
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
               제출 체크리스트
             </p>
-            <span className="text-[11px] font-semibold" style={{ color: "rgba(240,240,236,0.45)" }}>
+            <span className="text-[11px] font-semibold" style={{ color: accent }}>
               {stats.checklistDone} / {stats.checklistTotal}
             </span>
           </div>
           <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
             {checklist.map((item) => (
-              <ChecklistRow key={item.id} item={item} />
+              <ChecklistRow key={item.id} item={item} accent={accent} />
             ))}
             {adding ? (
               <ChecklistAddForm
                 projectId={projectId}
+                accent={accent}
                 onAdd={addChecklistItem}
                 onClose={() => setAdding(false)}
               />
@@ -259,11 +291,11 @@ export default function MilestoneDetail() {
               >
                 <div
                   className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(123,70,248,0.12)" }}
+                  style={{ background: tint(accent, 0.12) }}
                 >
-                  <Plus size={14} strokeWidth={3} color={ACCENT} />
+                  <Plus size={14} strokeWidth={3} color={onLight(accent)} />
                 </div>
-                <span className="text-[14px] font-semibold" style={{ color: ACCENT }}>
+                <span className="text-[14px] font-semibold" style={{ color: onLight(accent) }}>
                   항목 추가
                 </span>
               </button>
@@ -277,7 +309,7 @@ export default function MilestoneDetail() {
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
               자료 및 최근 업데이트
             </p>
-            <span className="text-[11px] font-semibold" style={{ color: "rgba(240,240,236,0.45)" }}>
+            <span className="text-[11px] font-semibold" style={{ color: accent }}>
               파일 {stats.fileCount}개
             </span>
           </div>
@@ -285,7 +317,7 @@ export default function MilestoneDetail() {
             <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "#fff" }}>
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
-                style={{ background: "#A78BFA", color: "#fff" }}
+                style={memberAvatar(accent, "active")}
               >
                 {update.author}
               </div>
@@ -316,7 +348,7 @@ export default function MilestoneDetail() {
         </button>
         <button
           className="flex-1 rounded-2xl text-[15px] font-bold transition-opacity active:opacity-70"
-          style={{ background: "#F0F0EC", color: "#1C1C1E" }}
+          style={{ background: accent, color: onAccent.fg }}
         >
           체크리스트 업데이트
         </button>

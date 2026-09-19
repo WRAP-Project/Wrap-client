@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { useProjectsContext } from "@/data/ProjectsContext";
 import { useTeamActivity } from "@/data/useTeamActivity";
+import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, onLight } from "@/lib/color";
 
 export default function TeamActivity() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const { projects } = useProjectsContext();
   const { data } = useTeamActivity(projectId);
   const { header, filters, members } = data;
   const [activeFilter, setActiveFilter] = useState(filters[0]);
+
+  // 이 화면의 모든 강조는 이 프로젝트의 색 하나로 통일한다. 예외는 지연(ALERT)뿐.
+  const accentColor = projects.find((p) => p.id === projectId)?.color ?? FALLBACK_ACCENT;
+  const onAccent = onAccentPalette(accentColor);
 
   const visibleMembers =
     activeFilter === "전체" ? members : members.filter((m) => m.role === activeFilter);
@@ -28,25 +35,25 @@ export default function TeamActivity() {
         <h1 className="text-[22px] font-black leading-tight tracking-[-0.03em]">팀 활동</h1>
 
         {/* 헤더 카드 */}
-        <div className="rounded-2xl p-5 flex flex-col gap-3" style={{ background: "#7B46F8" }}>
+        <div className="rounded-2xl p-5 flex flex-col gap-3" style={{ background: accentColor }}>
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-1">
-              <span className="text-[32px] font-black leading-none" style={{ color: "#fff" }}>
+              <span className="text-[32px] font-black leading-none" style={{ color: onAccent.fg }}>
                 {header.activeCount}
               </span>
-              <span className="text-[16px] font-bold" style={{ color: "rgba(255,255,255,0.7)" }}>
+              <span className="text-[16px] font-bold" style={{ color: onAccent.dim }}>
                 / {header.totalCount}
               </span>
             </div>
             <span
               className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-              style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}
+              style={{ background: onAccent.veil, color: onAccent.fg }}
             >
               업데이트 {header.updatePercent}%
             </span>
           </div>
-          <p className="text-[14px] font-semibold" style={{ color: "#fff" }}>{header.summary}</p>
-          <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.60)" }}>
+          <p className="text-[14px] font-semibold" style={{ color: onAccent.fg }}>{header.summary}</p>
+          <p className="text-[12px] font-medium" style={{ color: onAccent.dim }}>
             진행 중 {header.inProgressCount} · 완료 {header.doneCount} · 확인 필요 {header.needsCheckCount}
           </p>
         </div>
@@ -59,8 +66,8 @@ export default function TeamActivity() {
               onClick={() => setActiveFilter(f)}
               className="shrink-0 px-3.5 py-2 rounded-full text-[12px] font-bold transition-colors"
               style={{
-                background: activeFilter === f ? "#F0F0EC" : "rgba(240,240,236,0.08)",
-                color: activeFilter === f ? "#1C1C1E" : "rgba(240,240,236,0.5)",
+                background: activeFilter === f ? accentColor : "rgba(240,240,236,0.08)",
+                color: activeFilter === f ? onAccent.fg : "rgba(240,240,236,0.5)",
               }}
             >
               {f}
@@ -84,23 +91,28 @@ export default function TeamActivity() {
               >
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
-                  style={{ background: m.avatarBg, color: "#fff" }}
+                  style={memberAvatar(accentColor, m.blocked ? "delayed" : "active")}
                 >
                   {m.initials}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[14px] font-bold" style={{ color: "#1C1C1E" }}>{m.name}</span>
+                    <span className="text-[14px] font-bold" style={{ color: "#1C1C1E" }}>
+                      {m.name}
+                    </span>
                     <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>· {m.role}</span>
                   </div>
-                  <p className="text-[12px] font-medium truncate" style={{ color: "rgba(28,28,30,0.5)" }}>
+                  <p
+                    className="text-[12px] font-medium truncate"
+                    style={{ color: m.blocked ? onLight(ALERT) : "rgba(28,28,30,0.5)" }}
+                  >
                     {m.statusText}
                   </p>
                 </div>
                 {m.blocked ? (
                   <span
                     className="text-[10px] font-black px-2 py-1 rounded-md shrink-0"
-                    style={{ background: "#EB3E88", color: "#fff" }}
+                    style={{ background: ALERT, color: "#fff" }}
                   >
                     BLOCK
                   </span>

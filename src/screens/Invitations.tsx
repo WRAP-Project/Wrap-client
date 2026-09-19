@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, MailOpen } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useReceivedInvitations } from "@/data/useReceivedInvitations";
+import { INACTIVE } from "@/lib/color";
 
 /**
  * 알람 화면.
@@ -134,9 +135,11 @@ export default function Invitations() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {/* 아직 참여하지 않은 프로젝트라 색을 모른다(초대 응답에 color가 없다).
+                      임의의 색을 쓰느니 중립색으로 둔다 — 수락하면 그때부터 프로젝트 색을 입는다. */}
                   <span
                     className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-[0.75rem] font-bold text-white"
-                    style={{ background: inv.avatarBg }}
+                    style={{ background: INACTIVE }}
                   >
                     {inv.initials}
                   </span>

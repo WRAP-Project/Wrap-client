@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Mail } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProjectInvite } from "@/data/useProjectInvite";
+import { memberAvatar, onAccentPalette } from "@/lib/color";
 
 /**
  * 팀원 초대 화면.
@@ -26,6 +27,9 @@ export default function InviteTeam() {
 
   // 새로고침/딥링크로 없는 프로젝트에 들어온 경우 — 목록으로 되돌린다.
   if (!project) return <Navigate to="/" replace />;
+
+  // 초대도 이 프로젝트에 속한 행동이다 — 강조는 프로젝트 색을 따른다.
+  const onAccent = onAccentPalette(project.color);
 
   async function handleInvite(e: FormEvent) {
     e.preventDefault();
@@ -91,8 +95,8 @@ export default function InviteTeam() {
               id="invite-send"
               type="submit"
               disabled={!email.trim() || inviting}
-              className="shrink-0 rounded-[11px] px-3.5 py-2.5 text-[0.8rem] font-semibold text-white transition-transform active:scale-95 disabled:opacity-40"
-              style={{ background: "#7B46F8" }}
+              className="shrink-0 rounded-[11px] px-3.5 py-2.5 text-[0.8rem] font-semibold transition-transform active:scale-95 disabled:opacity-40"
+              style={{ background: project.color, color: onAccent.fg }}
             >
               {inviting ? "보내는 중" : "초대"}
             </button>
@@ -146,8 +150,8 @@ export default function InviteTeam() {
             {invitees.map((m) => (
               <li key={m.id} className="flex items-center gap-3 py-3.5">
                 <span
-                  className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[0.72rem] font-bold text-white"
-                  style={{ background: m.avatarBg }}
+                  className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[0.72rem] font-bold"
+                  style={memberAvatar(project.color, m.status === "JOINED" ? "active" : "inactive")}
                 >
                   {m.initials}
                 </span>

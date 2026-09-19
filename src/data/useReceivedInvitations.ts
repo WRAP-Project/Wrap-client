@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient, apiErrorMessage } from "@/lib/api/client";
-import { avatarBgOf, initialsOf, roleLabelOf } from "./projectMemberDisplay";
+import { initialsOf, roleLabelOf } from "./projectMemberDisplay";
 import { REQUEST_TIMEOUT_MS } from "./useProjects";
 
 /**
@@ -31,8 +31,6 @@ export interface ReceivedInvitation {
   role: string;
   /** 아바타에 표시할 1~2자 이니셜 */
   initials: string;
-  /** 아바타 배경색 */
-  avatarBg: string;
   /** 초대 받은 시각 (ISO) */
   createdAt?: string;
 }
@@ -72,7 +70,6 @@ export function useReceivedInvitations() {
             inviterNickname: inviter,
             role: roleLabelOf(i.role),
             initials: initialsOf(inviter),
-            avatarBg: avatarBgOf(inviter),
             createdAt: i.createdAt,
           };
         });

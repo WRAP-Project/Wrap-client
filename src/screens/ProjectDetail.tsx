@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ChevronRight, Plus } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useProjectDetail } from "@/data/useProjectDetail";
-import { onAccentPalette, tint } from "@/lib/color";
+import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, softBadge } from "@/lib/color";
 
 // ── 섹션 추가 버튼 ────────────────────────────────────────────────────────────
 // 섹션마다 "여기에 뭘 넣는다"를 같은 모양으로 보여준다. 새로 만든 프로젝트는
@@ -44,7 +44,7 @@ export default function ProjectDetail() {
   const project = projects.find((p) => p.id === projectId);
   const { data } = useProjectDetail(project?.id);
 
-  const accentColor = project?.color ?? "#A78BFA";
+  const accentColor = project?.color ?? FALLBACK_ACCENT;
 
   // 이 프로젝트를 보는 순간 "현재 선택된 프로젝트"로 기록 — 하단 탭 홈 버튼이
   // 뒤로가기 전까지 이 프로젝트로 돌아오도록 한다.
@@ -85,7 +85,7 @@ export default function ProjectDetail() {
   }
 
   const { urgentTask, members, schedules, progress } = data;
-  const activeCount = members.filter((m) => m.active).length;
+  const activeCount = members.filter((m) => m.state !== "inactive").length;
 
   // D-Day 카드는 프로젝트 색을 그대로 쓴다. 글자색은 배경 밝기에 따라 뒤집힌다.
   const onAccent = onAccentPalette(accentColor);
@@ -246,8 +246,7 @@ export default function ProjectDetail() {
                     key={`${m.initials}-${i}`}
                     className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white"
                     style={{
-                      background: m.avatarBg,
-                      color: "#1C1C1E",
+                      ...memberAvatar(accentColor, m.state),
                       marginLeft: i > 0 ? -6 : 0,
                       zIndex: members.length - i,
                       position: "relative",
@@ -273,10 +272,7 @@ export default function ProjectDetail() {
                 {/* 아바타 */}
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-black"
-                  style={{
-                    background: m.avatarBg,
-                    color: "#fff",
-                  }}
+                  style={memberAvatar(accentColor, m.state)}
                 >
                   {m.initials}
                 </div>
@@ -284,10 +280,15 @@ export default function ProjectDetail() {
                 <span className="text-[9px] font-medium" style={{ color: "rgba(28,28,30,0.45)" }}>
                   {m.role}
                 </span>
-                {/* 활성 닷 */}
+                {/* 상태 닷 — 지연이면 경고색, 활동 중이면 프로젝트 색, 없으면 비운다 */}
                 <div
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: m.active ? accentColor : "transparent" }}
+                  style={{
+                    background:
+                      m.state === "inactive"
+                        ? "transparent"
+                        : memberAvatar(accentColor, m.state).background,
+                  }}
                 />
               </div>
             ))}
@@ -330,14 +331,14 @@ export default function ProjectDetail() {
                     : "none",
                 }}
               >
-                {/* D-Day 뱃지 — 급한 것(D-3 이하)만 꽉 채우고, 나머지는 옅게 깐다.
-                    목록에서 어느 게 먼저인지 색 농도로 바로 읽히게. */}
+                {/* D-Day 뱃지 — 급한 것(D-3 이하)만 경고색으로 꽉 채우고, 나머지는
+                    프로젝트 색을 옅게 깐다. 목록에서 어느 게 먼저인지 바로 읽히게. */}
                 <span
                   className="text-[11px] font-black px-2.5 py-1.5 rounded-lg shrink-0 min-w-[44px] text-center"
                   style={
                     s.dday <= 3
-                      ? { background: s.ddayColor, color: "#fff" }
-                      : { background: tint(s.ddayColor, 0.14), color: s.ddayColor }
+                      ? { background: ALERT, color: "#fff" }
+                      : softBadge(accentColor)
                   }
                 >
                   D-{s.dday}

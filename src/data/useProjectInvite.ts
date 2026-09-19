@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { useAuthContext } from "./AuthContext";
-import { avatarBgOf, initialsOf, roleLabelOf } from "./projectMemberDisplay";
+import { initialsOf, roleLabelOf } from "./projectMemberDisplay";
 import { REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
 
 /**
@@ -34,8 +34,6 @@ export interface Invitee {
   initials: string;
   /** OWNER / MEMBER를 사람이 읽는 문구로 바꾼 값 */
   role: string;
-  /** 아바타 배경색 */
-  avatarBg: string;
   status: InviteeStatus;
   /** 로그인한 본인인지 — 목록에서 "나"로 표시하고 맨 앞에 둔다. */
   isMe: boolean;
@@ -95,7 +93,6 @@ export function useProjectInvite(projectId: string | undefined) {
             name,
             initials: initialsOf(name),
             role: roleLabelOf(m.role),
-            avatarBg: avatarBgOf(name),
             status: "JOINED" as const,
             isMe: myId !== undefined && m.memberId === myId,
           };
@@ -110,7 +107,6 @@ export function useProjectInvite(projectId: string | undefined) {
             name,
             initials: initialsOf(name),
             role: roleLabelOf(i.role),
-            avatarBg: avatarBgOf(name),
             status: "INVITED" as const,
             isMe: false,
           };

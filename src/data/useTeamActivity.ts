@@ -16,7 +16,6 @@ export interface MemberActivity {
   name: string;
   role: string;
   initials: string;
-  avatarBg: string;
   timeAgo: string;
   statusText: string;
   blocked: boolean;
@@ -37,27 +36,27 @@ export interface TeamActivityData {
 const MOCK_BY_PROJECT: Record<string, MemberActivity[]> = {
   // 프로젝트 루프
   "1": [
-    { name: "김민서", role: "PM",     initials: "KM", avatarBg: "#A78BFA", timeAgo: "12분 전",  statusText: "발표 흐름 검토 중",       blocked: false },
-    { name: "이주연", role: "디자인", initials: "LJ", avatarBg: "#A78BFA", timeAgo: "24분 전",  statusText: "키 비주얼 3페이지 반영",  blocked: false },
-    { name: "박준",   role: "개발",   initials: "PJ", avatarBg: "#60A5FA", timeAgo: "1시간 전", statusText: "데일리 링크 체크 완료",   blocked: false },
-    { name: "최서현", role: "마케팅", initials: "CS", avatarBg: "#374151", timeAgo: "2시간 전", statusText: "클라이언트 콘텐츠 정리",  blocked: false },
-    { name: "윤채원", role: "기획",   initials: "YC", avatarBg: "#4B5563", timeAgo: "3시간 전", statusText: "온보딩 카피 초안 정리",   blocked: false },
-    { name: "정하늘", role: "QA",     initials: "JH", avatarBg: "#6B7280", timeAgo: "어제",     statusText: "검증 데이터 미수신",      blocked: true  },
+    { name: "김민서", role: "PM",     initials: "KM", timeAgo: "12분 전",  statusText: "발표 흐름 검토 중",       blocked: false },
+    { name: "이주연", role: "디자인", initials: "LJ", timeAgo: "24분 전",  statusText: "키 비주얼 3페이지 반영",  blocked: false },
+    { name: "박준",   role: "개발",   initials: "PJ", timeAgo: "1시간 전", statusText: "데일리 링크 체크 완료",   blocked: false },
+    { name: "최서현", role: "마케팅", initials: "CS", timeAgo: "2시간 전", statusText: "클라이언트 콘텐츠 정리",  blocked: false },
+    { name: "윤채원", role: "기획",   initials: "YC", timeAgo: "3시간 전", statusText: "온보딩 카피 초안 정리",   blocked: false },
+    { name: "정하늘", role: "QA",     initials: "JH", timeAgo: "어제",     statusText: "검증 데이터 미수신",      blocked: true  },
   ],
 
   // 오로라 리브랜딩
   "2": [
-    { name: "문가온", role: "PM",     initials: "MG", avatarBg: "#A78BFA", timeAgo: "35분 전",  statusText: "리뷰 안건 정리 중",       blocked: false },
-    { name: "오세린", role: "디자인", initials: "OS", avatarBg: "#A78BFA", timeAgo: "1시간 전", statusText: "로고 시안 3차 작업 중",   blocked: false },
-    { name: "신하람", role: "브랜딩", initials: "SH", avatarBg: "#F472B6", timeAgo: "2시간 전", statusText: "브랜드 보이스 가이드 초안", blocked: false },
-    { name: "배도윤", role: "마케팅", initials: "BD", avatarBg: "#374151", timeAgo: "이틀 전",  statusText: "런칭 채널 확정 대기",     blocked: true  },
+    { name: "문가온", role: "PM",     initials: "MG", timeAgo: "35분 전",  statusText: "리뷰 안건 정리 중",       blocked: false },
+    { name: "오세린", role: "디자인", initials: "OS", timeAgo: "1시간 전", statusText: "로고 시안 3차 작업 중",   blocked: false },
+    { name: "신하람", role: "브랜딩", initials: "SH", timeAgo: "2시간 전", statusText: "브랜드 보이스 가이드 초안", blocked: false },
+    { name: "배도윤", role: "마케팅", initials: "BD", timeAgo: "이틀 전",  statusText: "런칭 채널 확정 대기",     blocked: true  },
   ],
 
   // 캠페인 라디오
   "3": [
-    { name: "서지훈", role: "마케팅", initials: "SJ", avatarBg: "#F59E0B", timeAgo: "20분 전",  statusText: "캠페인 콘셉트 후보 정리", blocked: false },
-    { name: "노아린", role: "기획",   initials: "NA", avatarBg: "#4B5563", timeAgo: "4시간 전", statusText: "녹음 스튜디오 섭외 완료", blocked: false },
-    { name: "강태오", role: "개발",   initials: "KT", avatarBg: "#60A5FA", timeAgo: "사흘 전",  statusText: "랜딩 페이지 착수 대기",   blocked: true  },
+    { name: "서지훈", role: "마케팅", initials: "SJ", timeAgo: "20분 전",  statusText: "캠페인 콘셉트 후보 정리", blocked: false },
+    { name: "노아린", role: "기획",   initials: "NA", timeAgo: "4시간 전", statusText: "녹음 스튜디오 섭외 완료", blocked: false },
+    { name: "강태오", role: "개발",   initials: "KT", timeAgo: "사흘 전",  statusText: "랜딩 페이지 착수 대기",   blocked: true  },
   ],
 };
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api/client";
-import { avatarBgOf, initialsOf, roleLabelOf } from "./projectMemberDisplay";
+import type { MemberState } from "@/lib/color";
+import { initialsOf, roleLabelOf } from "./projectMemberDisplay";
 import { useProjectSchedules } from "./SchedulesContext";
 import { REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
 import { daysLeft, formatScheduleDatetime, type Schedule as ScheduleSource } from "./useSchedules";
@@ -17,14 +18,13 @@ export interface UrgentTask {
 export interface Member {
   initials: string;
   role: string;
-  avatarBg: string;
-  active: boolean;
+  /** 아바타 색은 화면이 프로젝트 색과 이 상태로 정한다(lib/color.ts memberAvatar). */
+  state: MemberState;
 }
 
 export interface Schedule {
   dday: number;
   label: string;
-  ddayColor: string;
 }
 
 export interface Progress {
@@ -59,14 +59,16 @@ interface ProjectDetailSeed {
 
 const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
   // 프로젝트 루프
+  // delayed인 사람은 useTeamActivity.ts에서 blocked로 잡힌 사람과 같다 —
+  // 두 화면이 같은 사람을 다른 상태로 보여주면 안 된다.
   "1": {
     members: [
-      { initials: "KM", role: "PM",    avatarBg: "#A78BFA", active: true  },
-      { initials: "LJ", role: "디자인", avatarBg: "#A78BFA", active: true  },
-      { initials: "PJ", role: "개발",   avatarBg: "#60A5FA", active: true  },
-      { initials: "CS", role: "마케팅", avatarBg: "#374151", active: true  },
-      { initials: "JH", role: "QA",    avatarBg: "#6B7280", active: false },
-      { initials: "YC", role: "기획",   avatarBg: "#4B5563", active: true  },
+      { initials: "KM", role: "PM",    state: "active"   },
+      { initials: "LJ", role: "디자인", state: "active"   },
+      { initials: "PJ", role: "개발",   state: "active"   },
+      { initials: "CS", role: "마케팅", state: "active"   },
+      { initials: "JH", role: "QA",    state: "delayed"  },
+      { initials: "YC", role: "기획",   state: "inactive" },
     ],
     progress: { percent: 67, done: 6, total: 15, remaining: 8, remainingTotal: 10 },
   },
@@ -74,10 +76,10 @@ const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
   // 오로라 리브랜딩
   "2": {
     members: [
-      { initials: "MG", role: "PM",    avatarBg: "#A78BFA", active: true  },
-      { initials: "OS", role: "디자인", avatarBg: "#A78BFA", active: true  },
-      { initials: "SH", role: "브랜딩", avatarBg: "#F472B6", active: true  },
-      { initials: "BD", role: "마케팅", avatarBg: "#374151", active: false },
+      { initials: "MG", role: "PM",    state: "active"  },
+      { initials: "OS", role: "디자인", state: "active"  },
+      { initials: "SH", role: "브랜딩", state: "active"  },
+      { initials: "BD", role: "마케팅", state: "delayed" },
     ],
     progress: { percent: 42, done: 4, total: 12, remaining: 8, remainingTotal: 12 },
   },
@@ -85,9 +87,9 @@ const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
   // 캠페인 라디오
   "3": {
     members: [
-      { initials: "SJ", role: "마케팅", avatarBg: "#F59E0B", active: true  },
-      { initials: "NA", role: "기획",   avatarBg: "#4B5563", active: true  },
-      { initials: "KT", role: "개발",   avatarBg: "#60A5FA", active: false },
+      { initials: "SJ", role: "마케팅", state: "active"  },
+      { initials: "NA", role: "기획",   state: "active"  },
+      { initials: "KT", role: "개발",   state: "delayed" },
     ],
     progress: { percent: 25, done: 3, total: 14, remaining: 11, remainingTotal: 14 },
   },
@@ -100,13 +102,6 @@ const EMPTY_SEED: ProjectDetailSeed = {
 };
 
 // ── 파생 로직 ─────────────────────────────────────────────────────────────────
-
-/** D-day가 급할수록 강한 색 */
-function ddayColorOf(dday: number): string {
-  if (dday <= 3) return "#EB3E88";
-  if (dday <= 7) return "#A78BFA";
-  return "#60A5FA";
-}
 
 const TYPE_TAG: Record<ScheduleSource["type"], string> = {
   deadline: "마감",
@@ -137,7 +132,6 @@ function buildDetail(seed: ProjectDetailSeed, projectSchedules: ScheduleSource[]
     schedules: upcoming.slice(0, UPCOMING_PREVIEW_COUNT).map((s) => ({
       dday: daysLeft(s.date),
       label: s.title,
-      ddayColor: ddayColorOf(daysLeft(s.date)),
     })),
     members: seed.members,
     progress: seed.progress,
@@ -181,8 +175,8 @@ export function useProjectDetail(projectId: string | undefined) {
             return {
               initials: initialsOf(name),
               role: roleLabelOf(m.role),
-              avatarBg: avatarBgOf(name),
-              active: m.status === "JOINED",
+              // 서버는 아직 지연 여부를 주지 않는다 — 참여 중인지만 구분한다.
+              state: m.status === "JOINED" ? ("active" as const) : ("inactive" as const),
             };
           });
         setServerMembers(members);
