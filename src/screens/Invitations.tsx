@@ -5,8 +5,9 @@ import { useProjectsContext } from "@/data/ProjectsContext";
 import { useReceivedInvitations } from "@/data/useReceivedInvitations";
 
 /**
- * 받은 초대 화면.
- * 홈(ProjectSelect) 헤더의 알림 벨에서 들어온다.
+ * 알람 화면.
+ * 홈(ProjectSelect) 헤더의 알림 벨에서 들어온다. 지금 쌓이는 알람은 초대뿐이라
+ * 카드마다 "초대" 라벨을 달아 두고, 종류가 늘어나면 그 자리에 붙인다.
  *
  * InviteTeam이 "보내는 쪽"이라면 여기가 "받는 쪽"이다 — A가 이메일로 보낸 초대를
  * B가 여기서 수락하거나 거절한다. 데이터·요청은 useReceivedInvitations 훅 뒤에 있다.
@@ -67,12 +68,12 @@ export default function Invitations() {
         {/* 제목 */}
         <div className="flex flex-col gap-2">
           <h1 className="text-[26px] font-black leading-tight tracking-[-0.03em] text-white">
-            받은 초대
+            알람
           </h1>
           <p className="text-[0.82rem]" style={{ color: "rgba(255,255,255,0.45)" }}>
             {loading && invitations.length === 0
               ? "불러오는 중…"
-              : `답하지 않은 초대 ${invitations.length}개`}
+              : `읽지 않은 알람 ${invitations.length}개`}
           </p>
         </div>
 
@@ -102,7 +103,7 @@ export default function Invitations() {
             style={{ background: CARD }}
           >
             <MailOpen size={26} strokeWidth={1.6} color="rgba(255,255,255,0.3)" />
-            <p className="text-[0.85rem] font-semibold text-white">받은 초대가 없어요</p>
+            <p className="text-[0.85rem] font-semibold text-white">새 알람이 없어요</p>
             <p className="text-[0.78rem] leading-relaxed" style={{ color: FG_DIM }}>
               팀원이 가입한 이메일로 초대를 보내면
               <br />
@@ -121,6 +122,17 @@ export default function Invitations() {
                 className="rounded-[22px] p-5 flex flex-col gap-4"
                 style={{ background: CARD }}
               >
+                {/* 알람 종류 — 지금은 초대뿐이지만, 종류가 늘어나도 카드 상단
+                    같은 자리에 라벨이 오도록 타이틀 줄을 따로 둔다. */}
+                <div
+                  className="flex items-center justify-between pb-3"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                >
+                  <span className="text-[0.72rem] font-bold tracking-[-0.01em]" style={{ color: "#CDEA6F" }}>
+                    초대
+                  </span>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <span
                     className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-[0.75rem] font-bold text-white"

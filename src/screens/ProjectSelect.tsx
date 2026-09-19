@@ -228,7 +228,7 @@ export default function ProjectSelect() {
           <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
               {/* 알림 — 아직 답하지 않은 초대가 있으면 우상단에 점을 띄운다.
-                  탭하면 받은 초대 목록(/invitations)으로 간다. */}
+                  탭하면 알람 목록(/invitations)으로 간다. */}
               <button
                 aria-label="알림"
                 onClick={() => navigate("/invitations")}
@@ -239,9 +239,14 @@ export default function ProjectSelect() {
                   <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full bg-[#CDEA6F] ring-2 ring-[#1C1C1E]" />
                 )}
               </button>
-              <div className="w-8 h-8 rounded-full bg-[#3A3A3C] flex items-center justify-center text-white text-xs font-medium">
+              {/* 프로필 — 탭하면 마이페이지(/mypage)로 간다. */}
+              <button
+                aria-label="마이페이지"
+                onClick={() => navigate("/mypage")}
+                className="w-8 h-8 rounded-full bg-[#3A3A3C] flex items-center justify-center text-white text-xs font-medium transition-opacity active:opacity-60"
+              >
                 나
-              </div>
+              </button>
             </div>
           </div>
           <h1 className="text-white text-[44px] font-black leading-[0.92] tracking-[-.045em] mt-5">
