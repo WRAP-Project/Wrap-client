@@ -341,17 +341,19 @@ function ChecklistRow({
 }: {
   item: ReminderChecklistItem;
   bright: boolean;
-  onChange: (state: ReminderChecklistState) => void;
+  onChange: (state: ReminderChecklistState) => void | Promise<void>;
 }) {
   const done = item.state === "done";
   const blocked = item.state === "blocked";
+  const canUpdate = item.sourceType !== "aiUpdate";
+  const canBlock = item.sourceType === "task";
   // 카드 배경이 밝으면(라임) 잉크색으로, 어두우면 흰색으로 대비를 잡는다.
   const ink = bright ? INK : "#fff";
   const muted = bright ? "rgba(28,28,30,0.45)" : "rgba(255,255,255,0.6)";
 
   /** 같은 버튼을 다시 누르면 해제 — 진행 중으로 돌아간다. */
   function pick(next: ReminderChecklistState) {
-    onChange(item.state === next ? "inProgress" : next);
+    void onChange(item.state === next ? "inProgress" : next);
   }
 
   return (
@@ -374,16 +376,18 @@ function ChecklistRow({
       >
         <button
           onClick={() => pick("done")}
+          disabled={!canUpdate}
           aria-pressed={done}
-          className="px-3 py-1.5 text-[12px] font-bold transition-colors active:opacity-70"
+          className="px-3 py-1.5 text-[12px] font-bold transition-colors enabled:active:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
           style={{ background: done ? INK : "transparent", color: done ? "#fff" : ink }}
         >
           완료
         </button>
         <button
           onClick={() => pick("blocked")}
+          disabled={!canBlock}
           aria-pressed={blocked}
-          className="px-3 py-1.5 text-[12px] font-bold transition-colors active:opacity-70"
+          className="px-3 py-1.5 text-[12px] font-bold transition-colors enabled:active:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
           style={{
             background: blocked ? PINK : "transparent",
             color: blocked ? "#fff" : ink,
@@ -404,7 +408,7 @@ function ReminderCard({
   color: string;
   open: boolean;
   onToggleOpen: () => void;
-  onChangeItem: (itemId: string, state: ReminderChecklistState) => void;
+  onChangeItem: (itemId: string, state: ReminderChecklistState) => void | Promise<void>;
 }) {
   const bright = isBright(color);
   const hasBlocked = schedule.reminderChecklist?.some((i) => i.state === "blocked") ?? false;
@@ -649,31 +653,35 @@ function isReminderSchedule(schedule: Schedule): boolean {
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
-  const { schedules, addSchedule, setChecklistState } = useSchedulesContext();
+  const { schedules, addSchedule, setChecklistState, loading: schedulesLoading, error: schedulesError } = useSchedulesContext();
   const { projects, selectedProjectId, selectProject } = useProjectsContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const registerParam = searchParams.get("register") === "1";
+  const reminderParam = searchParams.get("reminder") === "1";
+  const [queryProjectId] = useState(() => searchParams.get("project"));
+  const [openReminderOnLoad] = useState(reminderParam);
+  const openedReminderFromQuery = useRef(false);
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   /** null이면 날짜 선택 해제 — 마감 리마인드는 다시 전체(다가오는 순)로 돌아간다. */
-  const [selectedDay, setSelectedDay] = useState<PickedDate | null>(todayPicked());
+  const [selectedDay, setSelectedDay] = useState<PickedDate | null>(() => reminderParam ? null : todayPicked());
   const [activeTab, setActiveTab] = useState<TabId>("mine");
   /**
    * 프로젝트 상세의 "일정 추가"가 /calendar?register=1&project=<id>로 넘어온다.
    * 등록 시트는 이 화면 안의 상태라 라우트로 못 여니 쿼리로 받는다.
    * 한 번 읽고 쿼리는 지운다 — 남겨두면 시트를 닫고 뒤로가기 했을 때 다시 열린다.
    */
-  const [searchParams, setSearchParams] = useSearchParams();
-  const registerParam = searchParams.get("register") === "1";
   // 쿼리를 지우기 전에 첫 렌더에서 한 번 붙잡아 둔다.
-  const [registerProjectId] = useState(() => searchParams.get("project"));
+  const [registerProjectId] = useState(queryProjectId);
   const [registerOpen, setRegisterOpen] = useState(registerParam);
 
   useEffect(() => {
-    if (!registerParam) return;
-    setRegisterOpen(true);
+    if (!registerParam && !reminderParam) return;
+    if (registerParam) setRegisterOpen(true);
     setSearchParams({}, { replace: true });
-  }, [registerParam, setSearchParams]);
+  }, [registerParam, reminderParam, setSearchParams]);
   /** 펼쳐진 마감 리마인드 카드 — 한 번에 하나만 */
   const [openReminderId, setOpenReminderId] = useState<string | null>(null);
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -681,7 +689,7 @@ export default function CalendarScreen() {
    * null이면 전체 프로젝트 — 상단 원형 프로젝트를 누르면 해당 프로젝트만 본다.
    * 기본값은 채팅 탭과 동일하게 홈에서 선택한 프로젝트(전역 선택 상태).
    */
-  const [filterProjectId, setFilterProjectId] = useState<string | null>(selectedProjectId);
+  const [filterProjectId, setFilterProjectId] = useState<string | null>(queryProjectId ?? selectedProjectId);
   const calendarProjects = projects;
   const { signals: riskSignals } = useCalendarRiskChecks(filterProjectId);
 
@@ -738,6 +746,12 @@ export default function CalendarScreen() {
     : [...visibleSchedules]
         .filter((s) => isReminderSchedule(s) && daysLeft(s.date) >= 0)
         .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+
+  useEffect(() => {
+    if (!openReminderOnLoad || openedReminderFromQuery.current || schedulesLoading || reminders.length === 0) return;
+    openedReminderFromQuery.current = true;
+    setOpenReminderId(reminders[0].id);
+  }, [openReminderOnLoad, reminders, schedulesLoading]);
 
   /** 팀원 일정 탭은 "선택 없음" 상태가 없다 — 선택이 풀려 있으면 오늘 기준. */
   const teamDate = selectedDay ?? todayPicked();
@@ -1005,6 +1019,15 @@ export default function CalendarScreen() {
               <h2 className="mb-3 text-[13px] font-bold" style={{ color: FG50 }}>
                 마감 리마인드{selectedDateStr ? ` · ${selectedDateStr.replace(/-/g, ".")}` : ""}
               </h2>
+              {schedulesError && (
+                <p
+                  role="alert"
+                  className="mb-3 rounded-xl px-3 py-2 text-[11px] font-semibold"
+                  style={{ background: "rgba(235,62,136,0.14)", color: PINK }}
+                >
+                  {schedulesError.message}
+                </p>
+              )}
               {reminders.length > 0 ? (
                 /* 왼쪽 세로 레일 + 카드 목록 */
                 <div className="relative pl-4">

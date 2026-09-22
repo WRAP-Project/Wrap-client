@@ -347,7 +347,12 @@ export default function MilestoneDetail() {
           <Paperclip size={18} color="#F0F0EC" />
         </button>
         <button
-          className="flex-1 rounded-2xl text-[15px] font-bold transition-opacity active:opacity-70"
+          onClick={() => {
+            if (!projectId) return;
+            navigate(`/calendar?project=${encodeURIComponent(projectId)}&reminder=1`);
+          }}
+          disabled={!projectId}
+          className="flex-1 rounded-2xl text-[15px] font-bold transition-opacity enabled:active:opacity-70 disabled:opacity-40"
           style={{ background: accent, color: onAccent.fg }}
         >
           체크리스트 업데이트

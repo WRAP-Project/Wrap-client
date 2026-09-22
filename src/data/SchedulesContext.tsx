@@ -25,7 +25,7 @@ interface SchedulesContextValue {
   schedules: Schedule[];
   addSchedule: (draft: ScheduleDraft) => Promise<Schedule>;
   /** 마감 리마인드 체크리스트 항목을 완료/막힘으로 바꾸거나 되돌린다. */
-  setChecklistState: (scheduleId: string, itemId: string, state: ReminderChecklistState) => void;
+  setChecklistState: (scheduleId: string, itemId: string, state: ReminderChecklistState) => Promise<void>;
   reload: () => Promise<void>;
   loading: boolean;
   error: Error | null;

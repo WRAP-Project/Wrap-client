@@ -378,6 +378,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/schedules/{scheduleId}/reminder-items/{sourceType}/{sourceId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateStatus_1"];
+        trace?: never;
+    };
     "/projects/{projectId}/members": {
         parameters: {
             query?: never;
@@ -926,6 +942,25 @@ export interface components {
             reminder?: boolean;
             /** Format: int64 */
             daysLeft?: number;
+        };
+        ReminderItemStatusUpdateRequest: {
+            /** @enum {string} */
+            status: "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";
+        };
+        ApiResponseReminderItemStatusResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ReminderItemStatusResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ReminderItemStatusResponse: {
+            /** @enum {string} */
+            sourceType?: "MILESTONE" | "TASK" | "SCHEDULE" | "AI_UPDATE";
+            /** Format: int64 */
+            sourceId?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";
+            statusLabel?: string;
         };
         ApiResponseListProjectMemberResponse: {
             success?: boolean;
@@ -1781,6 +1816,35 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListScheduleReminderResponse"];
+                };
+            };
+        };
+    };
+    updateStatus_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                scheduleId: number;
+                sourceType: "MILESTONE" | "TASK" | "SCHEDULE" | "AI_UPDATE";
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderItemStatusUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseReminderItemStatusResponse"];
                 };
             };
         };

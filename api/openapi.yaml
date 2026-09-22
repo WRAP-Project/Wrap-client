@@ -719,6 +719,53 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseListScheduleReminderResponse"
+  /projects/{projectId}/schedules/{scheduleId}/reminder-items/{sourceType}/{sourceId}/status:
+    patch:
+      tags:
+      - schedule-reminder-item-controller
+      operationId: updateStatus_1
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: sourceType
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - MILESTONE
+          - TASK
+          - SCHEDULE
+          - AI_UPDATE
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderItemStatusUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseReminderItemStatusResponse"
   /projects/{projectId}/members:
     get:
       tags:
@@ -1720,6 +1767,51 @@ components:
         daysLeft:
           type: integer
           format: int64
+    ReminderItemStatusUpdateRequest:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - PENDING
+          - IN_PROGRESS
+          - DONE
+          - BLOCKED
+    ApiResponseReminderItemStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ReminderItemStatusResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ReminderItemStatusResponse:
+      type: object
+      properties:
+        sourceType:
+          type: string
+          enum:
+          - MILESTONE
+          - TASK
+          - SCHEDULE
+          - AI_UPDATE
+        sourceId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - PENDING
+          - IN_PROGRESS
+          - DONE
+          - BLOCKED
+        statusLabel:
+          type: string
     ApiResponseListProjectMemberResponse:
       type: object
       properties:

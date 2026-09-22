@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema.gen";
 import { clientIdOfServerProject, REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
 import { useProjectsContext } from "./ProjectsContext";
@@ -259,6 +259,12 @@ function clientScheduleIdOf(id: number): string {
   return `${SERVER_SCHEDULE_PREFIX}${id}`;
 }
 
+function serverScheduleIdOf(id: string): number | null {
+  if (!id.startsWith(SERVER_SCHEDULE_PREFIX)) return null;
+  const value = Number(id.slice(SERVER_SCHEDULE_PREFIX.length));
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
 function dateTimeOf(date: string, time: string): string {
   return `${date}T${time.length === 5 ? `${time}:00` : time}`;
 }
@@ -294,6 +300,20 @@ const STATUS_MAP: Record<NonNullable<ServerReminderChecklistItem["status"]>, Rem
   IN_PROGRESS: "inProgress",
   DONE: "done",
   BLOCKED: "blocked",
+};
+
+const SOURCE_TO_SERVER: Record<ReminderChecklistSource, NonNullable<ServerReminderChecklistItem["sourceType"]>> = {
+  milestone: "MILESTONE",
+  task: "TASK",
+  schedule: "SCHEDULE",
+  aiUpdate: "AI_UPDATE",
+};
+
+const STATUS_TO_SERVER: Record<ReminderChecklistState, NonNullable<ServerReminderChecklistItem["status"]>> = {
+  pending: "PENDING",
+  inProgress: "IN_PROGRESS",
+  done: "DONE",
+  blocked: "BLOCKED",
 };
 
 function mapReminderChecklistItem(item: ServerReminderChecklistItem): ReminderChecklistItem | null {
@@ -448,33 +468,73 @@ export function useSchedules() {
     return created;
   }, [projects]);
 
-  /**
-   * 마감 리마인드 체크리스트 항목의 상태를 바꾼다(완료 / 막힘 / 해제).
-   *
-   * 아직 로컬 상태만 갱신한다 — 체크리스트 항목의 상태를 바꾸는 엔드포인트가
-   * api/openapi.yaml에 없다. 생기면 이 함수 안에서 요청을 보내고 응답으로
-   * 갱신하도록 바꾸면 되고, 화면은 그대로다.
-   *
-   * 상태를 바꾸면 statusLabel도 그 상태의 기본 문구로 맞춘다. "데이터 미수신"처럼
-   * 서버가 준 구체적인 사유는 사라지는데, 사용자가 직접 상태를 바꾼 이상 그 사유는
-   * 더 이상 맞지 않기 때문이다.
-   */
+  /** 마감 리마인드 체크리스트 상태를 화면에 즉시 반영하고 서버에 저장한다. */
   const setChecklistState = useCallback(
-    (scheduleId: string, itemId: string, state: ReminderChecklistState) => {
-      setSchedules((prev) =>
-        prev.map((s) =>
-          s.id !== scheduleId
-            ? s
-            : {
-                ...s,
-                reminderChecklist: s.reminderChecklist?.map((i) =>
-                  i.id !== itemId ? i : { ...i, state, statusLabel: statusLabelOf(state) },
-                ),
+    async (scheduleId: string, itemId: string, state: ReminderChecklistState): Promise<void> => {
+      const schedule = schedules.find((candidate) => candidate.id === scheduleId);
+      const item = schedule?.reminderChecklist?.find((candidate) => candidate.id === itemId);
+      if (!schedule || !item) return;
+
+      const applyState = (nextState: ReminderChecklistState) => {
+        setSchedules((prev) =>
+          prev.map((candidate) =>
+            candidate.id !== scheduleId
+              ? candidate
+              : {
+                  ...candidate,
+                  reminderChecklist: candidate.reminderChecklist?.map((candidateItem) =>
+                    candidateItem.id !== itemId
+                      ? candidateItem
+                      : { ...candidateItem, state: nextState, statusLabel: statusLabelOf(nextState) },
+                  ),
+                },
+          ),
+        );
+      };
+
+      const projectId = serverIdOf(schedule.projectId);
+      const serverScheduleId = serverScheduleIdOf(schedule.id);
+      if (projectId === null || serverScheduleId === null || item.sourceId === undefined) {
+        applyState(state);
+        return;
+      }
+
+      const previousState = item.state;
+      applyState(state);
+      try {
+        const { data, error: responseError, response } = await apiClient.PATCH(
+          "/projects/{projectId}/schedules/{scheduleId}/reminder-items/{sourceType}/{sourceId}/status",
+          {
+            params: {
+              path: {
+                projectId,
+                scheduleId: serverScheduleId,
+                sourceType: SOURCE_TO_SERVER[item.sourceType],
+                sourceId: item.sourceId,
               },
-        ),
-      );
+            },
+            body: { status: STATUS_TO_SERVER[state] },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          },
+        );
+
+        if (!response.ok || data?.success === false) {
+          throw new Error(apiErrorMessage(responseError ?? data, response.status, "체크리스트 상태를 저장하지 못했습니다."));
+        }
+
+        const savedStatus = data?.data?.status;
+        if (savedStatus) applyState(STATUS_MAP[savedStatus]);
+        setError(null);
+      } catch (requestError) {
+        applyState(previousState);
+        setError(
+          requestError instanceof Error && requestError.name !== "TimeoutError"
+            ? requestError
+            : new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+        );
+      }
     },
-    [],
+    [schedules],
   );
 
   return { schedules, addSchedule, setChecklistState, reload: loadSchedules, loading, error };
