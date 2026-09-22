@@ -654,7 +654,7 @@ function isReminderSchedule(schedule: Schedule): boolean {
 
 export default function CalendarScreen() {
   const { schedules, addSchedule, setChecklistState, loading: schedulesLoading, error: schedulesError } = useSchedulesContext();
-  const { projects, selectedProjectId, selectProject } = useProjectsContext();
+  const { projects, selectedProjectId, selectProject, loading: projectsLoading } = useProjectsContext();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const registerParam = searchParams.get("register") === "1";
@@ -694,9 +694,9 @@ export default function CalendarScreen() {
   const { signals: riskSignals } = useCalendarRiskChecks(filterProjectId);
 
   useEffect(() => {
-    if (!filterProjectId || calendarProjects.some((p) => p.id === filterProjectId)) return;
+    if (projectsLoading || !filterProjectId || calendarProjects.some((p) => p.id === filterProjectId)) return;
     setFilterProjectId(null);
-  }, [calendarProjects, filterProjectId]);
+  }, [calendarProjects, filterProjectId, projectsLoading]);
 
   /** 캘린더 탭에서 고른 프로젝트도 전역 선택 상태에 반영한다. */
   function pickProject(id: string | null) {
