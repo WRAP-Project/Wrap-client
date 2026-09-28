@@ -9,7 +9,7 @@ import {
 } from "@/data/useMilestoneDetail";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useTeamMembers } from "@/data/useTeamMembers";
-import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, onLight, tint } from "@/lib/color";
+import { ALERT, DARK_SURFACE, FALLBACK_ACCENT, memberAvatar, ON_DARK, onAccentPalette, onDark, tint } from "@/lib/color";
 
 const STATUS_LABEL: Record<ChecklistStatus, string> = {
   done: "완료",
@@ -25,7 +25,7 @@ function ChecklistRow({ item, accent }: { item: ChecklistItem; accent: string })
   const { label, assignee, status, note } = item;
   const onAccent = onAccentPalette(accent);
   return (
-    <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+    <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: DARK_SURFACE }}>
       {status === "done" ? (
         <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: accent }}>
           <Check size={13} strokeWidth={3} color={onAccent.fg} />
@@ -33,20 +33,20 @@ function ChecklistRow({ item, accent }: { item: ChecklistItem; accent: string })
       ) : status === "in_progress" ? (
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-          style={{ border: `2px solid ${onLight(accent)}` }}
+          style={{ border: `2px solid ${onDark(accent)}` }}
         >
-          <div className="w-2 h-2 rounded-full" style={{ background: onLight(accent) }} />
+          <div className="w-2 h-2 rounded-full" style={{ background: onDark(accent) }} />
         </div>
       ) : (
-        <div className="w-6 h-6 rounded-full shrink-0" style={{ border: "2px solid rgba(28,28,30,0.15)" }} />
+        <div className="w-6 h-6 rounded-full shrink-0" style={{ border: `2px solid ${ON_DARK.faint}` }} />
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold truncate" style={{ color: "#1C1C1E" }}>
+        <p className="text-[14px] font-semibold truncate" style={{ color: ON_DARK.fg }}>
           {label}
         </p>
         <p
           className="text-[11px] font-medium truncate"
-          style={{ color: status === "blocked" ? onLight(ALERT) : "rgba(28,28,30,0.45)" }}
+          style={{ color: status === "blocked" ? ALERT : ON_DARK.dim }}
         >
           {note ?? (assignee || "담당 미정")}
         </p>
@@ -54,7 +54,7 @@ function ChecklistRow({ item, accent }: { item: ChecklistItem; accent: string })
       {status === "blocked" && (
         <span
           className="text-[10px] font-black px-2 py-1 rounded-md shrink-0"
-          style={{ background: ALERT, color: "#fff" }}
+          style={{ background: ALERT, color: onAccentPalette(ALERT).fg }}
         >
           {STATUS_LABEL.blocked}
         </span>
@@ -81,8 +81,8 @@ function Chip({
       onClick={onClick}
       className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold shrink-0 transition-opacity active:opacity-60"
       style={{
-        background: selected ? accent : "rgba(28,28,30,0.06)",
-        color: selected ? onAccentPalette(accent).fg : "rgba(28,28,30,0.55)",
+        background: selected ? accent : "rgba(240,240,236,0.10)",
+        color: selected ? onAccentPalette(accent).fg : ON_DARK.dim,
       }}
     >
       {label}
@@ -123,7 +123,7 @@ function ChecklistAddForm({
   };
 
   return (
-    <div className="px-4 py-3.5 flex flex-col gap-3" style={{ background: tint(accent, 0.05) }}>
+    <div className="rounded-2xl px-4 py-3.5 flex flex-col gap-3" style={{ background: tint(accent, 0.10) }}>
       <input
         autoFocus
         value={label}
@@ -134,11 +134,11 @@ function ChecklistAddForm({
         }}
         placeholder="무엇을 제출하나요?"
         className="w-full bg-transparent text-[14px] font-semibold outline-none"
-        style={{ color: "#1C1C1E" }}
+        style={{ color: ON_DARK.fg }}
       />
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold tracking-[0.06em]" style={{ color: "rgba(28,28,30,0.35)" }}>
+        <span className="text-[10px] font-bold tracking-[0.06em]" style={{ color: ON_DARK.faint }}>
           담당
         </span>
         <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
@@ -156,7 +156,7 @@ function ChecklistAddForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold tracking-[0.06em]" style={{ color: "rgba(28,28,30,0.35)" }}>
+        <span className="text-[10px] font-bold tracking-[0.06em]" style={{ color: ON_DARK.faint }}>
           상태
         </span>
         <div className="flex gap-1.5">
@@ -177,7 +177,7 @@ function ChecklistAddForm({
           type="button"
           onClick={onClose}
           className="h-10 flex-1 rounded-xl text-[13px] font-bold transition-opacity active:opacity-60"
-          style={{ background: "rgba(28,28,30,0.06)", color: "rgba(28,28,30,0.55)" }}
+          style={{ background: "rgba(240,240,236,0.10)", color: ON_DARK.dim }}
         >
           닫기
         </button>
@@ -268,15 +268,16 @@ export default function MilestoneDetail() {
         </div>
 
         {/* 통계 3칸 */}
-        <div className="grid grid-cols-3 gap-2">
+        {/* 통계 3칸 — 카드를 쪼개지 않고 한 장 안에 나눠 담는다 */}
+        <div className="rounded-2xl grid grid-cols-3 py-4" style={{ background: DARK_SURFACE }}>
           {[
             { value: `${stats.checklistDone}/${stats.checklistTotal}`, label: "체크리스트" },
             { value: `${stats.fileCount}개`, label: "첨부 파일" },
             { value: `${stats.participantCount}명`, label: "참여자" },
           ].map((s) => (
-            <div key={s.label} className="rounded-2xl py-3 flex flex-col items-center gap-1" style={{ background: "#fff" }}>
-              <span className="text-[16px] font-black" style={{ color: onLight(accent) }}>{s.value}</span>
-              <span className="text-[10px] font-medium" style={{ color: "rgba(28,28,30,0.45)" }}>{s.label}</span>
+            <div key={s.label} className="flex flex-col items-center gap-1">
+              <span className="text-[16px] font-black" style={{ color: onDark(accent) }}>{s.value}</span>
+              <span className="text-[10px] font-medium" style={{ color: ON_DARK.faint }}>{s.label}</span>
             </div>
           ))}
         </div>
@@ -303,18 +304,16 @@ export default function MilestoneDetail() {
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
-              {linkedSchedules.map((s, i) => (
+            <div className="flex flex-col gap-2">
+              {linkedSchedules.map((s) => (
                 <div
                   key={s.id}
-                  className="flex items-center gap-3 px-4 py-3.5"
-                  style={{
-                    borderBottom: i < linkedSchedules.length - 1 ? "1px solid rgba(0,0,0,0.06)" : "none",
-                  }}
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
+                  style={{ background: DARK_SURFACE }}
                 >
                   <div
                     className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: s.checked ? accent : "rgba(28,28,30,0.08)" }}
+                    style={{ background: s.checked ? accent : "rgba(240,240,236,0.12)" }}
                   >
                     {s.checked && <Check size={12} strokeWidth={3.5} color={onAccentPalette(accent).fg} />}
                   </div>
@@ -322,13 +321,13 @@ export default function MilestoneDetail() {
                     <span
                       className="text-[14px] font-semibold truncate"
                       style={{
-                        color: s.checked ? "rgba(28,28,30,0.4)" : "#1C1C1E",
+                        color: s.checked ? ON_DARK.faint : ON_DARK.fg,
                         textDecoration: s.checked ? "line-through" : "none",
                       }}
                     >
                       {s.title}
                     </span>
-                    <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>
+                    <span className="text-[11px] font-medium" style={{ color: ON_DARK.dim }}>
                       {s.ddayLabel}
                       {s.assignees.length > 0 && ` · 담당 ${s.assignees.join(", ")}`}
                     </span>
@@ -349,7 +348,7 @@ export default function MilestoneDetail() {
               {stats.checklistDone} / {stats.checklistTotal}
             </span>
           </div>
-          <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
+          <div className="flex flex-col gap-2">
             {checklist.map((item) => (
               <ChecklistRow key={item.id} item={item} accent={accent} />
             ))}
@@ -364,15 +363,16 @@ export default function MilestoneDetail() {
               /* 목록 맨 아래 추가 행 — 항목이 0개일 때는 빈 카드 대신 이 행만 보인다 */
               <button
                 onClick={() => setAdding(true)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 transition-opacity active:opacity-60"
+                className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-opacity active:opacity-60"
+                style={{ background: DARK_SURFACE }}
               >
                 <div
                   className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: tint(accent, 0.12) }}
+                  style={{ background: tint(accent, 0.18) }}
                 >
-                  <Plus size={14} strokeWidth={3} color={onLight(accent)} />
+                  <Plus size={14} strokeWidth={3} color={onDark(accent)} />
                 </div>
-                <span className="text-[14px] font-semibold" style={{ color: onLight(accent) }}>
+                <span className="text-[14px] font-semibold" style={{ color: onDark(accent) }}>
                   항목 추가
                 </span>
               </button>
@@ -391,7 +391,7 @@ export default function MilestoneDetail() {
             </span>
           </div>
           {update ? (
-            <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "#fff" }}>
+            <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: DARK_SURFACE }}>
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
                 style={memberAvatar(accent, "active")}
@@ -399,8 +399,8 @@ export default function MilestoneDetail() {
                 {update.author}
               </div>
               <div className="min-w-0">
-                <p className="text-[13px] font-medium" style={{ color: "#1C1C1E" }}>&ldquo;{update.text}&rdquo;</p>
-                <p className="text-[11px] font-medium mt-1" style={{ color: "rgba(28,28,30,0.4)" }}>
+                <p className="text-[13px] font-medium" style={{ color: ON_DARK.fg }}>&ldquo;{update.text}&rdquo;</p>
+                <p className="text-[11px] font-medium mt-1" style={{ color: ON_DARK.faint }}>
                   {update.author} · {update.time}
                 </p>
               </div>

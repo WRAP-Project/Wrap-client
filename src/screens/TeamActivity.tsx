@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useTeamActivity } from "@/data/useTeamActivity";
-import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, onLight } from "@/lib/color";
+import { ALERT, DARK_SURFACE, FALLBACK_ACCENT, memberAvatar, ON_DARK, onAccentPalette } from "@/lib/color";
 
 export default function TeamActivity() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -80,14 +80,14 @@ export default function TeamActivity() {
           <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
             팀원별 오늘 상태
           </p>
-          <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
-            {visibleMembers.map((m, i) => (
+          {/* 행마다 따로 떨어진 카드 — 한 장 안의 구분선보다 어두운 배경에서
+              경계가 또렷하다. */}
+          <div className="flex flex-col gap-2">
+            {visibleMembers.map((m) => (
               <div
                 key={m.initials}
-                className="flex items-center gap-3 px-4 py-3.5"
-                style={{
-                  borderBottom: i < visibleMembers.length - 1 ? "1px solid rgba(0,0,0,0.06)" : "none",
-                }}
+                className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
+                style={{ background: DARK_SURFACE }}
               >
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
@@ -97,14 +97,14 @@ export default function TeamActivity() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[14px] font-bold" style={{ color: "#1C1C1E" }}>
+                    <span className="text-[14px] font-bold" style={{ color: ON_DARK.fg }}>
                       {m.name}
                     </span>
-                    <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>· {m.role}</span>
+                    <span className="text-[11px] font-medium" style={{ color: ON_DARK.faint }}>· {m.role}</span>
                   </div>
                   <p
                     className="text-[12px] font-medium truncate"
-                    style={{ color: m.blocked ? onLight(ALERT) : "rgba(28,28,30,0.5)" }}
+                    style={{ color: m.blocked ? ALERT : ON_DARK.dim }}
                   >
                     {m.statusText}
                   </p>
@@ -112,12 +112,12 @@ export default function TeamActivity() {
                 {m.blocked ? (
                   <span
                     className="text-[10px] font-black px-2 py-1 rounded-md shrink-0"
-                    style={{ background: ALERT, color: "#fff" }}
+                    style={{ background: ALERT, color: onAccentPalette(ALERT).fg }}
                   >
                     BLOCK
                   </span>
                 ) : (
-                  <span className="text-[11px] font-medium shrink-0" style={{ color: "rgba(28,28,30,0.35)" }}>
+                  <span className="text-[11px] font-medium shrink-0" style={{ color: ON_DARK.faint }}>
                     {m.timeAgo}
                   </span>
                 )}

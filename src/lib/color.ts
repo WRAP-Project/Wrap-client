@@ -80,6 +80,41 @@ export function onLight(hex: string): string {
 }
 
 /**
+ * 어두운 화면(#1C1C1E) 위에 올리는 카드·행의 배경.
+ *
+ * 흰 카드는 프로젝트를 고르는 순간(프로젝트 상세)에만 쓰고, 그 아래 상세
+ * 화면들은 앱 톤에 맞춰 어둡게 간다. 화면마다 각자 값을 정하면 같은 자리의
+ * 카드가 화면마다 미묘하게 달라지므로 여기 하나만 둔다.
+ */
+export const DARK_SURFACE = "rgba(240,240,236,0.06)";
+
+/** 어두운 카드 위의 글자색 — 본문 / 보조 / 흐림 순. */
+export const ON_DARK = {
+  fg: "#F0F0EC",
+  dim: "rgba(240,240,236,0.5)",
+  faint: "rgba(240,240,236,0.35)",
+  line: "rgba(240,240,236,0.10)",
+} as const;
+
+/**
+ * onLight의 반대 — 어두운 카드 위에서 읽히도록 어두운 색만 밝게 끌어올린다.
+ * 색상(hue)은 유지한다. 라임처럼 이미 밝은 프로젝트 색은 그대로 나간다.
+ * 0.30은 본문 크기에서 DARK_SURFACE 대비 4.5:1이 나오는 지점.
+ */
+export function onDark(hex: string): string {
+  const rgb = parseHex(hex);
+  if (!rgb) return ON_DARK.fg;
+  let c = rgb;
+  // 검정(0,0,0)은 곱셈으로는 밝아지지 않으므로 더하기로 끌어올린다.
+  while (luminance(c) < 0.3) {
+    const next = c.map((v) => Math.min(255, Math.ceil(v * 1.18) + 6)) as [number, number, number];
+    if (next.every((v, i) => v === c[i])) break;
+    c = next;
+  }
+  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
  * 흰 카드 위의 옅은 뱃지 — D-7 뱃지처럼 "강조하되 꽉 채우지는 않는" 자리.
  * 밝은 색은 흰 배경에 옅게 깔면 글자가 아예 보이지 않으므로, 그때만 어두운
  * 배경에 색 글자로 뒤집는다.
