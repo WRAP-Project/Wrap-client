@@ -1,6 +1,7 @@
 import { Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProjectsContext, type Project, type ProjectMember } from "@/data/ProjectsContext";
+import { useProjectProgress } from "@/data/MilestonesContext";
 import { useNotifications } from "@/data/useNotifications";
 
 // ─── 포인트 컬러 → 그라데이션 ────────────────────────────────────────────────
@@ -94,6 +95,8 @@ function ProjectCard({
   size: CardSize;
   className?: string;
 }) {
+  // 진행률은 프로젝트 상세와 같은 계산식을 쓴다 — 두 화면이 어긋나면 안 된다.
+  const progress = useProjectProgress(project.id);
   const showDescription = size !== "compact" && Boolean(project.description);
   const showTags = size !== "compact" && Boolean(project.tags?.length);
   // 아바타는 자리를 차지하므로 compact 슬롯에서는 생략한다.
@@ -136,16 +139,17 @@ function ProjectCard({
             {project.description}
           </p>
         )}
-        {project.progress !== undefined && (
+        {/* 진행률 — 마일스톤이 하나도 없으면 보여줄 게 없으므로 바째로 숨긴다 */}
+        {progress.total > 0 && (
           <div className="flex items-center gap-2 mb-2">
             <div className="flex-1 h-[3px] bg-black/20 rounded-full">
               <div
                 className="h-full bg-black/50 rounded-full"
-                style={{ width: `${project.progress}%` }}
+                style={{ width: `${progress.percent}%` }}
               />
             </div>
             <span className="text-black/50 text-[10px] shrink-0">
-              {project.progress}%
+              {progress.percent}%
             </span>
           </div>
         )}
