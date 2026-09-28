@@ -6,6 +6,7 @@ import { AuthProvider } from "./data/AuthContext";
 import { SessionScope } from "./data/SessionScope";
 import { ProjectsProvider } from "./data/ProjectsContext";
 import { SchedulesProvider } from "./data/SchedulesContext";
+import { MilestonesProvider } from "./data/MilestonesContext";
 import { MilestoneChecklistProvider } from "./data/MilestoneChecklistContext";
 import { ProfileProvider } from "./data/ProfileContext";
 import { AdjustRequestsProvider } from "./data/AdjustRequestsContext";
@@ -22,13 +23,17 @@ createRoot(document.getElementById("root")!).render(
         <SessionScope>
           <ProjectsProvider>
             <SchedulesProvider>
-              <MilestoneChecklistProvider>
-                <ProfileProvider>
-                  <AdjustRequestsProvider>
-                    <App />
-                  </AdjustRequestsProvider>
-                </ProfileProvider>
-              </MilestoneChecklistProvider>
+              {/* MilestonesProvider는 일정에서 완료를 파생하므로 반드시
+                  SchedulesProvider 안쪽이다. */}
+              <MilestonesProvider>
+                <MilestoneChecklistProvider>
+                  <ProfileProvider>
+                    <AdjustRequestsProvider>
+                      <App />
+                    </AdjustRequestsProvider>
+                  </ProfileProvider>
+                </MilestoneChecklistProvider>
+              </MilestonesProvider>
             </SchedulesProvider>
           </ProjectsProvider>
         </SessionScope>

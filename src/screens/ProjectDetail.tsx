@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ChevronRight, Plus } from "lucide-react";
+import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { useProjectsContext } from "@/data/ProjectsContext";
+import { useMilestonesContext } from "@/data/MilestonesContext";
 import { useProjectDetail } from "@/data/useProjectDetail";
-import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, softBadge } from "@/lib/color";
+import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, onLight, softBadge } from "@/lib/color";
 
 // ── 섹션 추가 버튼 ────────────────────────────────────────────────────────────
 // 섹션마다 "여기에 뭘 넣는다"를 같은 모양으로 보여준다. 새로 만든 프로젝트는
@@ -35,6 +37,136 @@ function AddButton({
   );
 }
 
+// ── 마일스톤 추가 시트 ────────────────────────────────────────────────────────
+// 마일스톤은 팀 공동 목표라 제목과 목표일만 받는다. 담당·완료는 여기서 정하지
+// 않는다 — 마일스톤에 일정을 연결하면 그 일정의 담당·완료에서 파생된다.
+//
+// 캘린더로 보내지 않고 이 화면 안에서 끝내는 건, 캘린더 등록 폼이 개인 일정용
+// (시각·리마인드·담당이 있는)이라 팀 목표와 성격이 다르기 때문이다.
+
+function todayPicked(): PickedDate {
+  const t = new Date();
+  return { year: t.getFullYear(), month: t.getMonth(), day: t.getDate() };
+}
+
+function pickedToDateStr({ year, month, day }: PickedDate): string {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function MilestoneAddSheet({
+  accent,
+  onClose,
+  onSubmit,
+}: {
+  accent: string;
+  onClose: () => void;
+  onSubmit: (title: string, dueDate: string) => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [due, setDue] = useState<PickedDate>(todayPicked());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const canSubmit = title.trim().length > 0 && !submitting;
+
+  async function handleSubmit() {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(title.trim(), pickedToDateStr(due));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      <div
+        className="flex w-full flex-col rounded-t-[28px]"
+        style={{ background: "#fff", maxWidth: 390, margin: "0 auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 px-5 pt-3">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: "rgba(28,28,30,0.15)" }} />
+          <div className="flex items-center justify-between pb-4">
+            <button onClick={onClose} className="text-[14px]" style={{ color: "rgba(28,28,30,0.5)" }}>
+              취소
+            </button>
+            <span className="text-[16px] font-bold" style={{ color: "#1C1C1E" }}>
+              마일스톤 추가
+            </span>
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="text-[14px] font-bold"
+              // 저장 가능할 때만 프로젝트 색으로 — 이 프로젝트의 목표임을 드러낸다.
+              style={{ color: canSubmit ? onLight(accent) : "rgba(28,28,30,0.25)" }}
+            >
+              저장
+            </button>
+          </div>
+        </div>
+
+        <div className="px-5 pb-6">
+          {/* 목표 */}
+          <div className="border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
+            <label className="mb-2 block text-[12px] font-semibold" style={{ color: "rgba(28,28,30,0.4)" }}>
+              달성할 목표
+            </label>
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleSubmit();
+              }}
+              placeholder="예: 중간 발표"
+              className="w-full text-[16px] outline-none"
+              style={{ color: "#1C1C1E" }}
+            />
+          </div>
+
+          {/* 목표일 */}
+          <div className="border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
+            <label className="mb-2 block text-[12px] font-semibold" style={{ color: "rgba(28,28,30,0.4)" }}>
+              목표일
+            </label>
+            <button
+              onClick={() => setDatePickerOpen(true)}
+              className="flex w-full items-center justify-between text-[16px]"
+              style={{ color: "#1C1C1E" }}
+            >
+              <span>{`${due.year}. ${String(due.month + 1).padStart(2, "0")}. ${String(due.day).padStart(2, "0")}`}</span>
+              <ChevronRight size={16} color="rgba(28,28,30,0.3)" />
+            </button>
+          </div>
+
+          <p className="pt-4 text-[11px] leading-relaxed" style={{ color: "rgba(28,28,30,0.4)" }}>
+            추가한 뒤 캘린더에서 일정을 이 마일스톤에 연결하세요. 연결된 일정이
+            모두 완료되면 마일스톤이 달성되고 전체 진행률이 올라갑니다.
+          </p>
+        </div>
+      </div>
+
+      {datePickerOpen && (
+        <DatePickerSheet
+          selected={due}
+          onSelect={(d) => {
+            setDue(d);
+            setDatePickerOpen(false);
+          }}
+          onClose={() => setDatePickerOpen(false)}
+        />
+      )}
+
+    </div>
+  );
+}
+
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 export default function ProjectDetail() {
@@ -43,6 +175,8 @@ export default function ProjectDetail() {
   const { projects, selectProject, loading: projectsLoading } = useProjectsContext();
   const project = projects.find((p) => p.id === projectId);
   const { data } = useProjectDetail(project?.id);
+  const { addMilestone } = useMilestonesContext();
+  const [addingMilestone, setAddingMilestone] = useState(false);
 
   const accentColor = project?.color ?? FALLBACK_ACCENT;
 
@@ -84,17 +218,22 @@ export default function ProjectDetail() {
     );
   }
 
-  const { urgentTask, members, schedules, progress } = data;
+  const { urgentTask, members, upcomingMilestones, progress } = data;
   const activeCount = members.filter((m) => m.state !== "inactive").length;
 
   // D-Day 카드는 프로젝트 색을 그대로 쓴다. 글자색은 배경 밝기에 따라 뒤집힌다.
   const onAccent = onAccentPalette(accentColor);
 
-  // 일정 추가는 캘린더의 등록 시트를 재사용한다 — 이 프로젝트를 미리 골라둔
-  // 상태로 열린다. 팀원 추가는 초대 화면으로 보낸다.
-  const goAddSchedule = () =>
-    navigate(`/calendar?register=1&project=${encodeURIComponent(project.id)}`);
+  // 마일스톤은 팀 목표라 이 화면 안에서 바로 추가한다(캘린더로 보내지 않는다).
+  // 팀원 추가는 초대 화면으로 보낸다.
+  const goMilestone = (milestoneId: string) =>
+    navigate(`/project/${project.id}/milestone/${milestoneId}`);
   const goInviteMember = () => navigate(`/create-project/${project.id}/invite`);
+
+  const handleAddMilestone = async (title: string, dueDate: string) => {
+    await addMilestone(project.id, { title, dueDate });
+    setAddingMilestone(false);
+  };
 
   return (
     <div
@@ -129,19 +268,20 @@ export default function ProjectDetail() {
             </p>
           </div>
 
-          {/* D-Day 카드 — 다가오는 일정 중 마감이 가장 가까운 것을 자동으로 뽑은
-              파생 뷰다. 여기서 직접 등록하지 않으므로 추가 버튼을 두지 않는다
-              (일정 추가 입구는 아래 "다가오는 일정" 섹션 하나로 통일). */}
+          {/* D-Day 카드 — 아직 달성하지 않은 마일스톤 중 목표일이 가장 가까운
+              것을 자동으로 뽑은 파생 뷰다. 여기서 직접 등록하지 않으므로 추가
+              버튼을 두지 않는다 (추가 입구는 아래 "다가오는 마일스톤" 하나로
+              통일). */}
           {!urgentTask ? (
             <div
               className="rounded-2xl px-5 py-8 text-center"
               style={{ background: "rgba(240,240,236,0.06)" }}
             >
               <p className="text-[13px] font-bold" style={{ color: "rgba(240,240,236,0.7)" }}>
-                아직 표시할 일정이 없어요
+                남은 마일스톤이 없어요
               </p>
               <p className="mt-1 text-[11px]" style={{ color: "rgba(240,240,236,0.35)" }}>
-                일정을 추가하면 마감이 가장 가까운 일정이 여기 올라와요
+                마일스톤을 추가하면 목표일이 가장 가까운 것이 여기 올라와요
               </p>
             </div>
           ) : (
@@ -174,10 +314,10 @@ export default function ProjectDetail() {
                   마감 임박
                 </span>
                 <button
-                  onClick={() => navigate(`/project/${project.id}/milestone`)}
+                  onClick={() => goMilestone(urgentTask.id)}
                   className="w-9 h-9 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
                   style={{ background: onAccent.veil }}
-                  aria-label="마감 임박 일정 자세히 보기"
+                  aria-label="마감 임박 마일스톤 자세히 보기"
                 >
                   <ArrowRight size={16} strokeWidth={2.5} color={onAccent.fg} />
                 </button>
@@ -296,37 +436,34 @@ export default function ProjectDetail() {
           )}
         </section>
 
-        {/* ── 섹션: 다가오는 일정 ── */}
+        {/* ── 섹션: 다가오는 마일스톤 ── */}
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
-              다가오는 일정
+              다가오는 마일스톤
             </p>
-            <AddButton label="일정 추가" onClick={goAddSchedule} onDark />
+            <AddButton label="마일스톤 추가" onClick={() => setAddingMilestone(true)} onDark />
           </div>
 
-          {schedules.length === 0 ? (
+          {upcomingMilestones.length === 0 ? (
             <button
-              onClick={goAddSchedule}
+              onClick={() => setAddingMilestone(true)}
               className="rounded-2xl px-4 py-5 text-left transition-opacity active:opacity-70"
               style={{ background: "rgba(240,240,236,0.06)" }}
             >
               <span className="text-[12px]" style={{ color: "rgba(240,240,236,0.45)" }}>
-                예정된 일정이 없어요. + 를 눌러 추가해보세요
+                남은 마일스톤이 없어요. + 를 눌러 추가해보세요
               </span>
             </button>
           ) : (
-          <div
-            className="rounded-2xl overflow-hidden text-left transition-opacity active:opacity-80"
-            style={{ background: "#fff" }}
-            onClick={() => navigate(`/project/${project.id}/schedule`)}
-          >
-            {schedules.map((s, i) => (
-              <div
-                key={s.label}
-                className="flex items-center gap-3 px-4 py-3.5"
+          <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
+            {upcomingMilestones.map((m, i) => (
+              <button
+                key={m.id}
+                onClick={() => goMilestone(m.id)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-opacity active:opacity-60"
                 style={{
-                  borderBottom: i < schedules.length - 1
+                  borderBottom: i < upcomingMilestones.length - 1
                     ? "1px solid rgba(0,0,0,0.06)"
                     : "none",
                 }}
@@ -336,20 +473,27 @@ export default function ProjectDetail() {
                 <span
                   className="text-[11px] font-black px-2.5 py-1.5 rounded-lg shrink-0 min-w-[44px] text-center"
                   style={
-                    s.dday <= 3
+                    m.dday <= 3
                       ? { background: ALERT, color: "#fff" }
                       : softBadge(accentColor)
                   }
                 >
-                  D-{s.dday}
+                  D-{m.dday}
                 </span>
-                {/* 라벨 */}
-                <span className="flex-1 text-[14px] font-semibold" style={{ color: "#1C1C1E" }}>
-                  {s.label}
+                {/* 목표 + 연결된 일정 진행 */}
+                <span className="flex-1 flex flex-col gap-0.5">
+                  <span className="text-[14px] font-semibold" style={{ color: "#1C1C1E" }}>
+                    {m.label}
+                  </span>
+                  <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>
+                    {m.totalCount === 0
+                      ? "연결된 일정 없음"
+                      : `일정 ${m.doneCount}/${m.totalCount} 완료`}
+                  </span>
                 </span>
                 {/* 화살표 */}
                 <ChevronRight size={16} strokeWidth={2} color="rgba(28,28,30,0.3)" />
-              </div>
+              </button>
             ))}
           </div>
           )}
@@ -366,8 +510,9 @@ export default function ProjectDetail() {
             <span className="text-[14px] font-bold" style={{ color: "#1C1C1E" }}>
               전체 진행률
             </span>
+            {/* 달성한 마일스톤 수가 곧 진행률이다 */}
             <span className="text-[14px] font-black" style={{ color: "#1C1C1E" }}>
-              {progress.percent}%
+              마일스톤 {progress.done}/{progress.total} · {progress.percent}%
             </span>
           </div>
 
@@ -391,14 +536,23 @@ export default function ProjectDetail() {
           </div>
 
           {/* 하단 레이블 */}
-          <div className="flex items-center justify-between text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.45)" }}>
-            <span>착수 ({progress.done}/{progress.total})</span>
-            <span className="font-bold" style={{ color: "#1C1C1E" }}>현재</span>
-            <span>출품 ({progress.remaining}/{progress.remainingTotal})</span>
+          {/* 양 끝은 이 프로젝트의 첫·마지막 마일스톤 — 타임라인의 시작과 끝 */}
+          <div className="flex items-center justify-between gap-2 text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.45)" }}>
+            <span className="truncate">{progress.startLabel}</span>
+            <span className="shrink-0 font-bold" style={{ color: "#1C1C1E" }}>현재</span>
+            <span className="truncate text-right">{progress.endLabel}</span>
           </div>
         </section>
 
       </div>
+
+      {addingMilestone && (
+        <MilestoneAddSheet
+          accent={accentColor}
+          onClose={() => setAddingMilestone(false)}
+          onSubmit={handleAddMilestone}
+        />
+      )}
     </div>
   );
 }

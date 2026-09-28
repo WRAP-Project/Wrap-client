@@ -43,6 +43,12 @@ export interface Schedule {
   type: ScheduleType;
   reminder: boolean;
   checked?: boolean;
+  /**
+   * 이 일정이 기여하는 마일스톤(useMilestones.ts). 비어 있으면 마일스톤과
+   * 무관한 일정이다 — 개인 약속처럼 팀 목표에 걸리지 않는 것도 등록할 수 있다.
+   * 프론트 전용(백엔드 스키마에 아직 없음).
+   */
+  milestoneId?: string | null;
   /** 담당자 이니셜 — 프론트 전용(백엔드 스키마에 없음). 마감 임박 카드 등에서 쓴다. */
   assignees?: string[];
   /** 마감 리마인드 API가 내려준 표시 대상 여부. */
@@ -62,6 +68,8 @@ export interface ScheduleDraft {
   endTime: string;
   type: ScheduleType;
   reminder: boolean;
+  /** 이 일정이 기여할 마일스톤. 고르지 않으면 비운다. */
+  milestoneId?: string | null;
 }
 
 // ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
@@ -127,19 +135,23 @@ export function formatScheduleDatetime(s: Schedule): string {
 
 const today = new Date();
 
-// 이 배열이 앱 전체 일정의 유일한 출처다 — 캘린더, 프로젝트 상세의 다가오는
-// 일정/마감 임박, 전체 일정 화면, 마일스톤 상세가 모두 여기서 파생된다.
+// 이 배열이 앱 전체 일정의 유일한 출처다 — 캘린더, 전체 일정 화면,
+// 마일스톤 상세의 "연결된 일정"이 모두 여기서 파생된다.
+//
+// milestoneId는 useMilestones.ts의 MOCK_MILESTONES를 가리킨다. 연결된 일정이
+// 전부 checked면 그 마일스톤이 완료되고, 프로젝트 상세의 전체 진행률이 오른다.
+// 이미 지난 일정 일부를 checked로 둬서 진행률이 0%로만 보이지 않게 했다.
 
 const MOCK_SCHEDULES: Schedule[] = [
   // ── 프로젝트 루프 ──
   {
-    id: "s1", projectId: "1", projectName: "프로젝트 루프",
+    id: "s1", milestoneId: "m1", checked: true, projectId: "1", projectName: "프로젝트 루프",
     title: "스프린트 회고",
     date: toLocalDateStr(addDays(today, -2)), startTime: "16:00", endTime: "17:00",
     type: "meeting", reminder: false, assignees: ["KM"],
   },
   {
-    id: "s2", projectId: "1", projectName: "프로젝트 루프",
+    id: "s2", milestoneId: "m2", checked: true, projectId: "1", projectName: "프로젝트 루프",
     title: "UI 시안 최종 전달",
     date: toLocalDateStr(addDays(today, 1)), startTime: "10:00", endTime: "11:00",
     type: "deadline", reminder: true, assignees: ["LJ"],
@@ -153,7 +165,7 @@ const MOCK_SCHEDULES: Schedule[] = [
     ],
   },
   {
-    id: "s3", projectId: "1", projectName: "프로젝트 루프",
+    id: "s3", milestoneId: "m3", projectId: "1", projectName: "프로젝트 루프",
     title: "중간 발표 자료 제출",
     date: toLocalDateStr(addDays(today, 3)), startTime: "10:00", endTime: "11:00",
     type: "deadline", reminder: true, assignees: ["KM", "LJ"],
@@ -166,13 +178,13 @@ const MOCK_SCHEDULES: Schedule[] = [
     ],
   },
   {
-    id: "s4", projectId: "1", projectName: "프로젝트 루프",
+    id: "s4", milestoneId: "m4", projectId: "1", projectName: "프로젝트 루프",
     title: "클라이언트 검토 미팅",
     date: toLocalDateStr(addDays(today, 7)), startTime: "14:00", endTime: "15:30",
     type: "meeting", reminder: false, assignees: ["KM"],
   },
   {
-    id: "s5", projectId: "1", projectName: "프로젝트 루프",
+    id: "s5", milestoneId: "m4", projectId: "1", projectName: "프로젝트 루프",
     title: "최종 산출물 납품",
     date: toLocalDateStr(addDays(today, 14)), startTime: "18:00", endTime: "18:30",
     type: "deadline", reminder: true, assignees: ["PJ"],
@@ -183,13 +195,13 @@ const MOCK_SCHEDULES: Schedule[] = [
 
   // ── 오로라 리브랜딩 ──
   {
-    id: "s6", projectId: "2", projectName: "오로라 리브랜딩",
+    id: "s6", milestoneId: "m5", checked: true, projectId: "2", projectName: "오로라 리브랜딩",
     title: "무드보드 정리",
     date: toLocalDateStr(addDays(today, -4)), startTime: "11:00", endTime: "12:00",
     type: "milestone", reminder: false, assignees: ["SH"],
   },
   {
-    id: "s7", projectId: "2", projectName: "오로라 리브랜딩",
+    id: "s7", milestoneId: "m6", projectId: "2", projectName: "오로라 리브랜딩",
     title: "브랜드 가이드 리뷰",
     date: toLocalDateStr(addDays(today, 2)), startTime: "13:00", endTime: "14:00",
     type: "meeting", reminder: true, assignees: ["MG"],
@@ -198,13 +210,13 @@ const MOCK_SCHEDULES: Schedule[] = [
     ],
   },
   {
-    id: "s8", projectId: "2", projectName: "오로라 리브랜딩",
+    id: "s8", milestoneId: "m7", projectId: "2", projectName: "오로라 리브랜딩",
     title: "로고 시안 3차 공유",
     date: toLocalDateStr(addDays(today, 9)), startTime: "11:00", endTime: "12:00",
     type: "milestone", reminder: false, assignees: ["OS", "SH"],
   },
   {
-    id: "s9", projectId: "2", projectName: "오로라 리브랜딩",
+    id: "s9", milestoneId: "m7", projectId: "2", projectName: "오로라 리브랜딩",
     title: "리브랜딩 발표",
     date: toLocalDateStr(addDays(today, 21)), startTime: "15:00", endTime: "16:00",
     type: "deadline", reminder: true, assignees: ["MG"],
@@ -212,13 +224,13 @@ const MOCK_SCHEDULES: Schedule[] = [
 
   // ── 캠페인 라디오 ──
   {
-    id: "s10", projectId: "3", projectName: "캠페인 라디오",
+    id: "s10", milestoneId: "m8", checked: true, projectId: "3", projectName: "캠페인 라디오",
     title: "캠페인 킥오프 미팅",
     date: toLocalDateStr(addDays(today, -6)), startTime: "10:00", endTime: "11:00",
     type: "meeting", reminder: false, assignees: ["SJ"],
   },
   {
-    id: "s11", projectId: "3", projectName: "캠페인 라디오",
+    id: "s11", milestoneId: "m9", projectId: "3", projectName: "캠페인 라디오",
     title: "캠페인 콘셉트 확정",
     date: toLocalDateStr(addDays(today, 5)), startTime: "16:00", endTime: "17:00",
     type: "deadline", reminder: true, assignees: ["SJ"],
@@ -228,7 +240,7 @@ const MOCK_SCHEDULES: Schedule[] = [
     ],
   },
   {
-    id: "s12", projectId: "3", projectName: "캠페인 라디오",
+    id: "s12", milestoneId: "m10", projectId: "3", projectName: "캠페인 라디오",
     title: "라디오 광고 녹음",
     date: toLocalDateStr(addDays(today, 12)), startTime: "09:00", endTime: "12:00",
     type: "milestone", reminder: true, assignees: ["NA"],
@@ -462,8 +474,12 @@ export function useSchedules() {
       throw new Error(data?.error?.message ?? "일정 등록에 실패했습니다.");
     }
 
-    const created = mapScheduleResponse(data.data, projects);
-    if (!created) throw new Error("일정 응답을 해석하지 못했습니다.");
+    const mapped = mapScheduleResponse(data.data, projects);
+    if (!mapped) throw new Error("일정 응답을 해석하지 못했습니다.");
+    // 마일스톤 연결은 api/openapi.yaml에 아직 없어 서버가 돌려주지 않는다 —
+    // 폼에서 고른 값을 클라이언트에서 붙인다. 스펙이 생기면 요청 본문에 실어
+    // 보내고 이 줄은 지우면 된다.
+    const created: Schedule = { ...mapped, milestoneId: draft.milestoneId ?? null };
     setSchedules((prev) => [...prev, created]);
     return created;
   }, [projects]);

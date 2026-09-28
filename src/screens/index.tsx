@@ -33,7 +33,7 @@ export const screens: { path: string; Component: ComponentType; isPublic?: boole
   { path: "/signup", Component: Signup, isPublic: true },
   { path: "/", Component: ProjectSelect },
   { path: "/project/:projectId", Component: ProjectDetail },
-  { path: "/project/:projectId/milestone", Component: MilestoneDetail },
+  { path: "/project/:projectId/milestone/:milestoneId", Component: MilestoneDetail },
   { path: "/project/:projectId/team", Component: TeamActivity },
   { path: "/project/:projectId/schedule", Component: ProjectSchedule },
   { path: "/project/:projectId/report", Component: ProgressReport },

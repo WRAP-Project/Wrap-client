@@ -196,16 +196,34 @@ function ChecklistAddForm({
 }
 
 export default function MilestoneDetail() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId, milestoneId } = useParams<{ projectId: string; milestoneId: string }>();
   const navigate = useNavigate();
   const { projects } = useProjectsContext();
-  const { data, addChecklistItem } = useMilestoneDetail(projectId);
-  const { header, stats, checklist, update } = data;
+  const { data, addChecklistItem } = useMilestoneDetail(projectId, milestoneId);
+  const { exists, header, stats, linkedSchedules, checklist, update } = data;
   const [adding, setAdding] = useState(false);
 
   // 마일스톤은 프로젝트에 속하므로 강조색은 전부 이 프로젝트의 색이다.
   const accent = projects.find((p) => p.id === projectId)?.color ?? FALLBACK_ACCENT;
   const onAccent = onAccentPalette(accent);
+
+  if (!exists) {
+    return (
+      <div className="min-h-screen flex flex-col px-4 pt-6" style={{ background: "#1C1C1E", color: "#F0F0EC" }}>
+        <button
+          onClick={() => navigate(-1)}
+          className="w-8 h-8 -ml-1 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+          style={{ background: "rgba(240,240,236,0.08)" }}
+          aria-label="뒤로가기"
+        >
+          <ArrowLeft size={16} strokeWidth={2.5} color="#F0F0EC" />
+        </button>
+        <p className="pt-16 text-center text-[13px]" style={{ color: "rgba(240,240,236,0.45)" }}>
+          {header.title}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#1C1C1E", color: "#F0F0EC" }}>
@@ -225,7 +243,7 @@ export default function MilestoneDetail() {
         <div className="rounded-2xl p-5 flex flex-col gap-3" style={{ background: accent }}>
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: onAccent.veil, color: onAccent.fg }}>
-              D-{header.dday} 마감
+              D-{header.dday} 목표
             </span>
             <span className="text-[11px] font-bold" style={{ color: onAccent.faint }}>
               {header.statusBadge}
@@ -243,6 +261,7 @@ export default function MilestoneDetail() {
               style={{ width: `${header.readyPercent}%`, background: onAccent.fg }}
             />
           </div>
+          {/* 준비 진행률 = 연결된 일정의 완료 비율. 이게 100%가 되면 달성이다. */}
           <p className="text-[11px] font-semibold" style={{ color: onAccent.faint }}>
             준비 진행률 {header.readyPercent}%
           </p>
@@ -262,7 +281,65 @@ export default function MilestoneDetail() {
           ))}
         </div>
 
-        {/* 제출 체크리스트 */}
+        {/* 연결된 일정 — 이 마일스톤 달성의 근거다. 전부 완료되면 달성 처리된다.
+            제출 체크리스트와 달리 여기서 추가하지 않는다(일정은 캘린더에서
+            날짜·담당과 함께 등록한다). */}
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
+              연결된 일정
+            </p>
+            <span className="text-[11px] font-semibold" style={{ color: accent }}>
+              {linkedSchedules.filter((s) => s.checked).length} / {linkedSchedules.length}
+            </span>
+          </div>
+          {linkedSchedules.length === 0 ? (
+            <div className="rounded-2xl px-4 py-6 text-center" style={{ background: "rgba(240,240,236,0.06)" }}>
+              <p className="text-[12px] font-semibold" style={{ color: "rgba(240,240,236,0.5)" }}>
+                아직 연결된 일정이 없어요
+              </p>
+              <p className="mt-1 text-[11px]" style={{ color: "rgba(240,240,236,0.35)" }}>
+                일정을 연결해야 달성 여부를 판단할 수 있어요
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
+              {linkedSchedules.map((s, i) => (
+                <div
+                  key={s.id}
+                  className="flex items-center gap-3 px-4 py-3.5"
+                  style={{
+                    borderBottom: i < linkedSchedules.length - 1 ? "1px solid rgba(0,0,0,0.06)" : "none",
+                  }}
+                >
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: s.checked ? accent : "rgba(28,28,30,0.08)" }}
+                  >
+                    {s.checked && <Check size={12} strokeWidth={3.5} color={onAccentPalette(accent).fg} />}
+                  </div>
+                  <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <span
+                      className="text-[14px] font-semibold truncate"
+                      style={{
+                        color: s.checked ? "rgba(28,28,30,0.4)" : "#1C1C1E",
+                        textDecoration: s.checked ? "line-through" : "none",
+                      }}
+                    >
+                      {s.title}
+                    </span>
+                    <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>
+                      {s.ddayLabel}
+                      {s.assignees.length > 0 && ` · 담당 ${s.assignees.join(", ")}`}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 제출 체크리스트 — 일정과 별개인 산출물. 달성 판정에는 쓰지 않는다. */}
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>

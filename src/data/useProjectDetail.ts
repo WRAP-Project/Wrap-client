@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api/client";
 import type { MemberState } from "@/lib/color";
 import { initialsOf, roleLabelOf } from "./projectMemberDisplay";
-import { useProjectSchedules } from "./SchedulesContext";
+import { useProjectMilestones } from "./MilestonesContext";
 import { REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
-import { daysLeft, formatScheduleDatetime, type Schedule as ScheduleSource } from "./useSchedules";
+import { formatMilestoneDue, progressOf, type MilestoneView } from "./useMilestones";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
+/** 마감 임박 카드 — 가장 가까운 미완료 마일스톤이다(일정이 아니다). */
 export interface UrgentTask {
+  /** 마일스톤 상세로 이동할 때 쓴다 */
+  id: string;
   dday: number;
   title: string;
   datetime: string;
@@ -22,24 +25,31 @@ export interface Member {
   state: MemberState;
 }
 
-export interface Schedule {
+/** "다가오는 마일스톤" 목록의 한 줄 */
+export interface UpcomingMilestone {
+  id: string;
   dday: number;
   label: string;
+  /** 연결된 일정 중 몇 개가 끝났는지 — "2/3" */
+  doneCount: number;
+  totalCount: number;
 }
 
 export interface Progress {
   percent: number;
+  /** 완료된 마일스톤 수 / 전체 마일스톤 수 */
   done: number;
   total: number;
-  remaining: number;
-  remainingTotal: number;
+  /** 진행 바 양 끝에 놓는 첫·마지막 마일스톤 제목 */
+  startLabel: string;
+  endLabel: string;
 }
 
 export interface ProjectDetailData {
-  /** 일정이 하나도 없는 프로젝트면 null */
+  /** 남은 마일스톤이 없으면 null */
   urgentTask: UrgentTask | null;
   members: Member[];
-  schedules: Schedule[];
+  upcomingMilestones: UpcomingMilestone[];
   progress: Progress;
 }
 
@@ -52,9 +62,9 @@ export interface ProjectDetailData {
 // useSchedules.ts의 일정 목록(앱 전체의 유일한 출처)에서 파생시킨다.
 // 그래서 캘린더에서 일정을 추가하면 이 화면에도 즉시 반영된다.
 
+// 진행률은 더 이상 여기 하드코딩하지 않는다 — 마일스톤 완료 수에서 파생한다.
 interface ProjectDetailSeed {
   members: Member[];
-  progress: Progress;
 }
 
 const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
@@ -70,7 +80,6 @@ const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
       { initials: "JH", role: "QA",    state: "delayed"  },
       { initials: "YC", role: "기획",   state: "inactive" },
     ],
-    progress: { percent: 67, done: 6, total: 15, remaining: 8, remainingTotal: 10 },
   },
 
   // 오로라 리브랜딩
@@ -81,7 +90,6 @@ const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
       { initials: "SH", role: "브랜딩", state: "active"  },
       { initials: "BD", role: "마케팅", state: "delayed" },
     ],
-    progress: { percent: 42, done: 4, total: 12, remaining: 8, remainingTotal: 12 },
   },
 
   // 캠페인 라디오
@@ -91,59 +99,86 @@ const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
       { initials: "NA", role: "기획",   state: "active"  },
       { initials: "KT", role: "개발",   state: "delayed" },
     ],
-    progress: { percent: 25, done: 3, total: 14, remaining: 11, remainingTotal: 14 },
   },
 };
 
 /** mock에 없는 프로젝트(새로 만든 프로젝트 등)는 빈 상태로 시작한다. */
 const EMPTY_SEED: ProjectDetailSeed = {
   members: [],
-  progress: { percent: 0, done: 0, total: 0, remaining: 0, remainingTotal: 0 },
 };
 
 // ── 파생 로직 ─────────────────────────────────────────────────────────────────
 
-const TYPE_TAG: Record<ScheduleSource["type"], string> = {
-  deadline: "마감",
-  meeting: "미팅",
-  milestone: "마일스톤",
-};
-
-/** 카드에 미리 보여줄 다가오는 일정 개수 — 전체는 /schedule 화면에서 본다. */
+/** 카드에 미리 보여줄 다가오는 마일스톤 개수 */
 const UPCOMING_PREVIEW_COUNT = 3;
 
-function buildDetail(seed: ProjectDetailSeed, projectSchedules: ScheduleSource[]): ProjectDetailData {
-  // projectSchedules는 이미 마감이 가까운 순 — 지난 일정은 제외하고 본다.
-  const upcoming = projectSchedules.filter((s) => daysLeft(s.date) >= 0);
+const EMPTY_PROGRESS: Progress = {
+  percent: 0,
+  done: 0,
+  total: 0,
+  startLabel: "착수",
+  endLabel: "완료",
+};
+
+function buildDetail(
+  seed: ProjectDetailSeed,
+  projectMilestones: MilestoneView[],
+): ProjectDetailData {
+  // projectMilestones는 이미 목표일이 가까운 순.
+  // 지난 것과 이미 달성한 것은 "다음에 할 일"이 아니므로 제외한다.
+  const upcoming = projectMilestones.filter((m) => !m.done && m.dday >= 0);
   const nearest = upcoming[0];
+
+  // 진행률은 목록 화면과 공유하는 계산식을 쓴다(값이 어긋나면 안 된다).
+  const { percent, done, total } = progressOf(projectMilestones);
+
+  // projectMilestones는 "가까운 순"이라 지난 것이 뒤로 밀려 있다.
+  // 진행 바 양 끝 라벨은 시간 순서가 필요하므로 따로 정렬한다.
+  const chronological = [...projectMilestones].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   return {
     urgentTask: nearest
       ? {
-          dday: daysLeft(nearest.date),
+          id: nearest.id,
+          dday: nearest.dday,
           title: nearest.title,
-          datetime: formatScheduleDatetime(nearest),
+          datetime: formatMilestoneDue(nearest.dueDate),
           tags: [
-            TYPE_TAG[nearest.type],
-            ...(nearest.assignees?.length ? [`담당: ${nearest.assignees.join(", ")}`] : []),
+            "마일스톤",
+            ...(nearest.totalCount > 0
+              ? [`일정 ${nearest.doneCount}/${nearest.totalCount}`]
+              : ["연결된 일정 없음"]),
           ],
         }
       : null,
-    schedules: upcoming.slice(0, UPCOMING_PREVIEW_COUNT).map((s) => ({
-      dday: daysLeft(s.date),
-      label: s.title,
+    upcomingMilestones: upcoming.slice(0, UPCOMING_PREVIEW_COUNT).map((m) => ({
+      id: m.id,
+      dday: m.dday,
+      label: m.title,
+      doneCount: m.doneCount,
+      totalCount: m.totalCount,
     })),
     members: seed.members,
-    progress: seed.progress,
+    progress:
+      total === 0
+        ? EMPTY_PROGRESS
+        : {
+            percent,
+            done,
+            total,
+            // 진행 바 양 끝은 이 프로젝트의 첫 마일스톤과 마지막 마일스톤이다.
+            startLabel: chronological[0].title,
+            endLabel: chronological[total - 1].title,
+          },
   };
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 // 백엔드 GET /projects/{projectId} 준비되면 이 훅 내부만 fetch로 교체.
-// 일정은 SchedulesContext(= useSchedules.ts)에서 그대로 파생된다.
+// 마일스톤은 MilestonesContext(= useMilestones.ts)에서 그대로 파생된다.
 
 export function useProjectDetail(projectId: string | undefined) {
-  const projectSchedules = useProjectSchedules(projectId);
+  const projectMilestones = useProjectMilestones(projectId);
   const serverId = useMemo(() => serverIdOf(projectId), [projectId]);
 
   // 서버 프로젝트의 팀원은 실제로 불러온다. mock 프로젝트는 서버에 없으므로
@@ -195,9 +230,9 @@ export function useProjectDetail(projectId: string | undefined) {
 
   const data = useMemo(() => {
     const seed = (projectId && MOCK_BY_PROJECT[projectId]) || EMPTY_SEED;
-    const detail = buildDetail(seed, projectSchedules);
+    const detail = buildDetail(seed, projectMilestones);
     return serverMembers ? { ...detail, members: serverMembers } : detail;
-  }, [projectId, projectSchedules, serverMembers]);
+  }, [projectId, projectMilestones, serverMembers]);
 
   return { data, loading, error: null as Error | null };
 }
