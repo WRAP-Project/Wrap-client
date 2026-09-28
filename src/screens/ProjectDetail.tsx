@@ -497,6 +497,20 @@ export default function ProjectDetail() {
             ))}
           </div>
           )}
+
+          {/* 마일스톤에 걸리지 않은 일정까지 포함한 전체 목록으로 가는 입구.
+              위 목록은 팀 목표(마일스톤)만 보여주므로 날짜순 전체 일정은
+              여기서만 볼 수 있다. */}
+          <button
+            onClick={() => navigate(`/project/${project.id}/schedule`)}
+            className="flex items-center justify-between rounded-2xl px-4 py-3 transition-opacity active:opacity-60"
+            style={{ background: "rgba(240,240,236,0.06)" }}
+          >
+            <span className="text-[12px] font-semibold" style={{ color: "rgba(240,240,236,0.7)" }}>
+              이 프로젝트의 전체 일정
+            </span>
+            <ChevronRight size={15} strokeWidth={2} color="rgba(240,240,236,0.4)" />
+          </button>
         </section>
 
         {/* ── 섹션: 전체 진행률 ── */}
