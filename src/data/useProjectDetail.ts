@@ -30,7 +30,7 @@ export interface UpcomingMilestone {
   id: string;
   dday: number;
   label: string;
-  /** 연결된 일정 중 몇 개가 끝났는지 — "2/3" */
+  /** 연결된 작업 중 몇 개가 끝났는지 — "2/3" */
   doneCount: number;
   totalCount: number;
 }
@@ -146,8 +146,8 @@ function buildDetail(
           tags: [
             "마일스톤",
             ...(nearest.totalCount > 0
-              ? [`일정 ${nearest.doneCount}/${nearest.totalCount}`]
-              : ["연결된 일정 없음"]),
+              ? [`작업 ${nearest.doneCount}/${nearest.totalCount}`]
+              : ["연결된 작업 없음"]),
           ],
         }
       : null,

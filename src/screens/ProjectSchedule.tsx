@@ -2,15 +2,14 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { useProjectsContext } from "@/data/ProjectsContext";
-import { useProjectMilestones } from "@/data/MilestonesContext";
 import { useProjectSchedules } from "@/data/SchedulesContext";
 import { daysLeft, ddayLabel, type Schedule } from "@/data/useSchedules";
 import { FALLBACK_ACCENT, onAccentPalette } from "@/lib/color";
 
-// D-day 뱃지 색은 일정의 유형이 아니라 "마일스톤에 걸려 있는지"로 나눈다.
-// 등록 폼에서 유형 선택이 사라져 새 일정이 전부 같은 유형이 되었고, 새 모델에서
-// 의미 있는 구분은 "이 일정이 팀 목표에 기여하는가"이기 때문이다.
-const UNLINKED_COLOR = "rgba(28,28,30,0.35)";
+// D-day 뱃지 색은 지난 일정만 흐리게 나눈다. 등록 폼에서 유형 선택이 사라져
+// 새 일정이 전부 같은 유형이라 유형별 색 구분은 의미가 없고, 마일스톤 기여
+// 여부도 일정의 속성이 아니다(마일스톤을 이루는 건 태스크다).
+const PAST_COLOR = "rgba(28,28,30,0.35)";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -37,9 +36,6 @@ export default function ProjectSchedule() {
   // 프로젝트에 속한 요소는 그 프로젝트의 색만 쓴다.
   const accent = projects.find((p) => p.id === projectId)?.color ?? FALLBACK_ACCENT;
   const onAccent = onAccentPalette(accent);
-  const milestones = useProjectMilestones(projectId);
-  const milestoneTitleOf = (id: string | null | undefined) =>
-    id ? milestones.find((m) => m.id === id)?.title : undefined;
   // 이 프로젝트의 전체 일정 — 마감이 가까운 순(지난 일정은 뒤)으로 정렬돼 온다
   const projectSchedules = useProjectSchedules(projectId);
   const [selectedDate, setSelectedDate] = useState(() => toDateStr(new Date()));
@@ -149,8 +145,8 @@ export default function ProjectSchedule() {
                     <span
                       className="text-[11px] font-black px-2.5 py-1 rounded-lg shrink-0 min-w-[40px] text-center"
                       style={{
-                        background: past ? UNLINKED_COLOR : s.milestoneId ? accent : UNLINKED_COLOR,
-                        color: past || !s.milestoneId ? "#fff" : onAccentPalette(accent).fg,
+                        background: past ? PAST_COLOR : accent,
+                        color: past ? "#fff" : onAccentPalette(accent).fg,
                       }}
                     >
                       {ddayLabel(s.date)}
@@ -159,8 +155,6 @@ export default function ProjectSchedule() {
                       <p className="text-[14px] font-semibold truncate" style={{ color: "#1C1C1E" }}>{s.title}</p>
                       <p className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.45)" }}>
                         {formatMd(s.date)} · {s.startTime}
-                        {/* 어느 팀 목표에 기여하는 일정인지 — 뱃지 색과 짝이 된다 */}
-                        {milestoneTitleOf(s.milestoneId) && ` · ${milestoneTitleOf(s.milestoneId)}`}
                       </p>
                     </div>
                     <ChevronRight size={16} strokeWidth={2} color="rgba(28,28,30,0.3)" />

@@ -5,7 +5,9 @@
  * 마일스톤 상세가 함께 읽고 쓴다. 화면마다 useMilestones()를 따로 호출하면
  * 프로젝트 상세에서 추가한 마일스톤이 다른 화면에 안 보이므로 전역화한다.
  *
- * SchedulesProvider 안쪽에 있어야 한다 — 완료 판정을 일정에서 파생하기 때문.
+ * 진행률은 서버가 태스크에서 집계해 주므로 일정·태스크 Provider와의 순서
+ * 제약은 없다. 대신 태스크 상태를 바꾼 쪽(useTasks.ts)이 reload를 불러
+ * 집계값을 다시 읽어 간다.
  */
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";

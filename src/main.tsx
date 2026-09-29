@@ -7,7 +7,6 @@ import { SessionScope } from "./data/SessionScope";
 import { ProjectsProvider } from "./data/ProjectsContext";
 import { SchedulesProvider } from "./data/SchedulesContext";
 import { MilestonesProvider } from "./data/MilestonesContext";
-import { MilestoneChecklistProvider } from "./data/MilestoneChecklistContext";
 import { ProfileProvider } from "./data/ProfileContext";
 import { AdjustRequestsProvider } from "./data/AdjustRequestsContext";
 import "./index.css";
@@ -23,16 +22,14 @@ createRoot(document.getElementById("root")!).render(
         <SessionScope>
           <ProjectsProvider>
             <SchedulesProvider>
-              {/* MilestonesProvider는 일정에서 완료를 파생하므로 반드시
-                  SchedulesProvider 안쪽이다. */}
+              {/* 마일스톤 진행률은 서버가 태스크에서 집계하므로 일정과는
+                  무관하다 — 순서 제약은 없고, 함께 쓰는 화면이 많아 전역이다. */}
               <MilestonesProvider>
-                <MilestoneChecklistProvider>
-                  <ProfileProvider>
-                    <AdjustRequestsProvider>
-                      <App />
-                    </AdjustRequestsProvider>
-                  </ProfileProvider>
-                </MilestoneChecklistProvider>
+                <ProfileProvider>
+                  <AdjustRequestsProvider>
+                    <App />
+                  </AdjustRequestsProvider>
+                </ProfileProvider>
               </MilestonesProvider>
             </SchedulesProvider>
           </ProjectsProvider>

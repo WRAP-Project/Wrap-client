@@ -5,7 +5,6 @@ import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { daysLeft, ddayLabel, type ReminderChecklistItem, type ReminderChecklistState, type Schedule, type ScheduleDraft } from "@/data/useSchedules";
 import { useSchedulesContext } from "@/data/SchedulesContext";
-import { useProjectMilestones } from "@/data/MilestonesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useCalendarRiskChecks, type CalendarRiskSignal } from "@/data/useCalendarRiskChecks";
 import { serverIdOf } from "@/data/useProjects";
@@ -120,23 +119,11 @@ function RegisterSheet({
   const [endTime, setEndTime] = useState("15:00");
   const [reminder, setReminder] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [milestoneId, setMilestoneId] = useState<string | null>(null);
-  const [milestonePickerOpen, setMilestonePickerOpen] = useState(false);
-
-  const projectMilestones = useProjectMilestones(projectId);
-  const selectedMilestone = projectMilestones.find((m) => m.id === milestoneId);
 
   useEffect(() => {
     if (selectableProjects.length === 0 || selectableProjects.some((p) => p.id === projectId)) return;
     setProjectId(defaultProject);
   }, [defaultProject, projectId, selectableProjects]);
-
-  // 프로젝트를 바꾸면 이전 프로젝트의 마일스톤이 남아 있으면 안 된다.
-  useEffect(() => {
-    if (milestoneId && !projectMilestones.some((m) => m.id === milestoneId)) {
-      setMilestoneId(null);
-    }
-  }, [milestoneId, projectMilestones]);
 
   const projectName = selectableProjects.find((p) => p.id === projectId)?.name ?? "";
   const canSubmit = title.trim().length > 0 && projectId.length > 0;
@@ -157,7 +144,6 @@ function RegisterSheet({
         // 고정한다.
         type: "deadline",
         reminder,
-        milestoneId,
       });
     } finally {
       setSubmitting(false);
@@ -234,55 +220,6 @@ function RegisterSheet({
                   >
                     <span className="size-2 rounded-full" style={{ background: p.color }} />
                     {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 마일스톤 — 이 일정이 어떤 팀 목표에 기여하는지. 선택 사항이라
-              "없음"을 고르면 마일스톤과 무관한 일정이 된다(개인 약속 등).
-              프로젝트를 바꾸면 목록이 달라지므로 선택은 초기화된다. */}
-          <div className="relative border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
-            <label className="mb-2 block text-[12px] font-semibold" style={{ color: "rgba(28,28,30,0.4)" }}>
-              마일스톤
-            </label>
-            <button
-              onClick={() => setMilestonePickerOpen((v) => !v)}
-              disabled={projectMilestones.length === 0}
-              className="flex w-full items-center justify-between text-[16px] disabled:opacity-50"
-              style={{ color: selectedMilestone ? INK : "rgba(28,28,30,0.35)" }}
-            >
-              <span>
-                {projectMilestones.length === 0
-                  ? "이 프로젝트엔 마일스톤이 없어요"
-                  : selectedMilestone?.title ?? "없음"}
-              </span>
-              <ChevronRight size={16} color="rgba(28,28,30,0.3)" />
-            </button>
-            {milestonePickerOpen && (
-              <div
-                className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-2xl shadow-lg"
-                style={{ background: "#fff", border: "1px solid rgba(28,28,30,0.08)" }}
-              >
-                <button
-                  onClick={() => { setMilestoneId(null); setMilestonePickerOpen(false); }}
-                  className="flex w-full items-center px-4 py-3 text-left text-[14px] active:opacity-60"
-                  style={{ color: "rgba(28,28,30,0.5)" }}
-                >
-                  없음
-                </button>
-                {projectMilestones.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => { setMilestoneId(m.id); setMilestonePickerOpen(false); }}
-                    className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-[14px] active:opacity-60"
-                    style={{ color: INK }}
-                  >
-                    <span className="truncate">{m.title}</span>
-                    <span className="shrink-0 text-[12px]" style={{ color: "rgba(28,28,30,0.4)" }}>
-                      {ddayLabel(m.dueDate)}
-                    </span>
                   </button>
                 ))}
               </div>

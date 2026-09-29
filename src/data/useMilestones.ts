@@ -2,14 +2,15 @@
  * useMilestones
  *
  * 마일스톤 = 팀이 특정 시점까지 달성해야 하는 공동 목표.
- * 일정(useSchedules.ts)과의 관계는 1:N이다 — 일정은 마일스톤을 달성하기 위해
- * 구성원별로 수행하는 날짜 기반 실행 항목이고, 마일스톤에 속하지 않는
- * 일정(개인 약속 등)은 milestoneId가 비어 있다.
+ * 태스크(useTasks.ts)와의 관계는 1:N이다 — 태스크는 마일스톤을 이루는 작업
+ * 항목이고, 마일스톤에 속하지 않는 태스크는 milestoneId가 비어 있다.
  *
- * 완료는 저장하지 않고 파생한다: 연결된 일정이 모두 체크되면 그 마일스톤은
- * 완료다. 그래서 캘린더에서 개인이 일정을 체크하면 프로젝트 상세의 전체
- * 진행률이 곧바로 올라간다. 서버 응답의 status·doneTaskCount는 쓰지 않는다 —
- * 그쪽은 태스크(아직 미연동) 기준이라 일정 기준 진행률과 어긋난다.
+ * 진행률과 달성 여부는 서버가 태스크에서 집계한 값을 그대로 쓴다
+ * (MilestoneResponse의 totalTaskCount / doneTaskCount / status). 프론트에서
+ * 다시 세지 않는다 — 같은 수를 두 곳에서 계산하면 반드시 어긋난다.
+ *
+ * 일정(useSchedules.ts)은 여기에 관여하지 않는다. 일정은 캘린더 위의 시간
+ * 블록이고 개인 일정도 될 수 있어, 팀 목표의 달성 근거가 될 수 없다.
  *
  * 백엔드 — GET/POST /projects/{projectId}/milestones. 계약: api/openapi.yaml.
  * 목록 조회가 프로젝트별이라, 전역 목록은 참여 중인 서버 프로젝트마다 한 번씩
@@ -20,8 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { useProjectsContext } from "./ProjectsContext";
 import { REQUEST_TIMEOUT_MS, clientIdOfServerProject, serverIdOf } from "./useProjects";
-import { useSchedulesContext } from "./SchedulesContext";
-import { daysLeft, type Schedule } from "./useSchedules";
+import { daysLeft } from "./useSchedules";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,11 @@ export interface Milestone {
   title: string;
   /** 목표일 — YYYY-MM-DD. 일정과 달리 시각은 갖지 않는다(팀 목표라 하루 단위). */
   dueDate: string;
+  /** 서버가 태스크에서 집계한 개수 */
+  totalTaskCount: number;
+  doneTaskCount: number;
+  /** 서버가 저장한 달성 상태 */
+  status: "IN_PROGRESS" | "DONE";
 }
 
 /** 추가 폼이 넘기는 입력값 */
@@ -39,14 +44,14 @@ export interface MilestoneDraft {
   dueDate: string;
 }
 
-/** 화면이 읽는 형태 — 연결된 일정에서 파생한 진행 상태가 붙어 있다. */
+/** 화면이 읽는 형태 — 태스크 집계에서 파생한 진행 상태가 붙어 있다. */
 export interface MilestoneView extends Milestone {
   dday: number;
-  /** 연결된 일정이 하나 이상이고 전부 완료됐으면 true */
+  /** 서버가 달성으로 표시했거나, 연결된 태스크가 전부 완료됐으면 true */
   done: boolean;
   doneCount: number;
   totalCount: number;
-  /** 연결된 일정의 완료 비율(%) — 연결이 없으면 0 */
+  /** 연결된 태스크의 완료 비율(%) — 연결이 없으면 0 */
   readyPercent: number;
 }
 
@@ -85,19 +90,22 @@ export function byDue(a: Milestone, b: Milestone): number {
 // ── 파생 로직 ─────────────────────────────────────────────────────────────────
 
 /**
- * 연결된 일정에서 완료 상태를 파생한다.
+ * 서버가 집계한 태스크 개수에서 표시용 진행 상태를 만든다.
  *
- * 연결된 일정이 0개면 미완료로 둔다 — 공집합을 "전부 완료"로 보면 방금 만든
+ * 달성 판정에 서버 status만 쓰지 않는 이유 — status가 아직 IN_PROGRESS인데
+ * 태스크가 전부 완료된 순간이 있을 수 있고, 그때 진행률만 100%이고 달성은
+ * 아닌 상태로 보인다. 두 값이 같은 근거를 보도록 태스크 쪽도 함께 본다.
+ *
+ * 연결된 태스크가 0개면 미완료로 둔다 — 공집합을 "전부 완료"로 보면 방금 만든
  * 마일스톤이 곧바로 달성 처리되어 진행률이 거짓으로 오른다.
  */
-export function toView(milestone: Milestone, linked: Schedule[]): MilestoneView {
-  const totalCount = linked.length;
-  const doneCount = linked.filter((s) => s.checked === true).length;
+export function toView(milestone: Milestone): MilestoneView {
+  const { totalTaskCount: totalCount, doneTaskCount: doneCount } = milestone;
 
   return {
     ...milestone,
     dday: daysLeft(milestone.dueDate),
-    done: totalCount > 0 && doneCount === totalCount,
+    done: milestone.status === "DONE" || (totalCount > 0 && doneCount === totalCount),
     doneCount,
     totalCount,
     readyPercent: totalCount === 0 ? 0 : Math.round((doneCount / totalCount) * 100),
@@ -136,6 +144,9 @@ type MilestoneResponse = {
   id?: number;
   title?: string;
   dueDate?: string;
+  status?: "IN_PROGRESS" | "DONE";
+  totalTaskCount?: number;
+  doneTaskCount?: number;
 };
 
 /**
@@ -151,6 +162,10 @@ function toMilestone(m: MilestoneResponse, serverProjectId: number): Milestone |
     projectId: clientIdOfServerProject(serverProjectId),
     title: m.title ?? "",
     dueDate: m.dueDate,
+    // 집계 필드는 태스크가 0개면 빠져 내려올 수 있어 0으로 받는다.
+    totalTaskCount: m.totalTaskCount ?? 0,
+    doneTaskCount: m.doneTaskCount ?? 0,
+    status: m.status ?? "IN_PROGRESS",
   };
 }
 
@@ -174,7 +189,6 @@ async function fetchMilestones(serverProjectId: number): Promise<Milestone[]> {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useMilestones() {
-  const { schedules } = useSchedulesContext();
   const { projects } = useProjectsContext();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -228,17 +242,7 @@ export function useMilestones() {
     void load();
   }, [load]);
 
-  const views = useMemo(() => {
-    // 일정을 milestoneId로 한 번만 묶어두고 각 마일스톤이 꺼내 쓴다.
-    const byMilestone = new Map<string, Schedule[]>();
-    for (const s of schedules) {
-      if (!s.milestoneId) continue;
-      const bucket = byMilestone.get(s.milestoneId);
-      if (bucket) bucket.push(s);
-      else byMilestone.set(s.milestoneId, [s]);
-    }
-    return milestones.map((m) => toView(m, byMilestone.get(m.id) ?? []));
-  }, [milestones, schedules]);
+  const views = useMemo(() => milestones.map(toView), [milestones]);
 
   /**
    * 마일스톤을 추가한다(POST /projects/{projectId}/milestones).

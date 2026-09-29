@@ -1,212 +1,100 @@
-import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Paperclip, Plus } from "lucide-react";
-import {
-  useMilestoneDetail,
-  type ChecklistDraft,
-  type ChecklistItem,
-  type ChecklistStatus,
-} from "@/data/useMilestoneDetail";
+import { ArrowLeft, Check, Paperclip } from "lucide-react";
+import { useMilestoneDetail } from "@/data/useMilestoneDetail";
+import { isTaskStalled, TASK_STATUS_LABEL, type Task } from "@/data/useTasks";
 import { useProjectsContext } from "@/data/ProjectsContext";
-import { useTeamMembers } from "@/data/useTeamMembers";
-import { ALERT, DARK_SURFACE, FALLBACK_ACCENT, memberAvatar, ON_DARK, onAccentPalette, onDark, tint } from "@/lib/color";
+import { ddayLabel } from "@/data/useSchedules";
+import { ALERT, DARK_SURFACE, FALLBACK_ACCENT, memberAvatar, ON_DARK, onAccentPalette, onDark } from "@/lib/color";
 
-const STATUS_LABEL: Record<ChecklistStatus, string> = {
-  done: "완료",
-  in_progress: "진행 중",
-  blocked: "위험",
-  pending: "대기",
-};
-
-/** 추가 폼에서 고를 수 있는 상태 — 화면에 보이는 순서 그대로 */
-const STATUS_OPTIONS: ChecklistStatus[] = ["pending", "in_progress", "done", "blocked"];
-
-function ChecklistRow({
-  item,
+/**
+ * 태스크 한 줄 — "연결된 작업"과 "제출 체크리스트"가 같은 행을 쓴다.
+ * 두 목록은 deliverable로 갈린 같은 엔티티라, 생김새와 조작이 달라야 할 이유가 없다.
+ */
+function TaskRow({
+  task,
   accent,
   onToggle,
 }: {
-  item: ChecklistItem;
+  task: Task;
   accent: string;
-  onToggle: (itemId: string) => void;
+  onToggle: (taskId: string) => void;
 }) {
-  const { label, assignee, status, note } = item;
+  const { title, assignee, status, dueDate } = task;
   const onAccent = onAccentPalette(accent);
-  const done = status === "done";
+  const done = status === "DONE";
+  const stalled = isTaskStalled(status);
+  const inProgress = status === "IN_PROGRESS";
+
+  // 부제는 "마감 · 담당" 순. 둘 다 없으면 상태 문구만 남긴다.
+  const subtitle = [dueDate ? ddayLabel(dueDate) : null, assignee?.nickname ?? "담당 미정"]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: DARK_SURFACE }}>
-      {/* 동그라미가 곧 완료 토글이다 — 상태를 바꾸려고 항목을 지웠다 다시 추가하지
-          않아도 되게. 진행 중·위험 표시도 여기 그대로 얹혀 한 번 누르면 완료가 된다. */}
+      {/* 동그라미가 곧 완료 토글이다 — 상태를 바꾸려고 항목을 지웠다 다시 만들지
+          않아도 되게. 진행 중 표시도 여기 얹혀 한 번 누르면 완료가 된다. */}
       <button
-        onClick={() => onToggle(item.id)}
-        aria-label={`${label} ${done ? "완료 해제" : "완료로 표시"}`}
+        onClick={() => onToggle(task.id)}
+        aria-label={`${title} ${done ? "완료 해제" : "완료로 표시"}`}
         aria-pressed={done}
         className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-opacity active:opacity-60"
         style={
           done
             ? { background: accent }
-            : status === "in_progress"
+            : inProgress
               ? { border: `2px solid ${onDark(accent)}` }
               : { border: `2px solid ${ON_DARK.faint}` }
         }
       >
         {done ? (
           <Check size={13} strokeWidth={3} color={onAccent.fg} />
-        ) : status === "in_progress" ? (
+        ) : inProgress ? (
           <div className="w-2 h-2 rounded-full" style={{ background: onDark(accent) }} />
         ) : null}
       </button>
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold truncate" style={{ color: ON_DARK.fg }}>
-          {label}
+        <p
+          className="text-[14px] font-semibold truncate"
+          style={{
+            color: done ? ON_DARK.faint : ON_DARK.fg,
+            textDecoration: done ? "line-through" : "none",
+          }}
+        >
+          {title}
         </p>
         <p
           className="text-[11px] font-medium truncate"
-          style={{ color: status === "blocked" ? ALERT : ON_DARK.dim }}
+          style={{ color: stalled ? ALERT : ON_DARK.dim }}
         >
-          {note ?? (assignee || "담당 미정")}
+          {subtitle}
         </p>
       </div>
-      {status === "blocked" && (
+      {/* 보류·검토 필요는 그냥 두면 묻히므로 상태를 따로 띄운다. */}
+      {stalled && (
         <span
           className="text-[10px] font-black px-2 py-1 rounded-md shrink-0"
           style={{ background: ALERT, color: onAccentPalette(ALERT).fg }}
         >
-          {STATUS_LABEL.blocked}
+          {TASK_STATUS_LABEL[status]}
         </span>
       )}
     </div>
   );
 }
 
-/** 담당자·상태 선택에 쓰는 알약 버튼 — 선택되면 액센트로 채운다 */
-function Chip({
-  selected,
-  label,
-  accent,
-  onClick,
-}: {
-  selected: boolean;
-  label: string;
-  accent: string;
-  onClick: () => void;
-}) {
+/** 목록이 비었을 때의 안내 카드 */
+function EmptyCard({ title, hint }: { title: string; hint?: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold shrink-0 transition-opacity active:opacity-60"
-      style={{
-        background: selected ? accent : "rgba(240,240,236,0.10)",
-        color: selected ? onAccentPalette(accent).fg : ON_DARK.dim,
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-/**
- * 체크리스트 항목 추가 폼 — 목록 맨 아래 행을 눌렀을 때 그 자리에서 펼쳐진다.
- * 별도 화면·시트로 빼지 않은 건, 추가한 항목이 바로 위에 쌓이는 게 보여야
- * 연속으로 여러 개 넣기 편해서다.
- */
-function ChecklistAddForm({
-  projectId,
-  accent,
-  onAdd,
-  onClose,
-}: {
-  projectId: string | undefined;
-  accent: string;
-  onAdd: (draft: ChecklistDraft) => void;
-  onClose: () => void;
-}) {
-  const { members } = useTeamMembers(projectId ?? null);
-  const [label, setLabel] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [status, setStatus] = useState<ChecklistStatus>("pending");
-
-  const canSubmit = label.trim() !== "";
-
-  const submit = () => {
-    if (!canSubmit) return;
-    onAdd({ label, assignee, status });
-    // 연속 입력을 위해 폼은 닫지 않고 입력값만 비운다.
-    setLabel("");
-    setAssignee("");
-    setStatus("pending");
-  };
-
-  return (
-    <div className="rounded-2xl px-4 py-3.5 flex flex-col gap-3" style={{ background: tint(accent, 0.10) }}>
-      <input
-        autoFocus
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") submit();
-          if (e.key === "Escape") onClose();
-        }}
-        placeholder="무엇을 제출하나요?"
-        className="w-full bg-transparent text-[14px] font-semibold outline-none"
-        style={{ color: ON_DARK.fg }}
-      />
-
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold tracking-[0.06em]" style={{ color: ON_DARK.faint }}>
-          담당
-        </span>
-        <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
-          <Chip selected={assignee === ""} label="미정" accent={accent} onClick={() => setAssignee("")} />
-          {members.map((m) => (
-            <Chip
-              key={m.id}
-              selected={assignee === m.initials}
-              label={m.initials}
-              accent={accent}
-              onClick={() => setAssignee(m.initials)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold tracking-[0.06em]" style={{ color: ON_DARK.faint }}>
-          상태
-        </span>
-        <div className="flex gap-1.5">
-          {STATUS_OPTIONS.map((s) => (
-            <Chip
-              key={s}
-              selected={status === s}
-              label={STATUS_LABEL[s]}
-              accent={accent}
-              onClick={() => setStatus(s)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="flex gap-2 pt-0.5">
-        <button
-          type="button"
-          onClick={onClose}
-          className="h-10 flex-1 rounded-xl text-[13px] font-bold transition-opacity active:opacity-60"
-          style={{ background: "rgba(240,240,236,0.10)", color: ON_DARK.dim }}
-        >
-          닫기
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSubmit}
-          className="h-10 flex-1 rounded-xl text-[13px] font-bold transition-opacity active:opacity-60 disabled:opacity-30"
-          style={{ background: accent, color: onAccentPalette(accent).fg }}
-        >
-          추가
-        </button>
-      </div>
+    <div className="rounded-2xl px-4 py-6 text-center" style={{ background: "rgba(240,240,236,0.06)" }}>
+      <p className="text-[12px] font-semibold" style={{ color: "rgba(240,240,236,0.5)" }}>
+        {title}
+      </p>
+      {hint && (
+        <p className="mt-1 text-[11px]" style={{ color: "rgba(240,240,236,0.35)" }}>
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -215,9 +103,9 @@ export default function MilestoneDetail() {
   const { projectId, milestoneId } = useParams<{ projectId: string; milestoneId: string }>();
   const navigate = useNavigate();
   const { projects } = useProjectsContext();
-  const { data, addChecklistItem, toggleChecklistDone } = useMilestoneDetail(projectId, milestoneId);
-  const { exists, header, stats, linkedSchedules, checklist, update } = data;
-  const [adding, setAdding] = useState(false);
+  const { data, toggleDone } = useMilestoneDetail(projectId, milestoneId);
+  const { exists, header, stats, linkedTasks, checklist, update } = data;
+  const linkedDone = linkedTasks.filter((t) => t.status === "DONE").length;
 
   // 마일스톤은 프로젝트에 속하므로 강조색은 전부 이 프로젝트의 색이다.
   const accent = projects.find((p) => p.id === projectId)?.color ?? FALLBACK_ACCENT;
@@ -277,7 +165,7 @@ export default function MilestoneDetail() {
               style={{ width: `${header.readyPercent}%`, background: onAccent.fg }}
             />
           </div>
-          {/* 준비 진행률 = 연결된 일정의 완료 비율. 이게 100%가 되면 달성이다. */}
+          {/* 준비 진행률 = 연결된 작업의 완료 비율(서버 집계). 100%면 달성이다. */}
           <p className="text-[11px] font-semibold" style={{ color: onAccent.faint }}>
             준비 진행률 {header.readyPercent}%
           </p>
@@ -298,63 +186,34 @@ export default function MilestoneDetail() {
           ))}
         </div>
 
-        {/* 연결된 일정 — 이 마일스톤 달성의 근거다. 전부 완료되면 달성 처리된다.
-            제출 체크리스트와 달리 여기서 추가하지 않는다(일정은 캘린더에서
-            날짜·담당과 함께 등록한다). */}
+        {/* 연결된 작업 — 이 마일스톤을 이루는 태스크다. 전부 완료되면 달성이다.
+            여기서 추가하지 않는다: 태스크 생성 API가 api/openapi.yaml에 아직
+            없다(조회·상태변경·삭제만 있다). 생기면 추가 행을 되살린다. */}
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
-              연결된 일정
+              연결된 작업
             </p>
             <span className="text-[11px] font-semibold" style={{ color: accent }}>
-              {linkedSchedules.filter((s) => s.checked).length} / {linkedSchedules.length}
+              {linkedDone} / {linkedTasks.length}
             </span>
           </div>
-          {linkedSchedules.length === 0 ? (
-            <div className="rounded-2xl px-4 py-6 text-center" style={{ background: "rgba(240,240,236,0.06)" }}>
-              <p className="text-[12px] font-semibold" style={{ color: "rgba(240,240,236,0.5)" }}>
-                아직 연결된 일정이 없어요
-              </p>
-              <p className="mt-1 text-[11px]" style={{ color: "rgba(240,240,236,0.35)" }}>
-                일정을 연결해야 달성 여부를 판단할 수 있어요
-              </p>
-            </div>
+          {linkedTasks.length === 0 ? (
+            <EmptyCard
+              title="아직 연결된 작업이 없어요"
+              hint="작업이 있어야 달성 여부를 판단할 수 있어요"
+            />
           ) : (
             <div className="flex flex-col gap-2">
-              {linkedSchedules.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
-                  style={{ background: DARK_SURFACE }}
-                >
-                  <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: s.checked ? accent : "rgba(240,240,236,0.12)" }}
-                  >
-                    {s.checked && <Check size={12} strokeWidth={3.5} color={onAccentPalette(accent).fg} />}
-                  </div>
-                  <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-                    <span
-                      className="text-[14px] font-semibold truncate"
-                      style={{
-                        color: s.checked ? ON_DARK.faint : ON_DARK.fg,
-                        textDecoration: s.checked ? "line-through" : "none",
-                      }}
-                    >
-                      {s.title}
-                    </span>
-                    <span className="text-[11px] font-medium" style={{ color: ON_DARK.dim }}>
-                      {s.ddayLabel}
-                      {s.assignees.length > 0 && ` · 담당 ${s.assignees.join(", ")}`}
-                    </span>
-                  </span>
-                </div>
+              {linkedTasks.map((task) => (
+                <TaskRow key={task.id} task={task} accent={accent} onToggle={toggleDone} />
               ))}
             </div>
           )}
         </section>
 
-        {/* 제출 체크리스트 — 일정과 별개인 산출물. 달성 판정에는 쓰지 않는다. */}
+        {/* 제출 체크리스트 — 같은 태스크 중 제출물(deliverable)로 표시된 것.
+            달성 판정에도 함께 들어간다(연결된 작업과 같은 엔티티라서). */}
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
@@ -364,41 +223,15 @@ export default function MilestoneDetail() {
               {stats.checklistDone} / {stats.checklistTotal}
             </span>
           </div>
-          <div className="flex flex-col gap-2">
-            {checklist.map((item) => (
-              <ChecklistRow
-                key={item.id}
-                item={item}
-                accent={accent}
-                onToggle={toggleChecklistDone}
-              />
-            ))}
-            {adding ? (
-              <ChecklistAddForm
-                projectId={projectId}
-                accent={accent}
-                onAdd={addChecklistItem}
-                onClose={() => setAdding(false)}
-              />
-            ) : (
-              /* 목록 맨 아래 추가 행 — 항목이 0개일 때는 빈 카드 대신 이 행만 보인다 */
-              <button
-                onClick={() => setAdding(true)}
-                className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-opacity active:opacity-60"
-                style={{ background: DARK_SURFACE }}
-              >
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: tint(accent, 0.18) }}
-                >
-                  <Plus size={14} strokeWidth={3} color={onDark(accent)} />
-                </div>
-                <span className="text-[14px] font-semibold" style={{ color: onDark(accent) }}>
-                  항목 추가
-                </span>
-              </button>
-            )}
-          </div>
+          {checklist.length === 0 ? (
+            <EmptyCard title="제출물로 표시된 작업이 없어요" />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {checklist.map((task) => (
+                <TaskRow key={task.id} task={task} accent={accent} onToggle={toggleDone} />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* 자료 및 최근 업데이트 */}

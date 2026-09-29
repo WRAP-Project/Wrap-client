@@ -159,8 +159,8 @@ function MilestoneAddSheet({
           )}
 
           <p className="pt-4 text-[11px] leading-relaxed" style={{ color: "rgba(28,28,30,0.4)" }}>
-            추가한 뒤 캘린더에서 일정을 이 마일스톤에 연결하세요. 연결된 일정이
-            모두 완료되면 마일스톤이 달성되고 전체 진행률이 올라갑니다.
+            이 마일스톤에 연결된 작업이 모두 완료되면 마일스톤이 달성되고
+            전체 진행률이 올라갑니다.
           </p>
         </div>
       </div>
@@ -493,15 +493,15 @@ export default function ProjectDetail() {
                 >
                   D-{m.dday}
                 </span>
-                {/* 목표 + 연결된 일정 진행 */}
+                {/* 목표 + 연결된 작업 진행 */}
                 <span className="flex-1 flex flex-col gap-0.5">
                   <span className="text-[14px] font-semibold" style={{ color: "#1C1C1E" }}>
                     {m.label}
                   </span>
                   <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>
                     {m.totalCount === 0
-                      ? "연결된 일정 없음"
-                      : `일정 ${m.doneCount}/${m.totalCount} 완료`}
+                      ? "연결된 작업 없음"
+                      : `작업 ${m.doneCount}/${m.totalCount} 완료`}
                   </span>
                 </span>
                 {/* 화살표 */}
