@@ -481,12 +481,12 @@ export default function ProjectDetail() {
                     : "none",
                 }}
               >
-                {/* D-Day 뱃지 — 급한 것(D-3 이하)만 경고색으로 꽉 채우고, 나머지는
+                {/* D-Day 뱃지 — 급한 것(D-7 이하)만 경고색으로 꽉 채우고, 나머지는
                     프로젝트 색을 옅게 깐다. 목록에서 어느 게 먼저인지 바로 읽히게. */}
                 <span
                   className="text-[11px] font-black px-2.5 py-1.5 rounded-lg shrink-0 min-w-[44px] text-center"
                   style={
-                    m.dday <= 3
+                    m.dday <= 7
                       ? { background: ALERT, color: "#fff" }
                       : softBadge(accentColor)
                   }
