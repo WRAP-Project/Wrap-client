@@ -76,9 +76,9 @@ function MemberStack({ members, ringColor }: { members: ProjectMember[]; ringCol
  * 카드 크기 — 슬롯마다 쓸 수 있는 높이가 달라서, 넣을 수 있는 정보량도 다르다.
  * 이 구분이 없으면 좁은 슬롯에서 내용이 카드 밖으로 넘쳐 옆 카드를 덮는다.
  *
- *  wide    가로 전체 / 최소 130px  → 설명(2줄) + 프로그레스 + 태그
- *  tall    가로 절반 / 220px       → 설명(3줄) + 프로그레스 + 태그
- *  compact 가로 절반 / ~106px      → 프로그레스만 (설명·태그 생략)
+ *  wide    가로 전체 / 최소 130px  → 프로그레스 + 멤버 아바타
+ *  tall    가로 절반 / 220px       → 프로그레스 + 멤버 아바타
+ *  compact 가로 절반 / ~106px      → 프로그레스만 (아바타 생략)
  */
 type CardSize = "wide" | "tall" | "compact";
 
@@ -97,8 +97,6 @@ function ProjectCard({
 }) {
   // 진행률은 프로젝트 상세와 같은 계산식을 쓴다 — 두 화면이 어긋나면 안 된다.
   const progress = useProjectProgress(project.id);
-  const showDescription = size !== "compact" && Boolean(project.description);
-  const showTags = size !== "compact" && Boolean(project.tags?.length);
   // 아바타는 자리를 차지하므로 compact 슬롯에서는 생략한다.
   const members = size === "compact" ? [] : project.members ?? [];
 
@@ -128,17 +126,8 @@ function ProjectCard({
         )}
       </div>
 
-      {/* 하단: 설명 + 프로그레스 + 태그 */}
+      {/* 하단: 프로그레스 + 멤버 아바타 */}
       <div className="mt-3 min-h-0">
-        {showDescription && (
-          <p
-            className={`text-black/60 text-xs leading-relaxed mb-2 whitespace-pre-line overflow-hidden ${
-              size === "wide" ? "line-clamp-2" : "line-clamp-3"
-            }`}
-          >
-            {project.description}
-          </p>
-        )}
         {/* 진행률 — 마일스톤이 하나도 없으면 보여줄 게 없으므로 바째로 숨긴다 */}
         {progress.total > 0 && (
           <div className="flex items-center gap-2 mb-2">
@@ -153,23 +142,10 @@ function ProjectCard({
             </span>
           </div>
         )}
-        {/* 태그(좌) + 멤버 아바타(우) — 둘 중 하나만 있어도 같은 줄을 유지한다. */}
-        {(showTags || members.length > 0) && (
-          <div className="flex items-center justify-between gap-2 overflow-hidden">
-            <div className="flex gap-1 min-w-0 overflow-hidden">
-              {showTags &&
-                project.tags!.map((tag: string) => (
-                  <span
-                    key={tag}
-                    className="bg-black/15 text-black/70 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
-                  >
-                    {tag}
-                  </span>
-                ))}
-            </div>
-            {members.length > 0 && (
-              <MemberStack members={members} ringColor={deepShade(project.color)} />
-            )}
+        {/* 멤버 아바타 — 카드 우측 하단에 붙인다. */}
+        {members.length > 0 && (
+          <div className="flex items-center justify-end overflow-hidden">
+            <MemberStack members={members} ringColor={deepShade(project.color)} />
           </div>
         )}
       </div>

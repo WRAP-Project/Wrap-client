@@ -20,7 +20,6 @@ export interface Project {
   description?: string;
   // 진행률은 필드로 갖지 않는다 — 달성한 마일스톤 수에서 파생한다
   // (useMilestones.ts progressOf). 여기 숫자를 따로 두면 목록과 상세가 어긋난다.
-  tags?: string[];
   goal?: string;
   endDate?: string;       // YYYY-MM-DD (백엔드 endDate 필드와 동일)
   members?: ProjectMember[];
@@ -53,7 +52,6 @@ const MOCK_PROJECTS: Project[] = [
     name: "프로젝트 루프",
     color: C.lime,
     description: "디자인 시스템 정비와 온보딩 플로우 개선을 진행 중입니다.",
-    tags: ["디자인", "온보딩"],
     recentUpdates: 2,
     lastUpdatedLabel: "오늘",
     members: [
@@ -70,7 +68,6 @@ const MOCK_PROJECTS: Project[] = [
     name: "오로라 리브랜딩",
     color: C.purple,
     description: "브랜드 아이덴티티와 마케팅 자산을 새로 정의하고 있습니다.",
-    tags: ["브랜딩"],
     recentUpdates: 5,
     lastUpdatedLabel: "오늘",
     members: [
@@ -85,7 +82,6 @@ const MOCK_PROJECTS: Project[] = [
     name: "캠페인 라디오",
     color: C.pink,
     description: "분기 캠페인 콘텐츠 기획과 라디오 광고 제작을 진행합니다.",
-    tags: ["마케팅", "콘텐츠"],
     recentUpdates: 1,
     lastUpdatedLabel: "오늘",
     members: [
