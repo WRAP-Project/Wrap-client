@@ -24,6 +24,11 @@ export type { Milestone, MilestoneDraft, MilestoneProgress, MilestoneView };
 interface MilestonesContextValue {
   milestones: MilestoneView[];
   addMilestone: (projectId: string, draft: MilestoneDraft) => Promise<Milestone>;
+  /** 서버에서 처음 불러오는 중 — 목록이 빈 것과 아직 모르는 것을 구분하려고 노출한다. */
+  loading: boolean;
+  error: Error | null;
+  /** 목록을 서버에서 다시 불러온다. */
+  reload: () => Promise<void>;
 }
 
 const MilestonesContext = createContext<MilestonesContextValue | null>(null);

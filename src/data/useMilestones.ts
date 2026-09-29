@@ -8,14 +8,18 @@
  *
  * 완료는 저장하지 않고 파생한다: 연결된 일정이 모두 체크되면 그 마일스톤은
  * 완료다. 그래서 캘린더에서 개인이 일정을 체크하면 프로젝트 상세의 전체
- * 진행률이 곧바로 올라간다.
+ * 진행률이 곧바로 올라간다. 서버 응답의 status·doneTaskCount는 쓰지 않는다 —
+ * 그쪽은 태스크(아직 미연동) 기준이라 일정 기준 진행률과 어긋난다.
  *
- * 백엔드 — api/openapi.yaml에 마일스톤 리소스가 아직 없다. 생기면
- * (GET/POST /projects/{projectId}/milestones) 이 파일 내부만 fetch로 바꾸면
- * 되고, 소비하는 화면·훅은 그대로다.
+ * 백엔드 — GET/POST /projects/{projectId}/milestones. 계약: api/openapi.yaml.
+ * 목록 조회가 프로젝트별이라, 전역 목록은 참여 중인 서버 프로젝트마다 한 번씩
+ * 불러 합친다.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { useProjectsContext } from "./ProjectsContext";
+import { REQUEST_TIMEOUT_MS, clientIdOfServerProject, serverIdOf } from "./useProjects";
 import { useSchedulesContext } from "./SchedulesContext";
 import { daysLeft, type Schedule } from "./useSchedules";
 
@@ -46,41 +50,17 @@ export interface MilestoneView extends Milestone {
   readyPercent: number;
 }
 
-// ── Mock 데이터 ───────────────────────────────────────────────────────────────
-// useProjects.ts의 MOCK_PROJECTS, useSchedules.ts의 MOCK_SCHEDULES와 id가
-// 1:1로 맞춰져 있다. 일정 쪽 milestoneId가 여기 id를 가리킨다.
-// 오늘 기준 상대 날짜라 D-day가 항상 유효하다.
+// ── 서버 id ↔ 화면 id ─────────────────────────────────────────────────────────
+// 서버 마일스톤 id는 숫자다. 화면은 문자열 id를 라우트에 그대로 싣고 다니고,
+// 일정(useSchedules.ts)의 milestoneId도 문자열이라 접두사를 붙여 구분한다.
 
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+const MILESTONE_ID_PREFIX = "srv-m-";
+
+export function milestoneServerIdOf(milestoneId: string | undefined): number | null {
+  if (!milestoneId?.startsWith(MILESTONE_ID_PREFIX)) return null;
+  const n = Number(milestoneId.slice(MILESTONE_ID_PREFIX.length));
+  return Number.isInteger(n) ? n : null;
 }
-
-function dueIn(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return toLocalDateStr(d);
-}
-
-const MOCK_MILESTONES: Milestone[] = [
-  // ── 프로젝트 루프 ──
-  { id: "m1", projectId: "1", title: "스프린트 1 마무리", dueDate: dueIn(-2) },
-  { id: "m2", projectId: "1", title: "UI 시안 확정", dueDate: dueIn(1) },
-  { id: "m3", projectId: "1", title: "중간 발표", dueDate: dueIn(3) },
-  { id: "m4", projectId: "1", title: "최종 산출물 납품", dueDate: dueIn(14) },
-
-  // ── 오로라 리브랜딩 ──
-  { id: "m5", projectId: "2", title: "무드보드 확정", dueDate: dueIn(-4) },
-  { id: "m6", projectId: "2", title: "브랜드 가이드 확정", dueDate: dueIn(2) },
-  { id: "m7", projectId: "2", title: "리브랜딩 발표", dueDate: dueIn(21) },
-
-  // ── 캠페인 라디오 ──
-  { id: "m8", projectId: "3", title: "캠페인 킥오프", dueDate: dueIn(-6) },
-  { id: "m9", projectId: "3", title: "캠페인 콘셉트 확정", dueDate: dueIn(5) },
-  { id: "m10", projectId: "3", title: "라디오 광고 제작", dueDate: dueIn(12) },
-];
 
 // ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
 
@@ -148,12 +128,105 @@ export function progressOf(milestones: MilestoneView[]): MilestoneProgress {
   };
 }
 
+// ── 백엔드 연동 ───────────────────────────────────────────────────────────────
+// 응답 봉투는 ApiResponse<T> = { success, data, message, error }이고 null 필드는
+// 빠져서 내려온다 — 필드 존재 여부가 아니라 success로 분기한다(useProjects.ts와 동일).
+
+type MilestoneResponse = {
+  id?: number;
+  title?: string;
+  dueDate?: string;
+};
+
+/**
+ * 서버 응답 하나를 화면용 마일스톤으로 바꾼다.
+ *
+ * id나 목표일이 없으면 버린다 — 목표일이 없으면 D-day를 계산할 수 없어 화면
+ * 전체가 NaN으로 물든다. 스펙상 둘 다 optional이지만 생성 시 필수 필드다.
+ */
+function toMilestone(m: MilestoneResponse, serverProjectId: number): Milestone | null {
+  if (m.id == null || !m.dueDate) return null;
+  return {
+    id: `${MILESTONE_ID_PREFIX}${m.id}`,
+    projectId: clientIdOfServerProject(serverProjectId),
+    title: m.title ?? "",
+    dueDate: m.dueDate,
+  };
+}
+
+async function fetchMilestones(serverProjectId: number): Promise<Milestone[]> {
+  const { data, error, response } = await apiClient.GET("/projects/{projectId}/milestones", {
+    params: { path: { projectId: serverProjectId } },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  if (!response.ok || data?.success === false) {
+    throw new Error(
+      apiErrorMessage(error ?? data, response.status, "마일스톤을 불러오지 못했습니다."),
+    );
+  }
+
+  return (data?.data ?? [])
+    .map((m) => toMilestone(m, serverProjectId))
+    .filter((m): m is Milestone => m !== null);
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
-// 백엔드 마일스톤 API가 생기면 이 훅 내부만 fetch로 교체.
 
 export function useMilestones() {
   const { schedules } = useSchedulesContext();
-  const [milestones, setMilestones] = useState<Milestone[]>(MOCK_MILESTONES);
+  const { projects } = useProjectsContext();
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  // 서버에 실제로 존재하는 프로젝트만 조회 대상이다. mock 프로젝트("1"~"3")는
+  // serverIdOf가 null을 주므로 건너뛴다 — 보내면 남의 프로젝트를 열거나 404다.
+  // 목록을 그대로 의존성에 쓰면 프로젝트 배열이 새로 만들어질 때마다 재조회하므로
+  // id만 뽑아 문자열로 굳힌다.
+  const serverProjectIdsKey = useMemo(
+    () =>
+      projects
+        .map((p) => serverIdOf(p.id))
+        .filter((id): id is number => id !== null)
+        .join(","),
+    [projects],
+  );
+
+  const load = useCallback(async () => {
+    const serverProjectIds = serverProjectIdsKey
+      .split(",")
+      .filter((s) => s !== "")
+      .map(Number);
+
+    if (serverProjectIds.length === 0) {
+      setMilestones([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    // 한 프로젝트 조회가 실패해도 나머지는 살린다 — allSettled가 아니라 all을
+    // 쓰면 프로젝트 하나 때문에 전체 목록이 비고 진행률이 0%로 보인다.
+    const results = await Promise.allSettled(serverProjectIds.map(fetchMilestones));
+
+    setMilestones(results.flatMap((r) => (r.status === "fulfilled" ? r.value : [])));
+
+    const failed = results.find((r) => r.status === "rejected");
+    setError(
+      failed
+        ? failed.reason instanceof Error
+          ? failed.reason
+          : new Error("마일스톤을 불러오지 못했습니다.")
+        : null,
+    );
+    setLoading(false);
+  }, [serverProjectIdsKey]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const views = useMemo(() => {
     // 일정을 milestoneId로 한 번만 묶어두고 각 마일스톤이 꺼내 쓴다.
@@ -168,25 +241,45 @@ export function useMilestones() {
   }, [milestones, schedules]);
 
   /**
-   * 마일스톤을 추가한다.
-   *
-   * 지금은 로컬 배열에 넣는다 — 백엔드가 생기면 여기서 POST를 보내고 응답으로
-   * 배열을 갱신하도록 바꾸면 되고, 호출하는 화면은 그대로다. 그래서 지금부터
-   * Promise를 돌려준다(나중에 시그니처가 바뀌지 않도록).
+   * 마일스톤을 추가한다(POST /projects/{projectId}/milestones).
+   * 서버에 저장한 뒤 응답으로 받은 마일스톤을 목록에 넣는다. 실패하면 예외를
+   * 던지고 — 화면(ProjectDetail의 추가 시트)이 사유를 그대로 보여준다.
    */
   const addMilestone = useCallback(
     async (projectId: string, draft: MilestoneDraft): Promise<Milestone> => {
-      const created: Milestone = {
-        id: `local-m-${Date.now()}`,
-        projectId,
-        title: draft.title.trim(),
-        dueDate: draft.dueDate,
-      };
+      const serverProjectId = serverIdOf(projectId);
+      if (serverProjectId === null) {
+        throw new Error("샘플 프로젝트에는 마일스톤을 추가할 수 없어요.");
+      }
+
+      const { data, error, response } = await apiClient.POST(
+        "/projects/{projectId}/milestones",
+        {
+          params: { path: { projectId: serverProjectId } },
+          body: { title: draft.title.trim(), dueDate: draft.dueDate },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        },
+      );
+
+      if (!response.ok || data?.success === false || !data?.data) {
+        throw new Error(
+          apiErrorMessage(error ?? data, response.status, "마일스톤을 추가하지 못했습니다."),
+        );
+      }
+
+      const created = toMilestone(data.data, serverProjectId);
+      if (!created) {
+        // 저장 자체는 됐지만 응답이 id나 목표일을 빼먹은 경우다. 목록에 못 넣으므로
+        // 서버에서 다시 읽어 화면과 서버를 맞춘다.
+        await load();
+        throw new Error("마일스톤을 저장했지만 목록을 갱신하지 못했어요. 새로고침해 주세요.");
+      }
+
       setMilestones((prev) => [...prev, created]);
       return created;
     },
-    [],
+    [load],
   );
 
-  return { milestones: views, addMilestone };
+  return { milestones: views, addMilestone, loading, error, reload: load };
 }

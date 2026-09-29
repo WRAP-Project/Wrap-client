@@ -66,14 +66,20 @@ function MilestoneAddSheet({
   const [due, setDue] = useState<PickedDate>(todayPicked());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const canSubmit = title.trim().length > 0 && !submitting;
 
+  // 저장은 서버로 간다 — 실패하면 시트를 닫지 않고 사유를 보여준다. 닫아버리면
+  // 저장된 것처럼 보이고 목록에는 없는 상태가 된다.
   async function handleSubmit() {
     if (!canSubmit) return;
     setSubmitting(true);
+    setError(null);
     try {
       await onSubmit(title.trim(), pickedToDateStr(due));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "마일스톤을 추가하지 못했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -99,6 +105,7 @@ function MilestoneAddSheet({
             <span className="text-[16px] font-bold" style={{ color: "#1C1C1E" }}>
               마일스톤 추가
             </span>
+            {/* 저장 중에는 라벨을 바꿔 — Render 무료 플랜은 첫 요청이 수십 초 걸린다. */}
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
@@ -106,7 +113,7 @@ function MilestoneAddSheet({
               // 저장 가능할 때만 프로젝트 색으로 — 이 프로젝트의 목표임을 드러낸다.
               style={{ color: canSubmit ? onLight(accent) : "rgba(28,28,30,0.25)" }}
             >
-              저장
+              {submitting ? "저장 중…" : "저장"}
             </button>
           </div>
         </div>
@@ -144,6 +151,12 @@ function MilestoneAddSheet({
               <ChevronRight size={16} color="rgba(28,28,30,0.3)" />
             </button>
           </div>
+
+          {error && (
+            <p className="pt-4 text-[12px] leading-relaxed" style={{ color: ALERT }}>
+              {error}
+            </p>
+          )}
 
           <p className="pt-4 text-[11px] leading-relaxed" style={{ color: "rgba(28,28,30,0.4)" }}>
             추가한 뒤 캘린더에서 일정을 이 마일스톤에 연결하세요. 연결된 일정이

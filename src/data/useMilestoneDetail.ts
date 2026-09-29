@@ -60,13 +60,14 @@ export interface MilestoneDetailData {
   update: MilestoneUpdate | null;
 }
 
-// ── Mock 데이터 (백엔드 마일스톤 API 준비되면 교체) ───────────────────────────
-// 화면 컴포넌트(screens/MilestoneDetail.tsx)는 건드릴 필요 없음.
-// 키는 useMilestones.ts의 MOCK_MILESTONES id다.
-//
+// ── 아직 서버에 없는 부가 정보 ────────────────────────────────────────────────
 // 제목·목표일·진행 상태는 여기 두지 않는다 — 마일스톤 본체(useMilestones.ts)와
 // 거기 연결된 일정에서 파생시켜야 프로젝트 상세와 값이 어긋나지 않는다.
-// 여기 남은 건 아직 어느 엔티티에도 속하지 않은 부가 정보뿐이다.
+//
+// 남은 건 어느 엔티티에도 속하지 않은 부가 정보뿐이고, MilestoneResponse에도
+// 대응 필드가 없다. 마일스톤별 mock은 걷어냈다 — 서버 마일스톤 id와 맞을 수가
+// 없어 어차피 한 건도 쓰이지 않는다. 파일·참여자·업데이트가 스펙에 생기면
+// 이 상수 대신 응답에서 채운다.
 
 interface MilestoneSeed {
   statusBadge: string;
@@ -75,45 +76,6 @@ interface MilestoneSeed {
   update: MilestoneUpdate | null;
 }
 
-const MOCK_BY_MILESTONE: Record<string, MilestoneSeed> = {
-  // 프로젝트 루프 — 중간 발표
-  m3: {
-    statusBadge: "초안 검토 중",
-    fileCount: 2,
-    participantCount: 4,
-    update: {
-      author: "LJ",
-      text: "3페이지 시안 반영했고 수치만 확인하면 돼요.",
-      time: "12분 전",
-    },
-  },
-
-  // 오로라 리브랜딩 — 브랜드 가이드 확정
-  m6: {
-    statusBadge: "리뷰 대기",
-    fileCount: 3,
-    participantCount: 3,
-    update: {
-      author: "SH",
-      text: "보이스 가이드 톤 예시만 더 채우면 공유 가능해요.",
-      time: "1시간 전",
-    },
-  },
-
-  // 캠페인 라디오 — 캠페인 콘셉트 확정
-  m9: {
-    statusBadge: "논의 중",
-    fileCount: 1,
-    participantCount: 2,
-    update: {
-      author: "SJ",
-      text: "후보 2안까지 정리했고 내일 회의에서 좁힐게요.",
-      time: "20분 전",
-    },
-  },
-};
-
-/** 부가 정보가 아직 없는 마일스톤(새로 만든 것 등) */
 const EMPTY_SEED: MilestoneSeed = {
   statusBadge: "준비 중",
   fileCount: 0,
@@ -165,7 +127,7 @@ export function useMilestoneDetail(
   const data = useMemo<MilestoneDetailData>(() => {
     if (!milestone) return NOT_FOUND;
 
-    const seed = (milestoneId && MOCK_BY_MILESTONE[milestoneId]) || EMPTY_SEED;
+    const seed = EMPTY_SEED;
     const linked = projectSchedules.filter((s) => s.milestoneId === milestone.id);
 
     return {
@@ -188,7 +150,7 @@ export function useMilestoneDetail(
       checklist,
       update: seed.update,
     };
-  }, [milestone, milestoneId, projectSchedules, checklist]);
+  }, [milestone, projectSchedules, checklist]);
 
   /** 제출물 체크리스트에 항목을 추가한다. milestoneId가 없으면 아무 일도 하지 않는다. */
   const addItem = useCallback(
