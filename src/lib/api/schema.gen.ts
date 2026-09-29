@@ -45,11 +45,63 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 내 프로젝트 목록 조회 */
+        /**
+         * 내 프로젝트 목록 조회
+         * @description 로그인한 사용자가 참여 중인(JOINED), 삭제되지 않은 프로젝트만 조회합니다.
+         *     status를 생략하면 진행 중·완료 프로젝트를 모두 반환합니다.
+         *     IN_PROGRESS는 진행 중, COMPLETED는 완료된 프로젝트만 반환합니다.
+         *     상태 값은 대문자로 입력하며 지원하지 않는 값은 400 / INVALID_REQUEST를 반환합니다.
+         *     조회 결과가 없으면 빈 목록을 반환합니다.
+         */
         get: operations["getMyProjects"];
         put?: never;
         /** 프로젝트 생성 */
         post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/milestones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 마일스톤 목록 조회 */
+        get: operations["findProjectMilestones"];
+        put?: never;
+        /** 마일스톤 생성 */
+        post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/invite-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 프로젝트 초대 링크 목록 조회
+         * @description 프로젝트에서 생성된 초대 링크 이력을 최신순으로 조회합니다.
+         *     보안을 위해 원본 토큰과 전체 초대 URL은 반환하지 않습니다.
+         */
+        get: operations["getInviteLinks"];
+        put?: never;
+        /**
+         * 프로젝트 초대 링크 생성
+         * @description 프로젝트 OWNER가 공유 가능한 초대 링크를 생성합니다.
+         *     프로젝트당 하나의 활성 링크만 존재할 수 있으며,
+         *     원본 초대 URL은 생성 성공 응답에서만 반환됩니다.
+         */
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -67,7 +119,7 @@ export interface paths {
         get: operations["getSentInvitations"];
         put?: never;
         /** 프로젝트 팀원 초대 생성 */
-        post: operations["create_2"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -85,7 +137,7 @@ export interface paths {
         get: operations["findAll"];
         put?: never;
         /** Create availability request */
-        post: operations["create_3"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -160,6 +212,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/invite-links/{token}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 초대 링크를 통한 프로젝트 참여
+         * @description 로그인한 사용자가 유효한 초대 링크를 통해 프로젝트에 참여합니다.
+         *     신규 참여자와 재참여자의 역할은 MEMBER로 설정됩니다.
+         *     이미 참여 중인 사용자는 중복으로 참여할 수 없습니다.
+         */
+        post: operations["join"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/schedules/{scheduleId}": {
         parameters: {
             query?: never;
@@ -215,7 +289,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 프로젝트 상세 조회 */
+        /**
+         * 프로젝트 상세 조회
+         * @description 로그인한 사용자가 참여 중인(JOINED), 삭제되지 않은 프로젝트의 상세 정보를 반환합니다.
+         *     myRole은 현재 요청자의 프로젝트 관리 권한(OWNER 또는 MEMBER)입니다.
+         *     프로젝트 생성자의 권한이나 업무 역할(workRole)을 의미하지 않습니다.
+         *     프론트의 버튼 표시 판단에 사용할 수 있으며 실제 API의 서버 권한 검사는 별도로 유지됩니다.
+         */
         get: operations["getProject"];
         put?: never;
         post?: never;
@@ -223,8 +303,50 @@ export interface paths {
         delete: operations["delete_1"];
         options?: never;
         head?: never;
-        /** 프로젝트 정보 수정 */
+        /**
+         * 프로젝트 정보 부분 수정
+         * @description 로그인한 사용자 중 프로젝트에 참여 중인(JOINED) OWNER만 수정할 수 있습니다.
+         *     모든 필드는 선택이며, 생략하거나 null을 보내면 기존 값을 유지합니다.
+         *     description, goal, successCriteria는 빈 문자열 또는 공백만 보내면 내용을 삭제합니다.
+         *     name과 color는 빈 문자열 또는 공백만 보낼 수 없습니다.
+         *     날짜는 기존 값과 요청 값을 합쳐 시작일이 종료일보다 늦지 않은지 검증합니다.
+         *     날짜는 null로 삭제할 수 없습니다. 빈 객체({})는 기존 정보를 유지합니다.
+         *     완료된 프로젝트는 수정할 수 없으며 409 / PROJECT_ALREADY_COMPLETED를 반환합니다.
+         *     수정하려면 먼저 PATCH /projects/{projectId}/reopen으로 프로젝트를 재개해야 합니다.
+         */
         patch: operations["update_1"];
+        trace?: never;
+    };
+    "/projects/{projectId}/tasks/{taskId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateStatus"];
+        trace?: never;
+    };
+    "/projects/{projectId}/schedules/{scheduleId}/reminder-items/{sourceType}/{sourceId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateStatus_1"];
         trace?: never;
     };
     "/projects/{projectId}/reopen": {
@@ -244,6 +366,48 @@ export interface paths {
         patch: operations["reopen"];
         trace?: never;
     };
+    "/projects/{projectId}/milestones/{milestoneId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 마일스톤 삭제 */
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        /** 마일스톤 수정 */
+        patch: operations["update_2"];
+        trace?: never;
+    };
+    "/projects/{projectId}/members/{projectMemberId}/work-role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 프로젝트 멤버 업무 역할 변경
+         * @description 진행 중인 프로젝트의 참여 중인(JOINED) OWNER가 참여 중인 팀원의 프로젝트별 업무 역할을 변경합니다.
+         *     본인을 포함한 같은 프로젝트의 팀원만 변경할 수 있습니다.
+         *     빈 문자열이나 공백만 입력하면 업무 역할 미지정(null) 상태로 변경됩니다.
+         *     OWNER/MEMBER 관리 권한은 변경되지 않습니다.
+         *     같은 프로젝트의 탈퇴·권한 변경·내보내기와 직렬화하여 처리 시점의 최신 참여 상태와 권한을 검사합니다.
+         */
+        patch: operations["changeWorkRole"];
+        trace?: never;
+    };
     "/projects/{projectId}/members/{projectMemberId}/role": {
         parameters: {
             query?: never;
@@ -257,7 +421,14 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** 프로젝트 멤버 역할 변경 */
+        /**
+         * 프로젝트 멤버 역할 변경
+         * @description 진행 중인 프로젝트의 참여 중인(JOINED) OWNER만 관리 권한을 변경할 수 있습니다.
+         *     참여 중인 마지막 OWNER를 MEMBER로 변경할 수 없습니다.
+         *     같은 프로젝트의 탈퇴·권한 변경·내보내기가 동시에 요청되어도 OWNER는 최소 한 명 유지됩니다.
+         *     처리 시점의 최신 참여 상태와 권한을 기준으로 검사하므로 대기 중 권한을 잃으면 요청이 거부됩니다.
+         *     업무 역할(workRole)이 아닌 OWNER/MEMBER 관리 권한을 변경합니다.
+         */
         patch: operations["changeRole"];
         trace?: never;
     };
@@ -346,6 +517,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["findTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/schedules": {
         parameters: {
             query?: never;
@@ -378,20 +565,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{projectId}/schedules/{scheduleId}/reminder-items/{sourceType}/{sourceId}/status": {
+    "/projects/{projectId}/report": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getReport"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["updateStatus_1"];
+        patch?: never;
         trace?: never;
     };
     "/projects/{projectId}/members": {
@@ -403,6 +590,22 @@ export interface paths {
         };
         /** 프로젝트 멤버 목록 조회 */
         get: operations["getProjectMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/deadline-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDeadlineSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -478,6 +681,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/invite-links/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 초대 링크 프로젝트 정보 조회
+         * @description 로그인하지 않은 사용자도 호출할 수 있는 공개 API입니다.
+         *     유효한 링크의 프로젝트 이름, 색상과 초대한 사용자의 닉네임을 반환합니다.
+         *     회원 이메일과 토큰 해시 등 민감한 정보는 반환하지 않습니다.
+         */
+        get: operations["getInviteLinkInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invitations": {
         parameters: {
             query?: never;
@@ -515,6 +740,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_3"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/members/{projectMemberId}": {
         parameters: {
             query?: never;
@@ -525,7 +766,12 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** 프로젝트 멤버 내보내기 */
+        /**
+         * 프로젝트 멤버 내보내기
+         * @description 진행 중인 프로젝트의 참여 중인(JOINED) OWNER가 일반 MEMBER를 내보냅니다.
+         *     OWNER는 내보낼 수 없으며, 동시 권한 변경으로 대상이 OWNER가 된 경우에도 요청이 거부됩니다.
+         *     처리 시점의 요청자 권한과 대상의 참여 상태·권한을 기준으로 검사합니다.
+         */
         delete: operations["removeMember"];
         options?: never;
         head?: never;
@@ -542,8 +788,36 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** 프로젝트 탈퇴 */
+        /**
+         * 프로젝트 탈퇴
+         * @description 진행 중인 프로젝트에서 현재 로그인한 참여자(JOINED)가 탈퇴합니다.
+         *     참여 중인 마지막 OWNER는 탈퇴할 수 없습니다.
+         *     다른 OWNER의 탈퇴·권한 변경과 동시에 요청되어도 OWNER는 최소 한 명 유지됩니다.
+         *     처리 시점에 이미 탈퇴한 요청자는 PROJECT_ACCESS_DENIED로 거부됩니다.
+         */
         delete: operations["leaveProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/invite-links/{inviteLinkId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 프로젝트 초대 링크 비활성화
+         * @description 활성 초대 링크를 비활성화합니다.
+         *     링크 데이터는 삭제하지 않으며 비활성화 상태와 시각을 기록합니다.
+         *     비활성화된 링크로는 프로젝트 정보 조회와 참여가 불가능합니다.
+         */
+        delete: operations["revoke"];
         options?: never;
         head?: never;
         patch?: never;
@@ -677,6 +951,7 @@ export interface components {
             message?: string;
             error?: components["schemas"]["ErrorBody"];
         };
+        /** @description 프로젝트 상세 조회 및 생성·수정·완료·재개 응답. 현재 요청자의 프로젝트 관리 권한을 포함합니다. */
         ProjectResponse: {
             /** Format: int64 */
             id?: number;
@@ -691,12 +966,100 @@ export interface components {
             color?: string;
             /** @enum {string} */
             status?: "IN_PROGRESS" | "COMPLETED";
+            /**
+             * @description 현재 요청자의 프로젝트 관리 권한. OWNER는 관리자, MEMBER는 일반 팀원이며 업무 역할(workRole)과는 별개입니다.
+             * @example OWNER
+             * @enum {string}
+             */
+            myRole: "OWNER" | "MEMBER";
             /** Format: date-time */
             completedAt?: string;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        MilestoneCreateRequest: {
+            title: string;
+            description?: string;
+            /** Format: date */
+            dueDate: string;
+        };
+        ApiResponseMilestoneResponse: {
+            success?: boolean;
+            data?: components["schemas"]["MilestoneResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        MilestoneResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            projectId?: number;
+            title?: string;
+            description?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** @enum {string} */
+            status?: "IN_PROGRESS" | "DONE";
+            /** Format: int32 */
+            totalTaskCount?: number;
+            /** Format: int32 */
+            doneTaskCount?: number;
+        };
+        ApiResponseProjectInviteLinkResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectInviteLinkResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        /** @description 프로젝트 초대 링크 생성 응답 */
+        ProjectInviteLinkResponse: {
+            /**
+             * Format: int64
+             * @description 초대 링크 ID
+             * @example 1
+             */
+            inviteLinkId?: number;
+            /**
+             * Format: int64
+             * @description 프로젝트 ID
+             * @example 10
+             */
+            projectId?: number;
+            /**
+             * @description 프로젝트 이름
+             * @example WRAP
+             */
+            projectName?: string;
+            /**
+             * Format: int64
+             * @description 초대 링크를 생성한 회원 ID
+             * @example 3
+             */
+            createdByMemberId?: number;
+            /**
+             * @description 공유할 전체 초대 URL. 링크 생성 응답에서만 제공됩니다.
+             * @example https://wrap-client.vercel.app/join/xYz123_exampleToken
+             */
+            inviteUrl?: string;
+            /**
+             * @description 초대 링크 활성 여부
+             * @example true
+             */
+            active?: boolean;
+            /**
+             * Format: date-time
+             * @description 초대 링크 생성 시각
+             * @example 2026-09-02T10:00:00
+             */
+            createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 초대 링크 비활성화 시각. 활성 링크이면 값이 없습니다.
+             * @example 2026-09-02T12:00:00
+             */
+            revokedAt?: string;
         };
         InvitationCreateRequest: {
             /** Format: email */
@@ -811,6 +1174,61 @@ export interface components {
             email: string;
             password: string;
         };
+        ApiResponseProjectInviteJoinResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectInviteJoinResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        /** @description 초대 링크 프로젝트 참여 응답 */
+        ProjectInviteJoinResponse: {
+            /**
+             * Format: int64
+             * @description 참여한 프로젝트 ID
+             * @example 10
+             */
+            projectId?: number;
+            /**
+             * @description 참여한 프로젝트 이름
+             * @example WRAP
+             */
+            projectName?: string;
+            /**
+             * Format: int64
+             * @description 프로젝트 멤버 ID
+             * @example 25
+             */
+            projectMemberId?: number;
+            /**
+             * Format: int64
+             * @description 참여한 회원 ID
+             * @example 7
+             */
+            memberId?: number;
+            /**
+             * @description 프로젝트 역할. 링크 참여자는 MEMBER로 설정됩니다.
+             * @example MEMBER
+             * @enum {string}
+             */
+            role?: "OWNER" | "MEMBER";
+            /**
+             * @description 프로젝트별 업무 역할. 미지정이면 null입니다.
+             * @example 프론트엔드
+             */
+            workRole?: string;
+            /**
+             * @description 프로젝트 참여 상태
+             * @example JOINED
+             * @enum {string}
+             */
+            status?: "INVITED" | "JOINED" | "LEFT";
+            /**
+             * Format: date-time
+             * @description 프로젝트 참여 시각
+             * @example 2026-09-02T10:30:00
+             */
+            joinedAt?: string;
+        };
         ScheduleUpdateRequest: {
             /** Format: int64 */
             projectId?: number;
@@ -853,20 +1271,95 @@ export interface components {
             reminder?: boolean;
             checked?: boolean;
         };
+        /** @description 프로젝트 부분 수정 요청. 모든 필드는 선택이며 생략하거나 null을 보내면 기존 값을 유지합니다. */
         ProjectUpdateRequest: {
-            name: string;
+            /** @description 프로젝트 이름. 빈 문자열·공백만 입력은 불가하며 최대 100자입니다. 생략 또는 null은 기존 값을 유지합니다. */
+            name?: string;
+            /** @description 프로젝트 설명. 최대 2,000자이며 빈 문자열·공백만 보내면 내용을 삭제합니다. 생략 또는 null은 기존 값을 유지합니다. */
             description?: string;
+            /** @description 프로젝트 목표. 최대 2,000자이며 빈 문자열·공백만 보내면 내용을 삭제합니다. 생략 또는 null은 기존 값을 유지합니다. */
             goal?: string;
+            /** @description 성공 기준. 최대 2,000자이며 빈 문자열·공백만 보내면 내용을 삭제합니다. 생략 또는 null은 기존 값을 유지합니다. */
             successCriteria?: string;
-            /** Format: date */
+            /**
+             * Format: date
+             * @description 시작일. 기존 값과 합친 결과가 종료일보다 늦으면 안 됩니다. null로 날짜를 삭제할 수 없습니다. 생략 또는 null은 기존 값을 유지합니다.
+             */
             startDate?: string;
-            /** Format: date */
+            /**
+             * Format: date
+             * @description 종료일. 기존 값과 합친 결과가 시작일보다 이르면 안 됩니다. null로 날짜를 삭제할 수 없습니다. 생략 또는 null은 기존 값을 유지합니다.
+             */
             endDate?: string;
+            /** @description 프로젝트 색상. #RRGGBB 형식이며 빈 문자열은 허용하지 않습니다. 생략 또는 null은 기존 값을 유지합니다. */
             color?: string;
         };
-        ProjectMemberRoleUpdateRequest: {
+        TaskStatusUpdateRequest: {
             /** @enum {string} */
-            role: "OWNER" | "MEMBER";
+            status: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
+        };
+        ApiResponseTaskResponse: {
+            success?: boolean;
+            data?: components["schemas"]["TaskResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        TaskAssigneeResponse: {
+            /** Format: int64 */
+            projectMemberId?: number;
+            /** Format: int64 */
+            memberId?: number;
+            nickname?: string;
+            /** @enum {string} */
+            role?: "OWNER" | "MEMBER";
+        };
+        TaskResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            projectId?: number;
+            /** Format: int64 */
+            milestoneId?: number;
+            assignee?: components["schemas"]["TaskAssigneeResponse"];
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int32 */
+            progress?: number;
+            /** @enum {string} */
+            priority?: "HIGH" | "MEDIUM" | "LOW";
+            deliverable?: boolean;
+        };
+        ReminderItemStatusUpdateRequest: {
+            /** @enum {string} */
+            status: "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";
+        };
+        ApiResponseReminderItemStatusResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ReminderItemStatusResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        ReminderItemStatusResponse: {
+            /** @enum {string} */
+            sourceType?: "MILESTONE" | "TASK" | "SCHEDULE" | "AI_UPDATE";
+            /** Format: int64 */
+            sourceId?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";
+            statusLabel?: string;
+        };
+        MilestoneUpdateRequest: {
+            title?: string;
+            description?: string;
+            /** Format: date */
+            dueDate?: string;
+        };
+        ProjectMemberWorkRoleUpdateRequest: {
+            workRole: string;
         };
         ApiResponseProjectMemberResponse: {
             success?: boolean;
@@ -883,10 +1376,15 @@ export interface components {
             profileImage?: string;
             /** @enum {string} */
             role?: "OWNER" | "MEMBER";
+            workRole?: string;
             /** @enum {string} */
             status?: "INVITED" | "JOINED" | "LEFT";
             /** Format: date-time */
             joinedAt?: string;
+        };
+        ProjectMemberRoleUpdateRequest: {
+            /** @enum {string} */
+            role: "OWNER" | "MEMBER";
         };
         MemberUpdateRequest: {
             nickname?: string;
@@ -919,11 +1417,33 @@ export interface components {
             endDate?: string;
             color?: string;
         };
+        ApiResponseListTaskResponse: {
+            success?: boolean;
+            data?: components["schemas"]["TaskResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
         ApiResponseListScheduleReminderResponse: {
             success?: boolean;
             data?: components["schemas"]["ScheduleReminderResponse"][];
             message?: string;
             error?: components["schemas"]["ErrorBody"];
+        };
+        ScheduleReminderChecklistItemResponse: {
+            id?: string;
+            /** @enum {string} */
+            sourceType?: "MILESTONE" | "TASK" | "SCHEDULE" | "AI_UPDATE";
+            /** Format: int64 */
+            sourceId?: number;
+            title?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";
+            statusLabel?: string;
+            assigneeNickname?: string;
+            /** @enum {string} */
+            assigneeRole?: "OWNER" | "MEMBER";
+            /** Format: date */
+            dueDate?: string;
         };
         ScheduleReminderResponse: {
             /** Format: int64 */
@@ -942,25 +1462,46 @@ export interface components {
             reminder?: boolean;
             /** Format: int64 */
             daysLeft?: number;
+            checklist?: components["schemas"]["ScheduleReminderChecklistItemResponse"][];
         };
-        ReminderItemStatusUpdateRequest: {
-            /** @enum {string} */
-            status: "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";
-        };
-        ApiResponseReminderItemStatusResponse: {
+        ApiResponseProjectReportResponse: {
             success?: boolean;
-            data?: components["schemas"]["ReminderItemStatusResponse"];
+            data?: components["schemas"]["ProjectReportResponse"];
             message?: string;
             error?: components["schemas"]["ErrorBody"];
         };
-        ReminderItemStatusResponse: {
+        ProjectReportAreaResponse: {
+            area?: string;
             /** @enum {string} */
-            sourceType?: "MILESTONE" | "TASK" | "SCHEDULE" | "AI_UPDATE";
+            areaType?: "WORK_ROLE" | "UNASSIGNED" | "UNSPECIFIED";
+            /** Format: int32 */
+            percent?: number;
+            delayed?: boolean;
+            note?: string;
+        };
+        ProjectReportResponse: {
+            /** Format: int32 */
+            percent?: number;
             /** Format: int64 */
-            sourceId?: number;
-            /** @enum {string} */
-            status?: "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";
-            statusLabel?: string;
+            doneCount?: number;
+            /** Format: int64 */
+            inProgressCount?: number;
+            /** Format: int64 */
+            needsCheckCount?: number;
+            areas?: components["schemas"]["ProjectReportAreaResponse"][];
+            risks?: components["schemas"]["ProjectReportRiskResponse"][];
+        };
+        ProjectReportRiskResponse: {
+            /** Format: int64 */
+            taskId?: number;
+            title?: string;
+            detail?: string;
+        };
+        ApiResponseListMilestoneResponse: {
+            success?: boolean;
+            data?: components["schemas"]["MilestoneResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
         };
         ApiResponseListProjectMemberResponse: {
             success?: boolean;
@@ -968,11 +1509,101 @@ export interface components {
             message?: string;
             error?: components["schemas"]["ErrorBody"];
         };
+        ApiResponseListProjectInviteLinkSummaryResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectInviteLinkSummaryResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        /** @description 프로젝트 초대 링크 이력 응답 */
+        ProjectInviteLinkSummaryResponse: {
+            /**
+             * Format: int64
+             * @description 초대 링크 ID
+             * @example 1
+             */
+            inviteLinkId?: number;
+            /**
+             * Format: int64
+             * @description 프로젝트 ID
+             * @example 10
+             */
+            projectId?: number;
+            /**
+             * Format: int64
+             * @description 초대 링크를 생성한 회원 ID
+             * @example 3
+             */
+            createdByMemberId?: number;
+            /**
+             * @description 초대 링크를 생성한 회원 닉네임
+             * @example 홍길동
+             */
+            createdByNickname?: string;
+            /**
+             * @description 초대 링크 활성 여부
+             * @example true
+             */
+            active?: boolean;
+            /**
+             * Format: date-time
+             * @description 초대 링크 생성 시각
+             * @example 2026-09-02T10:00:00
+             */
+            createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 초대 링크 비활성화 시각. 활성 링크이면 값이 없습니다.
+             * @example 2026-09-02T12:00:00
+             */
+            revokedAt?: string;
+        };
         ApiResponseListInvitationResponse: {
             success?: boolean;
             data?: components["schemas"]["InvitationResponse"][];
             message?: string;
             error?: components["schemas"]["ErrorBody"];
+        };
+        ApiResponseListDeadlineSummaryResponse: {
+            success?: boolean;
+            data?: components["schemas"]["DeadlineSummaryResponse"][];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        DeadlineSummaryHeaderResponse: {
+            /** Format: int64 */
+            scheduleId?: number;
+            /** Format: int64 */
+            daysLeft?: number;
+            title?: string;
+            /** Format: date-time */
+            startAt?: string;
+            /** Format: date-time */
+            endAt?: string;
+            /** Format: int32 */
+            readyPercent?: number;
+        };
+        DeadlineSummaryResponse: {
+            header?: components["schemas"]["DeadlineSummaryHeaderResponse"];
+            stats?: components["schemas"]["DeadlineSummaryStatsResponse"];
+            checklist?: components["schemas"]["ScheduleReminderChecklistItemResponse"][];
+            attachments?: string[];
+            recentUpdate?: components["schemas"]["DeadlineSummaryUpdateResponse"];
+        };
+        DeadlineSummaryStatsResponse: {
+            /** Format: int64 */
+            checklistDone?: number;
+            /** Format: int64 */
+            checklistTotal?: number;
+            /** Format: int64 */
+            fileCount?: number;
+            /** Format: int64 */
+            participantCount?: number;
+        };
+        DeadlineSummaryUpdateResponse: {
+            author?: string;
+            text?: string;
+            time?: string;
         };
         ApiResponseListCalendarRiskCheckResponse: {
             success?: boolean;
@@ -1060,6 +1691,36 @@ export interface components {
             availableCount?: number;
             /** Format: int32 */
             totalMemberCount?: number;
+        };
+        ApiResponseProjectInviteLinkInfoResponse: {
+            success?: boolean;
+            data?: components["schemas"]["ProjectInviteLinkInfoResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        /** @description 공개 초대 링크 프로젝트 정보 응답 */
+        ProjectInviteLinkInfoResponse: {
+            /**
+             * Format: int64
+             * @description 프로젝트 ID
+             * @example 10
+             */
+            projectId?: number;
+            /**
+             * @description 프로젝트 이름
+             * @example WRAP
+             */
+            projectName?: string;
+            /**
+             * @description 프로젝트 대표 색상
+             * @example #CDEA6F
+             */
+            projectColor?: string;
+            /**
+             * @description 초대 링크를 생성한 회원 닉네임
+             * @example 홍길동
+             */
+            inviterNickname?: string;
         };
         ApiResponseListReceivedInvitationResponse: {
             success?: boolean;
@@ -1166,15 +1827,39 @@ export interface operations {
     };
     getMyProjects: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description 프로젝트 진행 상태. 선택 값이며 생략 시 전체 상태 조회
+                 * @example IN_PROGRESS
+                 */
+                status?: "IN_PROGRESS" | "COMPLETED";
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description 내 프로젝트 목록 조회 성공 */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectSummaryResponse"];
+                };
+            };
+            /** @description 지원하지 않는 상태 값(INVALID_REQUEST) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectSummaryResponse"];
+                };
+            };
+            /** @description 로그인 필요(UNAUTHORIZED) */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1208,6 +1893,178 @@ export interface operations {
             };
         };
     };
+    findProjectMilestones: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMilestoneResponse"];
+                };
+            };
+        };
+    };
+    create_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MilestoneCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMilestoneResponse"];
+                };
+            };
+        };
+    };
+    getInviteLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description 프로젝트 ID
+                 * @example 10
+                 */
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 초대 링크 목록 조회 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectInviteLinkSummaryResponse"];
+                };
+            };
+            /** @description 로그인이 필요함 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectInviteLinkSummaryResponse"];
+                };
+            };
+            /** @description 프로젝트 접근 권한이 없거나 OWNER가 아님 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectInviteLinkSummaryResponse"];
+                };
+            };
+            /** @description 프로젝트를 찾을 수 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListProjectInviteLinkSummaryResponse"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description 프로젝트 ID
+                 * @example 10
+                 */
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 초대 링크 생성 성공 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkResponse"];
+                };
+            };
+            /** @description 로그인이 필요함 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkResponse"];
+                };
+            };
+            /** @description 프로젝트 접근 권한이 없거나 OWNER가 아님 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkResponse"];
+                };
+            };
+            /** @description 프로젝트를 찾을 수 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkResponse"];
+                };
+            };
+            /** @description 활성 링크가 이미 존재하거나 프로젝트가 완료됨 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkResponse"];
+                };
+            };
+            /** @description 고유 토큰 생성 실패 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkResponse"];
+                };
+            };
+        };
+    };
     getSentInvitations: {
         parameters: {
             query?: never;
@@ -1230,7 +2087,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -1282,7 +2139,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -1399,6 +2256,59 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseMemberResponse"];
+                };
+            };
+        };
+    };
+    join: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description 초대 URL에 포함된 원본 토큰
+                 * @example xYz123_exampleToken
+                 */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 프로젝트 참여 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteJoinResponse"];
+                };
+            };
+            /** @description 로그인이 필요함 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteJoinResponse"];
+                };
+            };
+            /** @description 링크 또는 활성 회원을 찾을 수 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteJoinResponse"];
+                };
+            };
+            /** @description 프로젝트가 완료되었거나 이미 참여 중임 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteJoinResponse"];
                 };
             };
         };
@@ -1528,8 +2438,35 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description 내 프로젝트 권한을 포함한 상세 조회 성공 */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 로그인 필요(UNAUTHORIZED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 프로젝트 참여 권한 없음(PROJECT_ACCESS_DENIED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 프로젝트가 없거나 삭제됨(PROJECT_NOT_FOUND) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1576,13 +2513,114 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
+            /** @description 프로젝트 수정 성공 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 입력값 검증 실패(VALIDATION_FAILED), 잘못된 요청(INVALID_REQUEST) 또는 날짜 범위 오류(INVALID_DATE_RANGE) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 로그인 필요(UNAUTHORIZED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 프로젝트 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 프로젝트가 없거나 삭제됨(PROJECT_NOT_FOUND) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+            /** @description 완료된 프로젝트는 수정 불가(PROJECT_ALREADY_COMPLETED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectResponse"];
+                };
+            };
+        };
+    };
+    updateStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                taskId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskStatusUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
+                };
+            };
+        };
+    };
+    updateStatus_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                scheduleId: number;
+                sourceType: "MILESTONE" | "TASK" | "SCHEDULE" | "AI_UPDATE";
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderItemStatusUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseReminderItemStatusResponse"];
                 };
             };
         };
@@ -1609,6 +2647,128 @@ export interface operations {
             };
         };
     };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                milestoneId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                milestoneId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MilestoneUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMilestoneResponse"];
+                };
+            };
+        };
+    };
+    changeWorkRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                projectMemberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectMemberWorkRoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 프로젝트 멤버 업무 역할 변경 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 입력값 검증 실패(VALIDATION_FAILED) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 로그인 필요(UNAUTHORIZED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 프로젝트 없음(PROJECT_NOT_FOUND) 또는 참여 중인 대상 멤버 없음(PROJECT_MEMBER_NOT_FOUND) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 완료 프로젝트(PROJECT_ALREADY_COMPLETED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+        };
+    };
     changeRole: {
         parameters: {
             query?: never;
@@ -1625,8 +2785,53 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
+            /** @description 프로젝트 멤버 권한 변경 성공 */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 입력값 검증 실패(VALIDATION_FAILED) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 로그인 필요(UNAUTHORIZED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 프로젝트 없음(PROJECT_NOT_FOUND) 또는 참여 중인 대상 멤버 없음(PROJECT_MEMBER_NOT_FOUND) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectMemberResponse"];
+                };
+            };
+            /** @description 마지막 OWNER의 권한 하향 불가(LAST_PROJECT_OWNER) 또는 완료 프로젝트(PROJECT_ALREADY_COMPLETED) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1770,6 +2975,36 @@ export interface operations {
             };
         };
     };
+    findTasks: {
+        parameters: {
+            query?: {
+                milestoneId?: number;
+                status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
+                assigneeId?: number;
+                deliverable?: boolean;
+                dueFrom?: string;
+                dueTo?: string;
+                sort?: string;
+            };
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListTaskResponse"];
+                };
+            };
+        };
+    };
     findProjectSchedules: {
         parameters: {
             query?: {
@@ -1820,23 +3055,16 @@ export interface operations {
             };
         };
     };
-    updateStatus_1: {
+    getReport: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 projectId: number;
-                scheduleId: number;
-                sourceType: "MILESTONE" | "TASK" | "SCHEDULE" | "AI_UPDATE";
-                sourceId: number;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReminderItemStatusUpdateRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1844,7 +3072,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseReminderItemStatusResponse"];
+                    "*/*": components["schemas"]["ApiResponseProjectReportResponse"];
                 };
             };
         };
@@ -1867,6 +3095,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListProjectMemberResponse"];
+                };
+            };
+        };
+    };
+    getDeadlineSummary: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListDeadlineSummaryResponse"];
                 };
             };
         };
@@ -1967,6 +3219,50 @@ export interface operations {
             };
         };
     };
+    getInviteLinkInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description 초대 URL에 포함된 원본 토큰
+                 * @example xYz123_exampleToken
+                 */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 초대 프로젝트 정보 조회 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkInfoResponse"];
+                };
+            };
+            /** @description 링크가 없거나 비활성화되었거나 프로젝트가 삭제됨 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkInfoResponse"];
+                };
+            };
+            /** @description 프로젝트가 완료됨 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkInfoResponse"];
+                };
+            };
+        };
+    };
     getReceivedInvitations: {
         parameters: {
             query?: never;
@@ -2007,6 +3303,29 @@ export interface operations {
             };
         };
     };
+    delete_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                taskId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     removeMember: {
         parameters: {
             query?: never;
@@ -2019,8 +3338,44 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description 프로젝트 멤버 내보내기 성공 */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 로그인 필요(UNAUTHORIZED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 프로젝트 없음(PROJECT_NOT_FOUND) 또는 참여 중인 대상 멤버 없음(PROJECT_MEMBER_NOT_FOUND) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description OWNER 내보내기 불가(PROJECT_OWNER_CANNOT_BE_REMOVED) 또는 완료 프로젝트(PROJECT_ALREADY_COMPLETED) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2041,8 +3396,111 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description 프로젝트 탈퇴 성공 */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 로그인 필요(UNAUTHORIZED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 참여 권한 없음(PROJECT_ACCESS_DENIED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 프로젝트 없음(PROJECT_NOT_FOUND) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 마지막 OWNER 탈퇴 불가(LAST_PROJECT_OWNER) 또는 완료 프로젝트(PROJECT_ALREADY_COMPLETED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description 프로젝트 ID
+                 * @example 10
+                 */
+                projectId: number;
+                /**
+                 * @description 비활성화할 초대 링크 ID
+                 * @example 1
+                 */
+                inviteLinkId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 초대 링크 비활성화 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 로그인이 필요함 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 프로젝트 접근 권한이 없거나 OWNER가 아님 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 프로젝트 또는 초대 링크를 찾을 수 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description 프로젝트가 완료되었거나 링크가 이미 비활성화됨 */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

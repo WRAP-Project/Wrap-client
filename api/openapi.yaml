@@ -11,10 +11,14 @@ tags:
   description: 프로젝트 관련 API
 - name: Availability
   description: Team availability request APIs
+- name: Project Invite Link
+  description: "프로젝트 초대 링크 생성, 조회, 비활성화 및 참여 API"
 - name: Member
   description: 회원 관련 API
 - name: Invitation
   description: 프로젝트 초대 관련 API
+- name: Milestone
+  description: 마일스톤 관련 API
 - name: Project Member
   description: 프로젝트 멤버 관련 API
 - name: Test API
@@ -100,10 +104,39 @@ paths:
       tags:
       - Project
       summary: 내 프로젝트 목록 조회
+      description: |
+        로그인한 사용자가 참여 중인(JOINED), 삭제되지 않은 프로젝트만 조회합니다.
+        status를 생략하면 진행 중·완료 프로젝트를 모두 반환합니다.
+        IN_PROGRESS는 진행 중, COMPLETED는 완료된 프로젝트만 반환합니다.
+        상태 값은 대문자로 입력하며 지원하지 않는 값은 400 / INVALID_REQUEST를 반환합니다.
+        조회 결과가 없으면 빈 목록을 반환합니다.
       operationId: getMyProjects
+      parameters:
+      - name: status
+        in: query
+        description: 프로젝트 진행 상태. 선택 값이며 생략 시 전체 상태 조회
+        required: false
+        schema:
+          type: string
+          enum:
+          - IN_PROGRESS
+          - COMPLETED
+        example: IN_PROGRESS
       responses:
         "200":
-          description: OK
+          description: 내 프로젝트 목록 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListProjectSummaryResponse"
+        "400":
+          description: 지원하지 않는 상태 값(INVALID_REQUEST)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListProjectSummaryResponse"
+        "401":
+          description: 로그인 필요(UNAUTHORIZED)
           content:
             '*/*':
               schema:
@@ -126,6 +159,153 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /projects/{projectId}/milestones:
+    get:
+      tags:
+      - Milestone
+      summary: 마일스톤 목록 조회
+      operationId: findProjectMilestones
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListMilestoneResponse"
+    post:
+      tags:
+      - Milestone
+      summary: 마일스톤 생성
+      operationId: create_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MilestoneCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMilestoneResponse"
+  /projects/{projectId}/invite-links:
+    get:
+      tags:
+      - Project Invite Link
+      summary: 프로젝트 초대 링크 목록 조회
+      description: |
+        프로젝트에서 생성된 초대 링크 이력을 최신순으로 조회합니다.
+        보안을 위해 원본 토큰과 전체 초대 URL은 반환하지 않습니다.
+      operationId: getInviteLinks
+      parameters:
+      - name: projectId
+        in: path
+        description: 프로젝트 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 10
+      responses:
+        "200":
+          description: 초대 링크 목록 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListProjectInviteLinkSummaryResponse"
+        "401":
+          description: 로그인이 필요함
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListProjectInviteLinkSummaryResponse"
+        "403":
+          description: 프로젝트 접근 권한이 없거나 OWNER가 아님
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListProjectInviteLinkSummaryResponse"
+        "404":
+          description: 프로젝트를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListProjectInviteLinkSummaryResponse"
+      security:
+      - sessionAuth: []
+    post:
+      tags:
+      - Project Invite Link
+      summary: 프로젝트 초대 링크 생성
+      description: |
+        프로젝트 OWNER가 공유 가능한 초대 링크를 생성합니다.
+        프로젝트당 하나의 활성 링크만 존재할 수 있으며,
+        원본 초대 URL은 생성 성공 응답에서만 반환됩니다.
+      operationId: create_3
+      parameters:
+      - name: projectId
+        in: path
+        description: 프로젝트 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 10
+      responses:
+        "201":
+          description: 초대 링크 생성 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkResponse"
+        "401":
+          description: 로그인이 필요함
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkResponse"
+        "403":
+          description: 프로젝트 접근 권한이 없거나 OWNER가 아님
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkResponse"
+        "404":
+          description: 프로젝트를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkResponse"
+        "409":
+          description: 활성 링크가 이미 존재하거나 프로젝트가 완료됨
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkResponse"
+        "500":
+          description: 고유 토큰 생성 실패
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkResponse"
+      security:
+      - sessionAuth: []
   /projects/{projectId}/invitations:
     get:
       tags:
@@ -150,7 +330,7 @@ paths:
       tags:
       - Invitation
       summary: 프로젝트 팀원 초대 생성
-      operationId: create_2
+      operationId: create_4
       parameters:
       - name: projectId
         in: path
@@ -216,7 +396,7 @@ paths:
       tags:
       - Availability
       summary: Create availability request
-      operationId: create_3
+      operationId: create_5
       parameters:
       - name: projectId
         in: path
@@ -320,6 +500,51 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseMemberResponse"
+  /invite-links/{token}/join:
+    post:
+      tags:
+      - Project Invite Link
+      summary: 초대 링크를 통한 프로젝트 참여
+      description: |
+        로그인한 사용자가 유효한 초대 링크를 통해 프로젝트에 참여합니다.
+        신규 참여자와 재참여자의 역할은 MEMBER로 설정됩니다.
+        이미 참여 중인 사용자는 중복으로 참여할 수 없습니다.
+      operationId: join
+      parameters:
+      - name: token
+        in: path
+        description: 초대 URL에 포함된 원본 토큰
+        required: true
+        schema:
+          type: string
+        example: xYz123_exampleToken
+      responses:
+        "200":
+          description: 프로젝트 참여 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteJoinResponse"
+        "401":
+          description: 로그인이 필요함
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteJoinResponse"
+        "404":
+          description: 링크 또는 활성 회원을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteJoinResponse"
+        "409":
+          description: 프로젝트가 완료되었거나 이미 참여 중임
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteJoinResponse"
+      security:
+      - sessionAuth: []
   /schedules/{scheduleId}:
     get:
       tags:
@@ -424,6 +649,11 @@ paths:
       tags:
       - Project
       summary: 프로젝트 상세 조회
+      description: |
+        로그인한 사용자가 참여 중인(JOINED), 삭제되지 않은 프로젝트의 상세 정보를 반환합니다.
+        myRole은 현재 요청자의 프로젝트 관리 권한(OWNER 또는 MEMBER)입니다.
+        프로젝트 생성자의 권한이나 업무 역할(workRole)을 의미하지 않습니다.
+        프론트의 버튼 표시 판단에 사용할 수 있으며 실제 API의 서버 권한 검사는 별도로 유지됩니다.
       operationId: getProject
       parameters:
       - name: projectId
@@ -434,7 +664,25 @@ paths:
           format: int64
       responses:
         "200":
-          description: OK
+          description: 내 프로젝트 권한을 포함한 상세 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "401":
+          description: 로그인 필요(UNAUTHORIZED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "403":
+          description: 프로젝트 참여 권한 없음(PROJECT_ACCESS_DENIED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "404":
+          description: 프로젝트가 없거나 삭제됨(PROJECT_NOT_FOUND)
           content:
             '*/*':
               schema:
@@ -461,7 +709,16 @@ paths:
     patch:
       tags:
       - Project
-      summary: 프로젝트 정보 수정
+      summary: 프로젝트 정보 부분 수정
+      description: |
+        로그인한 사용자 중 프로젝트에 참여 중인(JOINED) OWNER만 수정할 수 있습니다.
+        모든 필드는 선택이며, 생략하거나 null을 보내면 기존 값을 유지합니다.
+        description, goal, successCriteria는 빈 문자열 또는 공백만 보내면 내용을 삭제합니다.
+        name과 color는 빈 문자열 또는 공백만 보낼 수 없습니다.
+        날짜는 기존 값과 요청 값을 합쳐 시작일이 종료일보다 늦지 않은지 검증합니다.
+        날짜는 null로 삭제할 수 없습니다. 빈 객체({})는 기존 정보를 유지합니다.
+        완료된 프로젝트는 수정할 수 없으며 409 / PROJECT_ALREADY_COMPLETED를 반환합니다.
+        수정하려면 먼저 PATCH /projects/{projectId}/reopen으로 프로젝트를 재개해야 합니다.
       operationId: update_1
       parameters:
       - name: projectId
@@ -478,11 +735,120 @@ paths:
         required: true
       responses:
         "200":
-          description: OK
+          description: 프로젝트 수정 성공
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "400":
+          description: "입력값 검증 실패(VALIDATION_FAILED), 잘못된 요청(INVALID_REQUEST) 또는 날\
+            짜 범위 오류(INVALID_DATE_RANGE)"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "401":
+          description: 로그인 필요(UNAUTHORIZED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "403":
+          description: 프로젝트 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "404":
+          description: 프로젝트가 없거나 삭제됨(PROJECT_NOT_FOUND)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+        "409":
+          description: 완료된 프로젝트는 수정 불가(PROJECT_ALREADY_COMPLETED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /projects/{projectId}/tasks/{taskId}/status:
+    patch:
+      tags:
+      - task-controller
+      operationId: updateStatus
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskStatusUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseTaskResponse"
+  /projects/{projectId}/schedules/{scheduleId}/reminder-items/{sourceType}/{sourceId}/status:
+    patch:
+      tags:
+      - schedule-reminder-item-controller
+      operationId: updateStatus_1
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: sourceType
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - MILESTONE
+          - TASK
+          - SCHEDULE
+          - AI_UPDATE
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderItemStatusUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseReminderItemStatusResponse"
   /projects/{projectId}/reopen:
     patch:
       tags:
@@ -503,11 +869,142 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /projects/{projectId}/milestones/{milestoneId}:
+    delete:
+      tags:
+      - Milestone
+      summary: 마일스톤 삭제
+      operationId: delete_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: milestoneId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+    patch:
+      tags:
+      - Milestone
+      summary: 마일스톤 수정
+      operationId: update_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: milestoneId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MilestoneUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMilestoneResponse"
+  /projects/{projectId}/members/{projectMemberId}/work-role:
+    patch:
+      tags:
+      - Project Member
+      summary: 프로젝트 멤버 업무 역할 변경
+      description: |
+        진행 중인 프로젝트의 참여 중인(JOINED) OWNER가 참여 중인 팀원의 프로젝트별 업무 역할을 변경합니다.
+        본인을 포함한 같은 프로젝트의 팀원만 변경할 수 있습니다.
+        빈 문자열이나 공백만 입력하면 업무 역할 미지정(null) 상태로 변경됩니다.
+        OWNER/MEMBER 관리 권한은 변경되지 않습니다.
+        같은 프로젝트의 탈퇴·권한 변경·내보내기와 직렬화하여 처리 시점의 최신 참여 상태와 권한을 검사합니다.
+      operationId: changeWorkRole
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: projectMemberId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectMemberWorkRoleUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: 프로젝트 멤버 업무 역할 변경 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "400":
+          description: 입력값 검증 실패(VALIDATION_FAILED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "401":
+          description: 로그인 필요(UNAUTHORIZED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "403":
+          description: 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "404":
+          description: 프로젝트 없음(PROJECT_NOT_FOUND) 또는 참여 중인 대상 멤버 없음(PROJECT_MEMBER_NOT_FOUND)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "409":
+          description: 완료 프로젝트(PROJECT_ALREADY_COMPLETED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
   /projects/{projectId}/members/{projectMemberId}/role:
     patch:
       tags:
       - Project Member
       summary: 프로젝트 멤버 역할 변경
+      description: |
+        진행 중인 프로젝트의 참여 중인(JOINED) OWNER만 관리 권한을 변경할 수 있습니다.
+        참여 중인 마지막 OWNER를 MEMBER로 변경할 수 없습니다.
+        같은 프로젝트의 탈퇴·권한 변경·내보내기가 동시에 요청되어도 OWNER는 최소 한 명 유지됩니다.
+        처리 시점의 최신 참여 상태와 권한을 기준으로 검사하므로 대기 중 권한을 잃으면 요청이 거부됩니다.
+        업무 역할(workRole)이 아닌 OWNER/MEMBER 관리 권한을 변경합니다.
       operationId: changeRole
       parameters:
       - name: projectId
@@ -530,7 +1027,37 @@ paths:
         required: true
       responses:
         "200":
-          description: OK
+          description: 프로젝트 멤버 권한 변경 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "400":
+          description: 입력값 검증 실패(VALIDATION_FAILED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "401":
+          description: 로그인 필요(UNAUTHORIZED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "403":
+          description: 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "404":
+          description: 프로젝트 없음(PROJECT_NOT_FOUND) 또는 참여 중인 대상 멤버 없음(PROJECT_MEMBER_NOT_FOUND)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectMemberResponse"
+        "409":
+          description: 마지막 OWNER의 권한 하향 불가(LAST_PROJECT_OWNER) 또는 완료 프로젝트(PROJECT_ALREADY_COMPLETED)
           content:
             '*/*':
               schema:
@@ -657,6 +1184,70 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseListScheduleResponse"
+  /projects/{projectId}/tasks:
+    get:
+      tags:
+      - task-controller
+      operationId: findTasks
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: milestoneId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - NEEDS_REVIEW
+          - DONE
+          - HOLD
+      - name: assigneeId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: deliverable
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: dueFrom
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: dueTo
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListTaskResponse"
   /projects/{projectId}/schedules:
     get:
       tags:
@@ -719,11 +1310,11 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseListScheduleReminderResponse"
-  /projects/{projectId}/schedules/{scheduleId}/reminder-items/{sourceType}/{sourceId}/status:
-    patch:
+  /projects/{projectId}/report:
+    get:
       tags:
-      - schedule-reminder-item-controller
-      operationId: updateStatus_1
+      - project-report-controller
+      operationId: getReport
       parameters:
       - name: projectId
         in: path
@@ -731,41 +1322,13 @@ paths:
         schema:
           type: integer
           format: int64
-      - name: scheduleId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      - name: sourceType
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - MILESTONE
-          - TASK
-          - SCHEDULE
-          - AI_UPDATE
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReminderItemStatusUpdateRequest"
       responses:
         "200":
           description: OK
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/ApiResponseReminderItemStatusResponse"
+                $ref: "#/components/schemas/ApiResponseProjectReportResponse"
   /projects/{projectId}/members:
     get:
       tags:
@@ -786,6 +1349,31 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseListProjectMemberResponse"
+  /projects/{projectId}/deadline-summary:
+    get:
+      tags:
+      - deadline-summary-controller
+      operationId: getDeadlineSummary
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListDeadlineSummaryResponse"
   /projects/{projectId}/calendar/risk-checks:
     get:
       tags:
@@ -912,6 +1500,43 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseListRecommendedSlotResponse"
+  /invite-links/{token}:
+    get:
+      tags:
+      - Project Invite Link
+      summary: 초대 링크 프로젝트 정보 조회
+      description: |
+        로그인하지 않은 사용자도 호출할 수 있는 공개 API입니다.
+        유효한 링크의 프로젝트 이름, 색상과 초대한 사용자의 닉네임을 반환합니다.
+        회원 이메일과 토큰 해시 등 민감한 정보는 반환하지 않습니다.
+      operationId: getInviteLinkInfo
+      parameters:
+      - name: token
+        in: path
+        description: 초대 URL에 포함된 원본 토큰
+        required: true
+        schema:
+          type: string
+        example: xYz123_exampleToken
+      responses:
+        "200":
+          description: 초대 프로젝트 정보 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkInfoResponse"
+        "404":
+          description: 링크가 없거나 비활성화되었거나 프로젝트가 삭제됨
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkInfoResponse"
+        "409":
+          description: 프로젝트가 완료됨
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseProjectInviteLinkInfoResponse"
   /invitations:
     get:
       tags:
@@ -939,11 +1564,40 @@ paths:
             '*/*':
               schema:
                 type: string
+  /projects/{projectId}/tasks/{taskId}:
+    delete:
+      tags:
+      - task-controller
+      operationId: delete_3
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
   /projects/{projectId}/members/{projectMemberId}:
     delete:
       tags:
       - Project Member
       summary: 프로젝트 멤버 내보내기
+      description: |
+        진행 중인 프로젝트의 참여 중인(JOINED) OWNER가 일반 MEMBER를 내보냅니다.
+        OWNER는 내보낼 수 없으며, 동시 권한 변경으로 대상이 OWNER가 된 경우에도 요청이 거부됩니다.
+        처리 시점의 요청자 권한과 대상의 참여 상태·권한을 기준으로 검사합니다.
       operationId: removeMember
       parameters:
       - name: projectId
@@ -960,7 +1614,31 @@ paths:
           format: int64
       responses:
         "200":
-          description: OK
+          description: 프로젝트 멤버 내보내기 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "401":
+          description: 로그인 필요(UNAUTHORIZED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "403":
+          description: 참여 권한 없음(PROJECT_ACCESS_DENIED) 또는 OWNER 권한 필요(PROJECT_OWNER_REQUIRED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "404":
+          description: 프로젝트 없음(PROJECT_NOT_FOUND) 또는 참여 중인 대상 멤버 없음(PROJECT_MEMBER_NOT_FOUND)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "409":
+          description: OWNER 내보내기 불가(PROJECT_OWNER_CANNOT_BE_REMOVED) 또는 완료 프로젝트(PROJECT_ALREADY_COMPLETED)
           content:
             '*/*':
               schema:
@@ -970,6 +1648,11 @@ paths:
       tags:
       - Project Member
       summary: 프로젝트 탈퇴
+      description: |
+        진행 중인 프로젝트에서 현재 로그인한 참여자(JOINED)가 탈퇴합니다.
+        참여 중인 마지막 OWNER는 탈퇴할 수 없습니다.
+        다른 OWNER의 탈퇴·권한 변경과 동시에 요청되어도 OWNER는 최소 한 명 유지됩니다.
+        처리 시점에 이미 탈퇴한 요청자는 PROJECT_ACCESS_DENIED로 거부됩니다.
       operationId: leaveProject
       parameters:
       - name: projectId
@@ -980,11 +1663,95 @@ paths:
           format: int64
       responses:
         "200":
-          description: OK
+          description: 프로젝트 탈퇴 성공
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseVoid"
+        "401":
+          description: 로그인 필요(UNAUTHORIZED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "403":
+          description: 참여 권한 없음(PROJECT_ACCESS_DENIED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "404":
+          description: 프로젝트 없음(PROJECT_NOT_FOUND)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "409":
+          description: 마지막 OWNER 탈퇴 불가(LAST_PROJECT_OWNER) 또는 완료 프로젝트(PROJECT_ALREADY_COMPLETED)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+  /projects/{projectId}/invite-links/{inviteLinkId}:
+    delete:
+      tags:
+      - Project Invite Link
+      summary: 프로젝트 초대 링크 비활성화
+      description: |
+        활성 초대 링크를 비활성화합니다.
+        링크 데이터는 삭제하지 않으며 비활성화 상태와 시각을 기록합니다.
+        비활성화된 링크로는 프로젝트 정보 조회와 참여가 불가능합니다.
+      operationId: revoke
+      parameters:
+      - name: projectId
+        in: path
+        description: 프로젝트 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 10
+      - name: inviteLinkId
+        in: path
+        description: 비활성화할 초대 링크 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      responses:
+        "200":
+          description: 초대 링크 비활성화 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "401":
+          description: 로그인이 필요함
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "403":
+          description: 프로젝트 접근 권한이 없거나 OWNER가 아님
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "404":
+          description: 프로젝트 또는 초대 링크를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+        "409":
+          description: 프로젝트가 완료되었거나 링크가 이미 비활성화됨
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+      security:
+      - sessionAuth: []
   /projects/{projectId}/invitations/{invitationId}:
     delete:
       tags:
@@ -1232,6 +1999,7 @@ components:
           $ref: "#/components/schemas/ErrorBody"
     ProjectResponse:
       type: object
+      description: 프로젝트 상세 조회 및 생성·수정·완료·재개 응답. 현재 요청자의 프로젝트 관리 권한을 포함합니다.
       properties:
         id:
           type: integer
@@ -1257,6 +2025,14 @@ components:
           enum:
           - IN_PROGRESS
           - COMPLETED
+        myRole:
+          type: string
+          description: "현재 요청자의 프로젝트 관리 권한. OWNER는 관리자, MEMBER는 일반 팀원이며 업무 역할(workRole)과\
+            는 별개입니다."
+          enum:
+          - OWNER
+          - MEMBER
+          example: OWNER
         completedAt:
           type: string
           format: date-time
@@ -1266,6 +2042,113 @@ components:
         updatedAt:
           type: string
           format: date-time
+      required:
+      - myRole
+    MilestoneCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          minLength: 0
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+      required:
+      - dueDate
+      - title
+    ApiResponseMilestoneResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/MilestoneResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    MilestoneResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - IN_PROGRESS
+          - DONE
+        totalTaskCount:
+          type: integer
+          format: int32
+        doneTaskCount:
+          type: integer
+          format: int32
+    ApiResponseProjectInviteLinkResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ProjectInviteLinkResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ProjectInviteLinkResponse:
+      type: object
+      description: 프로젝트 초대 링크 생성 응답
+      properties:
+        inviteLinkId:
+          type: integer
+          format: int64
+          description: 초대 링크 ID
+          example: 1
+        projectId:
+          type: integer
+          format: int64
+          description: 프로젝트 ID
+          example: 10
+        projectName:
+          type: string
+          description: 프로젝트 이름
+          example: WRAP
+        createdByMemberId:
+          type: integer
+          format: int64
+          description: 초대 링크를 생성한 회원 ID
+          example: 3
+        inviteUrl:
+          type: string
+          description: 공유할 전체 초대 URL. 링크 생성 응답에서만 제공됩니다.
+          example: https://wrap-client.vercel.app/join/xYz123_exampleToken
+        active:
+          type: boolean
+          description: 초대 링크 활성 여부
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: 초대 링크 생성 시각
+          example: 2026-09-02T10:00:00
+        revokedAt:
+          type: string
+          format: date-time
+          description: 초대 링크 비활성화 시각. 활성 링크이면 값이 없습니다.
+          example: 2026-09-02T12:00:00
     InvitationCreateRequest:
       type: object
       properties:
@@ -1495,6 +2378,64 @@ components:
       required:
       - email
       - password
+    ApiResponseProjectInviteJoinResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ProjectInviteJoinResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ProjectInviteJoinResponse:
+      type: object
+      description: 초대 링크 프로젝트 참여 응답
+      properties:
+        projectId:
+          type: integer
+          format: int64
+          description: 참여한 프로젝트 ID
+          example: 10
+        projectName:
+          type: string
+          description: 참여한 프로젝트 이름
+          example: WRAP
+        projectMemberId:
+          type: integer
+          format: int64
+          description: 프로젝트 멤버 ID
+          example: 25
+        memberId:
+          type: integer
+          format: int64
+          description: 참여한 회원 ID
+          example: 7
+        role:
+          type: string
+          description: 프로젝트 역할. 링크 참여자는 MEMBER로 설정됩니다.
+          enum:
+          - OWNER
+          - MEMBER
+          example: MEMBER
+        workRole:
+          type: string
+          description: 프로젝트별 업무 역할. 미지정이면 null입니다.
+          example: 프론트엔드
+        status:
+          type: string
+          description: 프로젝트 참여 상태
+          enum:
+          - INVITED
+          - JOINED
+          - LEFT
+          example: JOINED
+        joinedAt:
+          type: string
+          format: date-time
+          description: 프로젝트 참여 시각
+          example: 2026-09-02T10:30:00
     ScheduleUpdateRequest:
       type: object
       properties:
@@ -1576,44 +2517,193 @@ components:
           type: boolean
     ProjectUpdateRequest:
       type: object
+      description: 프로젝트 부분 수정 요청. 모든 필드는 선택이며 생략하거나 null을 보내면 기존 값을 유지합니다.
       properties:
         name:
           type: string
+          description: 프로젝트 이름. 빈 문자열·공백만 입력은 불가하며 최대 100자입니다. 생략 또는 null은 기존 값을 유지합니다.
           maxLength: 100
           minLength: 0
+          pattern: "(?s).*\\P{javaWhitespace}.*"
         description:
           type: string
+          description: "프로젝트 설명. 최대 2,000자이며 빈 문자열·공백만 보내면 내용을 삭제합니다. 생략 또는 null은\
+            \ 기존 값을 유지합니다."
           maxLength: 2000
           minLength: 0
         goal:
           type: string
+          description: "프로젝트 목표. 최대 2,000자이며 빈 문자열·공백만 보내면 내용을 삭제합니다. 생략 또는 null은\
+            \ 기존 값을 유지합니다."
           maxLength: 2000
           minLength: 0
         successCriteria:
           type: string
+          description: "성공 기준. 최대 2,000자이며 빈 문자열·공백만 보내면 내용을 삭제합니다. 생략 또는 null은 기존\
+            \ 값을 유지합니다."
           maxLength: 2000
           minLength: 0
         startDate:
           type: string
           format: date
+          description: 시작일. 기존 값과 합친 결과가 종료일보다 늦으면 안 됩니다. null로 날짜를 삭제할 수 없습니다. 생략
+            또는 null은 기존 값을 유지합니다.
         endDate:
           type: string
           format: date
+          description: 종료일. 기존 값과 합친 결과가 시작일보다 이르면 안 됩니다. null로 날짜를 삭제할 수 없습니다. 생략
+            또는 null은 기존 값을 유지합니다.
         color:
           type: string
+          description: "프로젝트 색상. #RRGGBB 형식이며 빈 문자열은 허용하지 않습니다. 생략 또는 null은 기존 값을\
+            \ 유지합니다."
           pattern: "^#[0-9A-Fa-f]{6}$"
-      required:
-      - name
-    ProjectMemberRoleUpdateRequest:
+    TaskStatusUpdateRequest:
       type: object
       properties:
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - NEEDS_REVIEW
+          - DONE
+          - HOLD
+      required:
+      - status
+    ApiResponseTaskResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/TaskResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    TaskAssigneeResponse:
+      type: object
+      properties:
+        projectMemberId:
+          type: integer
+          format: int64
+        memberId:
+          type: integer
+          format: int64
+        nickname:
+          type: string
         role:
           type: string
           enum:
           - OWNER
           - MEMBER
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        milestoneId:
+          type: integer
+          format: int64
+        assignee:
+          $ref: "#/components/schemas/TaskAssigneeResponse"
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - NEEDS_REVIEW
+          - DONE
+          - HOLD
+        dueDate:
+          type: string
+          format: date
+        progress:
+          type: integer
+          format: int32
+        priority:
+          type: string
+          enum:
+          - HIGH
+          - MEDIUM
+          - LOW
+        deliverable:
+          type: boolean
+    ReminderItemStatusUpdateRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - PENDING
+          - IN_PROGRESS
+          - DONE
+          - BLOCKED
       required:
-      - role
+      - status
+    ApiResponseReminderItemStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ReminderItemStatusResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ReminderItemStatusResponse:
+      type: object
+      properties:
+        sourceType:
+          type: string
+          enum:
+          - MILESTONE
+          - TASK
+          - SCHEDULE
+          - AI_UPDATE
+        sourceId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - PENDING
+          - IN_PROGRESS
+          - DONE
+          - BLOCKED
+        statusLabel:
+          type: string
+    MilestoneUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          minLength: 0
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+    ProjectMemberWorkRoleUpdateRequest:
+      type: object
+      properties:
+        workRole:
+          type: string
+          maxLength: 50
+          minLength: 0
+      required:
+      - workRole
     ApiResponseProjectMemberResponse:
       type: object
       properties:
@@ -1643,6 +2733,8 @@ components:
           enum:
           - OWNER
           - MEMBER
+        workRole:
+          type: string
         status:
           type: string
           enum:
@@ -1652,6 +2744,16 @@ components:
         joinedAt:
           type: string
           format: date-time
+    ProjectMemberRoleUpdateRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+      required:
+      - role
     MemberUpdateRequest:
       type: object
       properties:
@@ -1722,6 +2824,19 @@ components:
           format: date
         color:
           type: string
+    ApiResponseListTaskResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
     ApiResponseListScheduleReminderResponse:
       type: object
       properties:
@@ -1735,6 +2850,42 @@ components:
           type: string
         error:
           $ref: "#/components/schemas/ErrorBody"
+    ScheduleReminderChecklistItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceType:
+          type: string
+          enum:
+          - MILESTONE
+          - TASK
+          - SCHEDULE
+          - AI_UPDATE
+        sourceId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - IN_PROGRESS
+          - DONE
+          - BLOCKED
+        statusLabel:
+          type: string
+        assigneeNickname:
+          type: string
+        assigneeRole:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+        dueDate:
+          type: string
+          format: date
     ScheduleReminderResponse:
       type: object
       properties:
@@ -1767,51 +2918,85 @@ components:
         daysLeft:
           type: integer
           format: int64
-    ReminderItemStatusUpdateRequest:
-      type: object
-      required:
-      - status
-      properties:
-        status:
-          type: string
-          enum:
-          - PENDING
-          - IN_PROGRESS
-          - DONE
-          - BLOCKED
-    ApiResponseReminderItemStatusResponse:
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleReminderChecklistItemResponse"
+    ApiResponseProjectReportResponse:
       type: object
       properties:
         success:
           type: boolean
         data:
-          $ref: "#/components/schemas/ReminderItemStatusResponse"
+          $ref: "#/components/schemas/ProjectReportResponse"
         message:
           type: string
         error:
           $ref: "#/components/schemas/ErrorBody"
-    ReminderItemStatusResponse:
+    ProjectReportAreaResponse:
       type: object
       properties:
-        sourceType:
+        area:
+          type: string
+        areaType:
           type: string
           enum:
-          - MILESTONE
-          - TASK
-          - SCHEDULE
-          - AI_UPDATE
-        sourceId:
+          - WORK_ROLE
+          - UNASSIGNED
+          - UNSPECIFIED
+        percent:
+          type: integer
+          format: int32
+        delayed:
+          type: boolean
+        note:
+          type: string
+    ProjectReportResponse:
+      type: object
+      properties:
+        percent:
+          type: integer
+          format: int32
+        doneCount:
           type: integer
           format: int64
-        status:
+        inProgressCount:
+          type: integer
+          format: int64
+        needsCheckCount:
+          type: integer
+          format: int64
+        areas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectReportAreaResponse"
+        risks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectReportRiskResponse"
+    ProjectReportRiskResponse:
+      type: object
+      properties:
+        taskId:
+          type: integer
+          format: int64
+        title:
           type: string
-          enum:
-          - PENDING
-          - IN_PROGRESS
-          - DONE
-          - BLOCKED
-        statusLabel:
+        detail:
           type: string
+    ApiResponseListMilestoneResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MilestoneResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
     ApiResponseListProjectMemberResponse:
       type: object
       properties:
@@ -1825,6 +3010,56 @@ components:
           type: string
         error:
           $ref: "#/components/schemas/ErrorBody"
+    ApiResponseListProjectInviteLinkSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectInviteLinkSummaryResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ProjectInviteLinkSummaryResponse:
+      type: object
+      description: 프로젝트 초대 링크 이력 응답
+      properties:
+        inviteLinkId:
+          type: integer
+          format: int64
+          description: 초대 링크 ID
+          example: 1
+        projectId:
+          type: integer
+          format: int64
+          description: 프로젝트 ID
+          example: 10
+        createdByMemberId:
+          type: integer
+          format: int64
+          description: 초대 링크를 생성한 회원 ID
+          example: 3
+        createdByNickname:
+          type: string
+          description: 초대 링크를 생성한 회원 닉네임
+          example: 홍길동
+        active:
+          type: boolean
+          description: 초대 링크 활성 여부
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: 초대 링크 생성 시각
+          example: 2026-09-02T10:00:00
+        revokedAt:
+          type: string
+          format: date-time
+          description: 초대 링크 비활성화 시각. 활성 링크이면 값이 없습니다.
+          example: 2026-09-02T12:00:00
     ApiResponseListInvitationResponse:
       type: object
       properties:
@@ -1838,6 +3073,80 @@ components:
           type: string
         error:
           $ref: "#/components/schemas/ErrorBody"
+    ApiResponseListDeadlineSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeadlineSummaryResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    DeadlineSummaryHeaderResponse:
+      type: object
+      properties:
+        scheduleId:
+          type: integer
+          format: int64
+        daysLeft:
+          type: integer
+          format: int64
+        title:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        readyPercent:
+          type: integer
+          format: int32
+    DeadlineSummaryResponse:
+      type: object
+      properties:
+        header:
+          $ref: "#/components/schemas/DeadlineSummaryHeaderResponse"
+        stats:
+          $ref: "#/components/schemas/DeadlineSummaryStatsResponse"
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleReminderChecklistItemResponse"
+        attachments:
+          type: array
+          items:
+            type: string
+        recentUpdate:
+          $ref: "#/components/schemas/DeadlineSummaryUpdateResponse"
+    DeadlineSummaryStatsResponse:
+      type: object
+      properties:
+        checklistDone:
+          type: integer
+          format: int64
+        checklistTotal:
+          type: integer
+          format: int64
+        fileCount:
+          type: integer
+          format: int64
+        participantCount:
+          type: integer
+          format: int64
+    DeadlineSummaryUpdateResponse:
+      type: object
+      properties:
+        author:
+          type: string
+        text:
+          type: string
+        time:
+          type: string
     ApiResponseListCalendarRiskCheckResponse:
       type: object
       properties:
@@ -2007,6 +3316,38 @@ components:
         totalMemberCount:
           type: integer
           format: int32
+    ApiResponseProjectInviteLinkInfoResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ProjectInviteLinkInfoResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ProjectInviteLinkInfoResponse:
+      type: object
+      description: 공개 초대 링크 프로젝트 정보 응답
+      properties:
+        projectId:
+          type: integer
+          format: int64
+          description: 프로젝트 ID
+          example: 10
+        projectName:
+          type: string
+          description: 프로젝트 이름
+          example: WRAP
+        projectColor:
+          type: string
+          description: 프로젝트 대표 색상
+          example: "#CDEA6F"
+        inviterNickname:
+          type: string
+          description: 초대 링크를 생성한 회원 닉네임
+          example: 홍길동
     ApiResponseListReceivedInvitationResponse:
       type: object
       properties:
@@ -2048,3 +3389,9 @@ components:
         createdAt:
           type: string
           format: date-time
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      description: 로그인 성공 후 발급되는 세션 쿠키
+      name: JSESSIONID
+      in: cookie
