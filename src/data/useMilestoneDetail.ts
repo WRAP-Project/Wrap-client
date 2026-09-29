@@ -121,7 +121,7 @@ export function useMilestoneDetail(
 ) {
   const milestone = useMilestone(milestoneId);
   const projectSchedules = useProjectSchedules(projectId);
-  const { checklistOf, addChecklistItem } = useMilestoneChecklistContext();
+  const { checklistOf, addChecklistItem, toggleChecklistDone } = useMilestoneChecklistContext();
   const checklist = checklistOf(milestoneId);
 
   const data = useMemo<MilestoneDetailData>(() => {
@@ -161,5 +161,20 @@ export function useMilestoneDetail(
     [milestoneId, addChecklistItem],
   );
 
-  return { data, addChecklistItem: addItem, loading: false, error: null as Error | null };
+  /** 체크리스트 항목의 완료를 켜고 끈다. milestoneId가 없으면 아무 일도 하지 않는다. */
+  const toggleItemDone = useCallback(
+    (itemId: string) => {
+      if (!milestoneId) return;
+      toggleChecklistDone(milestoneId, itemId);
+    },
+    [milestoneId, toggleChecklistDone],
+  );
+
+  return {
+    data,
+    addChecklistItem: addItem,
+    toggleChecklistDone: toggleItemDone,
+    loading: false,
+    error: null as Error | null,
+  };
 }

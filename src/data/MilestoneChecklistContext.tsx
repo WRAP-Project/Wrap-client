@@ -90,6 +90,14 @@ interface MilestoneChecklistContextValue {
   checklistOf: (milestoneId: string | undefined) => ChecklistItem[];
   /** 체크리스트 맨 뒤에 항목을 추가한다. */
   addChecklistItem: (milestoneId: string, draft: ChecklistDraft) => void;
+  /**
+   * 완료 여부만 뒤집는다(done ↔ pending).
+   *
+   * 해제할 때 진행 중·위험으로 되돌리지 않고 대기로 내린다 — 이전 상태를 따로
+   * 기억해 두면 "체크를 껐는데 위험으로 돌아오는" 동작이 되어, 목록에서 한 번
+   * 누른 결과를 예측할 수 없다. 진행 중·위험은 추가 폼에서 정한다.
+   */
+  toggleChecklistDone: (milestoneId: string, itemId: string) => void;
 }
 
 const MilestoneChecklistContext = createContext<MilestoneChecklistContextValue | null>(null);
@@ -115,9 +123,24 @@ export function MilestoneChecklistProvider({ children }: { children: ReactNode }
     });
   }, []);
 
+  const toggleChecklistDone = useCallback((milestoneId: string, itemId: string) => {
+    setByMilestone((prev) => {
+      const items = prev[milestoneId];
+      if (!items) return prev;
+      return {
+        ...prev,
+        [milestoneId]: items.map((item) =>
+          item.id === itemId
+            ? { ...item, status: item.status === "done" ? "pending" : "done" }
+            : item,
+        ),
+      };
+    });
+  }, []);
+
   const value = useMemo(
-    () => ({ checklistOf, addChecklistItem }),
-    [checklistOf, addChecklistItem],
+    () => ({ checklistOf, addChecklistItem, toggleChecklistDone }),
+    [checklistOf, addChecklistItem, toggleChecklistDone],
   );
 
   return (

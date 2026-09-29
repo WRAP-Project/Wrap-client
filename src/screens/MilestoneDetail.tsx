@@ -21,25 +21,41 @@ const STATUS_LABEL: Record<ChecklistStatus, string> = {
 /** 추가 폼에서 고를 수 있는 상태 — 화면에 보이는 순서 그대로 */
 const STATUS_OPTIONS: ChecklistStatus[] = ["pending", "in_progress", "done", "blocked"];
 
-function ChecklistRow({ item, accent }: { item: ChecklistItem; accent: string }) {
+function ChecklistRow({
+  item,
+  accent,
+  onToggle,
+}: {
+  item: ChecklistItem;
+  accent: string;
+  onToggle: (itemId: string) => void;
+}) {
   const { label, assignee, status, note } = item;
   const onAccent = onAccentPalette(accent);
+  const done = status === "done";
   return (
     <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: DARK_SURFACE }}>
-      {status === "done" ? (
-        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: accent }}>
+      {/* 동그라미가 곧 완료 토글이다 — 상태를 바꾸려고 항목을 지웠다 다시 추가하지
+          않아도 되게. 진행 중·위험 표시도 여기 그대로 얹혀 한 번 누르면 완료가 된다. */}
+      <button
+        onClick={() => onToggle(item.id)}
+        aria-label={`${label} ${done ? "완료 해제" : "완료로 표시"}`}
+        aria-pressed={done}
+        className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-opacity active:opacity-60"
+        style={
+          done
+            ? { background: accent }
+            : status === "in_progress"
+              ? { border: `2px solid ${onDark(accent)}` }
+              : { border: `2px solid ${ON_DARK.faint}` }
+        }
+      >
+        {done ? (
           <Check size={13} strokeWidth={3} color={onAccent.fg} />
-        </div>
-      ) : status === "in_progress" ? (
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-          style={{ border: `2px solid ${onDark(accent)}` }}
-        >
+        ) : status === "in_progress" ? (
           <div className="w-2 h-2 rounded-full" style={{ background: onDark(accent) }} />
-        </div>
-      ) : (
-        <div className="w-6 h-6 rounded-full shrink-0" style={{ border: `2px solid ${ON_DARK.faint}` }} />
-      )}
+        ) : null}
+      </button>
       <div className="flex-1 min-w-0">
         <p className="text-[14px] font-semibold truncate" style={{ color: ON_DARK.fg }}>
           {label}
@@ -199,7 +215,7 @@ export default function MilestoneDetail() {
   const { projectId, milestoneId } = useParams<{ projectId: string; milestoneId: string }>();
   const navigate = useNavigate();
   const { projects } = useProjectsContext();
-  const { data, addChecklistItem } = useMilestoneDetail(projectId, milestoneId);
+  const { data, addChecklistItem, toggleChecklistDone } = useMilestoneDetail(projectId, milestoneId);
   const { exists, header, stats, linkedSchedules, checklist, update } = data;
   const [adding, setAdding] = useState(false);
 
@@ -350,7 +366,12 @@ export default function MilestoneDetail() {
           </div>
           <div className="flex flex-col gap-2">
             {checklist.map((item) => (
-              <ChecklistRow key={item.id} item={item} accent={accent} />
+              <ChecklistRow
+                key={item.id}
+                item={item}
+                accent={accent}
+                onToggle={toggleChecklistDone}
+              />
             ))}
             {adding ? (
               <ChecklistAddForm
