@@ -13,9 +13,9 @@
  *   deliverable = true  → "제출 체크리스트"
  * 둘은 같은 목록을 나눈 것이라 조회는 한 번이면 된다.
  *
- * 백엔드 — GET /projects/{projectId}/tasks, PATCH .../tasks/{taskId}/status,
- * DELETE .../tasks/{taskId}. 계약: api/openapi.yaml.
- * 생성(POST)은 스펙에 아직 없다 — 그래서 화면에도 추가 기능을 두지 않는다.
+ * 백엔드 — GET/POST /projects/{projectId}/tasks, PATCH .../tasks/{taskId},
+ * PATCH .../tasks/{taskId}/status, DELETE .../tasks/{taskId}.
+ * 계약: api/openapi.yaml.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -55,6 +55,20 @@ export interface Task {
   assignee?: TaskAssignee;
 }
 
+/**
+ * 일정 추가 폼이 넘기는 입력값.
+ *
+ * status와 progress는 없다 — 서버가 TODO / 0으로 초기화하므로 보낼 필요가 없다.
+ * 담당자·우선순위·마감일을 비워두면 서버 기본값(담당 미정 / MEDIUM / 없음)이다.
+ */
+export interface TaskDraft {
+  title: string;
+  /** 비워두면 마일스톤에 연결되지 않은 일정이 된다 */
+  milestoneId?: string | null;
+  dueDate?: string;
+  deliverable?: boolean;
+}
+
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   TODO: "대기",
   IN_PROGRESS: "진행 중",
@@ -82,6 +96,12 @@ function clientTaskIdOf(id: number): string {
 function serverTaskIdOf(id: string): number | null {
   if (!id.startsWith(TASK_ID_PREFIX)) return null;
   const n = Number(id.slice(TASK_ID_PREFIX.length));
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+function serverMilestoneIdOf(id: string): number | null {
+  if (!id.startsWith(MILESTONE_ID_PREFIX)) return null;
+  const n = Number(id.slice(MILESTONE_ID_PREFIX.length));
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
@@ -199,6 +219,54 @@ export function useProjectTasks(projectId: string | undefined) {
   }, [load]);
 
   /**
+   * 일정을 추가한다.
+   *
+   * 상태 변경과 달리 낙관적 반영을 하지 않는다 — 서버가 id를 쥐고 있어서 응답
+   * 전에는 목록에 넣을 행을 만들 수 없고, 담당자·우선순위 기본값도 서버가 정한다.
+   *
+   * 저장에 성공하면 마일스톤 목록을 다시 읽는다. 진행률의 분모(totalTaskCount)가
+   * 서버 집계라, 갱신하지 않으면 방금 추가한 일정이 진행률에 빠진 채로 남는다.
+   */
+  const addTask = useCallback(
+    async (draft: TaskDraft): Promise<void> => {
+      if (serverProjectId === null) return;
+
+      const { data, error: responseError, response } = await apiClient.POST(
+        "/projects/{projectId}/tasks",
+        {
+          params: { path: { projectId: serverProjectId } },
+          body: {
+            title: draft.title,
+            // 마일스톤 미연결이면 필드 자체를 빼서 보낸다.
+            ...(draft.milestoneId
+              ? { milestoneId: serverMilestoneIdOf(draft.milestoneId) ?? undefined }
+              : {}),
+            ...(draft.dueDate ? { dueDate: draft.dueDate } : {}),
+            ...(draft.deliverable ? { deliverable: true } : {}),
+          },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        },
+      );
+
+      if (!response.ok || data?.success === false) {
+        throw new Error(
+          apiErrorMessage(responseError ?? data, response.status, "일정을 추가하지 못했습니다."),
+        );
+      }
+
+      const created = toTask((data?.data ?? {}) as TaskResponse, projectId!);
+      // 응답이 비어 오면 목록을 다시 읽어 메운다 — 추가는 됐는데 화면에만 없는
+      // 상태로 두지 않는다.
+      if (created) setTasks((prev) => [...prev, created]);
+      else await load();
+
+      setError(null);
+      await reloadMilestones();
+    },
+    [serverProjectId, projectId, load, reloadMilestones],
+  );
+
+  /**
    * 태스크 상태를 바꾼다. 화면에 먼저 반영하고 서버에 저장한다.
    *
    * 저장에 성공하면 마일스톤 목록을 다시 읽는다 — 진행률(doneTaskCount)이
@@ -258,7 +326,7 @@ export function useProjectTasks(projectId: string | undefined) {
     [tasks, setTaskStatus],
   );
 
-  return { tasks, setTaskStatus, toggleTaskDone, reload: load, loading, error };
+  return { tasks, addTask, setTaskStatus, toggleTaskDone, reload: load, loading, error };
 }
 
 /** 한 마일스톤에 걸린 태스크만 — 마감일이 이른 순. 마감일 없는 것은 뒤로. */

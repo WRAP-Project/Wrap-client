@@ -29,6 +29,8 @@ export interface Milestone {
   id: string;
   projectId: string;
   title: string;
+  /** 이 마일스톤이 무엇을 달성하려는지. 서버가 비워 보내면 undefined. */
+  description?: string;
   /** 목표일 — YYYY-MM-DD. 일정과 달리 시각은 갖지 않는다(팀 목표라 하루 단위). */
   dueDate: string;
   /** 서버가 태스크에서 집계한 개수 */
@@ -143,6 +145,7 @@ export function progressOf(milestones: MilestoneView[]): MilestoneProgress {
 type MilestoneResponse = {
   id?: number;
   title?: string;
+  description?: string;
   dueDate?: string;
   status?: "IN_PROGRESS" | "DONE";
   totalTaskCount?: number;
@@ -161,6 +164,8 @@ function toMilestone(m: MilestoneResponse, serverProjectId: number): Milestone |
     id: `${MILESTONE_ID_PREFIX}${m.id}`,
     projectId: clientIdOfServerProject(serverProjectId),
     title: m.title ?? "",
+    // 빈 문자열은 undefined로 접는다 — 화면이 "설명 있음"으로 보고 빈 줄을 띄우지 않게.
+    description: m.description?.trim() || undefined,
     dueDate: m.dueDate,
     // 집계 필드는 태스크가 0개면 빠져 내려올 수 있어 0으로 받는다.
     totalTaskCount: m.totalTaskCount ?? 0,
