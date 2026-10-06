@@ -51,6 +51,10 @@ export interface paths {
          *     status를 생략하면 진행 중·완료 프로젝트를 모두 반환합니다.
          *     IN_PROGRESS는 진행 중, COMPLETED는 완료된 프로젝트만 반환합니다.
          *     상태 값은 대문자로 입력하며 지원하지 않는 값은 400 / INVALID_REQUEST를 반환합니다.
+         *     progress는 DONE 업무 수를 전체 업무 수로 나눈 뒤 반올림한 0~100 정수입니다.
+         *     memberCount는 JOINED 상태인 전체 참여자 수이며 현재 요청자도 포함합니다.
+         *     memberProfiles는 JOINED 참여자를 참여 시각과 프로젝트 멤버 ID 순으로 최대 6명 반환합니다.
+         *     프로필 이미지가 없는 참여자의 profileImage는 null입니다.
          *     조회 결과가 없으면 빈 목록을 반환합니다.
          */
         get: operations["getMyProjects"];
@@ -91,6 +95,7 @@ export interface paths {
         /**
          * 프로젝트 초대 링크 목록 조회
          * @description 프로젝트에서 생성된 초대 링크 이력을 최신순으로 조회합니다.
+         *     만료된 링크도 이력에 포함되며 expiresAt으로 만료 여부를 확인합니다.
          *     보안을 위해 원본 토큰과 전체 초대 URL은 반환하지 않습니다.
          */
         get: operations["getInviteLinks"];
@@ -98,7 +103,8 @@ export interface paths {
         /**
          * 프로젝트 초대 링크 생성
          * @description 프로젝트 OWNER가 공유 가능한 초대 링크를 생성합니다.
-         *     프로젝트당 하나의 활성 링크만 존재할 수 있으며,
+         *     프로젝트당 하나의 만료되지 않은 활성 링크만 존재할 수 있으며,
+         *     링크는 생성 시각부터 7일간 유효합니다.
          *     원본 초대 URL은 생성 성공 응답에서만 반환됩니다.
          */
         post: operations["create_3"];
@@ -115,7 +121,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 보낸 프로젝트 초대 목록 조회 */
+        /**
+         * 보낸 프로젝트 초대 목록 조회
+         * @description 처리 완료 및 만료(EXPIRED) 상태를 포함한 초대 이력을 반환합니다.
+         */
         get: operations["getSentInvitations"];
         put?: never;
         /** 프로젝트 팀원 초대 생성 */
@@ -526,7 +535,12 @@ export interface paths {
         };
         get: operations["findTasks"];
         put?: never;
-        post?: never;
+        /**
+         * 일정(Task) 생성
+         * @description 프로젝트에 참여 중인 멤버 누구나 생성할 수 있습니다.
+         *     status는 TODO, progress는 0으로 서버가 초기화합니다.
+         */
+        post: operations["createTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -710,7 +724,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 받은 프로젝트 초대 목록 조회 */
+        /**
+         * 받은 프로젝트 초대 목록 조회
+         * @description 만료되지 않은 대기 중(INVITED) 초대만 반환합니다.
+         */
         get: operations["getReceivedInvitations"];
         put?: never;
         post?: never;
@@ -753,7 +770,12 @@ export interface paths {
         delete: operations["delete_3"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * 일정(Task) 수정
+         * @description 전 필드 선택이며, null인 필드는 기존 값을 유지합니다(연결 해제 불가).
+         *     생성과 달리 프로젝트 오너 또는 해당 일정의 담당자만 수정할 수 있습니다.
+         */
+        patch: operations["updateTask"];
         trace?: never;
     };
     "/projects/{projectId}/members/{projectMemberId}": {
@@ -1044,7 +1066,7 @@ export interface components {
              */
             inviteUrl?: string;
             /**
-             * @description 초대 링크 활성 여부
+             * @description 관리자가 링크를 비활성화하지 않았는지 여부. 만료 여부는 expiresAt으로 판단합니다.
              * @example true
              */
             active?: boolean;
@@ -1054,6 +1076,12 @@ export interface components {
              * @example 2026-09-02T10:00:00
              */
             createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 초대 링크 만료 시각
+             * @example 2026-09-09T10:00:00
+             */
+            expiresAt?: string;
             /**
              * Format: date-time
              * @description 초대 링크 비활성화 시각. 활성 링크이면 값이 없습니다.
@@ -1073,6 +1101,7 @@ export interface components {
             message?: string;
             error?: components["schemas"]["ErrorBody"];
         };
+        /** @description 보낸 프로젝트 초대 응답 */
         InvitationResponse: {
             /** Format: int64 */
             invitationId?: number;
@@ -1085,9 +1114,15 @@ export interface components {
             /** @enum {string} */
             role?: "OWNER" | "MEMBER";
             /** @enum {string} */
-            status?: "INVITED" | "ACCEPTED" | "REJECTED" | "CANCELED";
+            status?: "INVITED" | "ACCEPTED" | "REJECTED" | "CANCELED" | "EXPIRED";
             /** Format: date-time */
             createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 초대 만료 시각
+             * @example 2026-08-25T10:00:00
+             */
+            expiresAt?: string;
         };
         AvailabilityRequestCreateRequest: {
             title: string;
@@ -1405,6 +1440,12 @@ export interface components {
             message?: string;
             error?: components["schemas"]["ErrorBody"];
         };
+        ProjectSummaryMemberResponse: {
+            /** Format: int64 */
+            memberId?: number;
+            nickname?: string;
+            profileImage?: string;
+        };
         ProjectSummaryResponse: {
             /** Format: int64 */
             id?: number;
@@ -1416,6 +1457,48 @@ export interface components {
             /** Format: date */
             endDate?: string;
             color?: string;
+            /** Format: int32 */
+            progress?: number;
+            /** Format: int32 */
+            memberCount?: number;
+            memberProfiles?: components["schemas"]["ProjectSummaryMemberResponse"][];
+        };
+        TaskCreateRequest: {
+            title: string;
+            description?: string;
+            /**
+             * Format: int64
+             * @description 생략하면 마일스톤에 연결되지 않은 일정이 됩니다.
+             */
+            milestoneId?: number;
+            /**
+             * Format: int64
+             * @description projectMemberId 기준입니다.
+             */
+            assigneeId?: number;
+            /** Format: date */
+            dueDate?: string;
+            /**
+             * @description 생략 시 MEDIUM
+             * @enum {string}
+             */
+            priority?: "HIGH" | "MEDIUM" | "LOW";
+            /** @description 생략 시 false */
+            deliverable?: boolean;
+        };
+        /** @description 전 필드 선택. null은 "변경 없음"으로 처리되어 연결 해제에는 쓸 수 없습니다. */
+        TaskUpdateRequest: {
+            title?: string;
+            description?: string;
+            /** Format: int64 */
+            milestoneId?: number;
+            /** Format: int64 */
+            assigneeId?: number;
+            /** Format: date */
+            dueDate?: string;
+            /** @enum {string} */
+            priority?: "HIGH" | "MEDIUM" | "LOW";
+            deliverable?: boolean;
         };
         ApiResponseListTaskResponse: {
             success?: boolean;
@@ -1541,7 +1624,7 @@ export interface components {
              */
             createdByNickname?: string;
             /**
-             * @description 초대 링크 활성 여부
+             * @description 관리자가 링크를 비활성화하지 않았는지 여부. 만료 여부는 expiresAt으로 판단합니다.
              * @example true
              */
             active?: boolean;
@@ -1551,6 +1634,12 @@ export interface components {
              * @example 2026-09-02T10:00:00
              */
             createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 초대 링크 만료 시각
+             * @example 2026-09-09T10:00:00
+             */
+            expiresAt?: string;
             /**
              * Format: date-time
              * @description 초대 링크 비활성화 시각. 활성 링크이면 값이 없습니다.
@@ -1721,6 +1810,12 @@ export interface components {
              * @example 홍길동
              */
             inviterNickname?: string;
+            /**
+             * Format: date-time
+             * @description 초대 링크 만료 시각
+             * @example 2026-09-09T10:00:00
+             */
+            expiresAt?: string;
         };
         ApiResponseListReceivedInvitationResponse: {
             success?: boolean;
@@ -1728,6 +1823,7 @@ export interface components {
             message?: string;
             error?: components["schemas"]["ErrorBody"];
         };
+        /** @description 받은 프로젝트 초대 응답 */
         ReceivedInvitationResponse: {
             /** Format: int64 */
             invitationId?: number;
@@ -1738,9 +1834,15 @@ export interface components {
             /** @enum {string} */
             role?: "OWNER" | "MEMBER";
             /** @enum {string} */
-            status?: "INVITED" | "ACCEPTED" | "REJECTED" | "CANCELED";
+            status?: "INVITED" | "ACCEPTED" | "REJECTED" | "CANCELED" | "EXPIRED";
             /** Format: date-time */
             createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 초대 만료 시각
+             * @example 2026-08-25T10:00:00
+             */
+            expiresAt?: string;
         };
     };
     responses: never;
@@ -2304,6 +2406,15 @@ export interface operations {
             };
             /** @description 프로젝트가 완료되었거나 이미 참여 중임 */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteJoinResponse"];
+                };
+            };
+            /** @description 초대 링크가 만료됨 */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2918,8 +3029,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description 초대가 만료됨 */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2940,8 +3051,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description 초대가 만료됨 */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3001,6 +3112,53 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListTaskResponse"];
+                };
+            };
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
+                };
+            };
+            /** @description 프로젝트 멤버가 아님(PROJECT_ACCESS_DENIED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
+                };
+            };
+            /**
+             * @description 마일스톤이 이 프로젝트에 없음(MILESTONE_NOT_FOUND) 또는
+             *     담당자가 이 프로젝트 멤버가 아님(PROJECT_MEMBER_NOT_FOUND)
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
                 };
             };
         };
@@ -3261,6 +3419,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseProjectInviteLinkInfoResponse"];
                 };
             };
+            /** @description 초대 링크가 만료됨 */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectInviteLinkInfoResponse"];
+                };
+            };
         };
     };
     getReceivedInvitations: {
@@ -3322,6 +3489,42 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                taskId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
+                };
+            };
+            /** @description 오너도 담당자도 아님(FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
                 };
             };
         };
@@ -3522,8 +3725,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description 초대가 만료됨 */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -110,7 +110,12 @@ export function useReceivedInvitations() {
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
 
-        if (!response.ok || data?.success === false) {
+        // 스펙에 두 경로의 성공 응답이 빠져 있어(410만 문서화됨) 생성 타입이
+        // never다 — 서버는 200 + ApiResponse를 돌려준다. 스펙이 고쳐지면
+        // 이 단언을 지우고 data?.success를 그대로 읽으면 된다.
+        const envelope = data as { success?: boolean } | undefined;
+
+        if (!response.ok || envelope?.success === false) {
           const fallback = action === "accept" ? "초대를 수락하지 못했습니다." : "초대를 거절하지 못했습니다.";
           throw new Error(apiErrorMessage(body ?? data, response.status, fallback));
         }
