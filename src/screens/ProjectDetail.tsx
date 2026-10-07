@@ -5,6 +5,7 @@ import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useMilestonesContext } from "@/data/MilestonesContext";
 import { useProjectDetail } from "@/data/useProjectDetail";
+import { ddayLabel } from "@/data/useSchedules";
 import { ALERT, FALLBACK_ACCENT, memberAvatar, onAccentPalette, onLight, softBadge } from "@/lib/color";
 
 // ── 섹션 추가 버튼 ────────────────────────────────────────────────────────────
@@ -231,7 +232,7 @@ export default function ProjectDetail() {
     );
   }
 
-  const { urgentTask, members, upcomingMilestones, progress } = data;
+  const { urgentTask, members, milestones, progress } = data;
   const activeCount = members.filter((m) => m.state !== "inactive").length;
 
   // D-Day 카드는 프로젝트 색을 그대로 쓴다. 글자색은 배경 밝기에 따라 뒤집힌다.
@@ -283,7 +284,7 @@ export default function ProjectDetail() {
 
           {/* D-Day 카드 — 아직 달성하지 않은 마일스톤 중 목표일이 가장 가까운
               것을 자동으로 뽑은 파생 뷰다. 여기서 직접 등록하지 않으므로 추가
-              버튼을 두지 않는다 (추가 입구는 아래 "다가오는 마일스톤" 하나로
+              버튼을 두지 않는다 (추가 입구는 아래 "이 프로젝트의 마일스톤" 하나로
               통일). */}
           {!urgentTask ? (
             <div
@@ -449,59 +450,69 @@ export default function ProjectDetail() {
           )}
         </section>
 
-        {/* ── 섹션: 다가오는 마일스톤 ── */}
+        {/* ── 섹션: 이 프로젝트의 마일스톤 ──
+            지난 것도 달성한 것도 모두 보여준다 — 목표일이 지났다고 사라지면
+            방금 놓친 마일스톤을 확인할 길이 없어진다. */}
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: "rgba(240,240,236,0.45)" }}>
-              다가오는 마일스톤
+              이 프로젝트의 마일스톤
             </p>
             <AddButton label="마일스톤 추가" onClick={() => setAddingMilestone(true)} onDark />
           </div>
 
-          {upcomingMilestones.length === 0 ? (
+          {milestones.length === 0 ? (
             <button
               onClick={() => setAddingMilestone(true)}
               className="rounded-2xl px-4 py-5 text-left transition-opacity active:opacity-70"
               style={{ background: "rgba(240,240,236,0.06)" }}
             >
               <span className="text-[12px]" style={{ color: "rgba(240,240,236,0.45)" }}>
-                남은 마일스톤이 없어요. + 를 눌러 추가해보세요
+                아직 마일스톤이 없어요. + 를 눌러 추가해보세요
               </span>
             </button>
           ) : (
           <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
-            {upcomingMilestones.map((m, i) => (
+            {milestones.map((m, i) => (
               <button
                 key={m.id}
                 onClick={() => goMilestone(m.id)}
                 className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-opacity active:opacity-60"
                 style={{
-                  borderBottom: i < upcomingMilestones.length - 1
+                  borderBottom: i < milestones.length - 1
                     ? "1px solid rgba(0,0,0,0.06)"
                     : "none",
                 }}
               >
-                {/* D-Day 뱃지 — 급한 것(D-7 이하)만 경고색으로 꽉 채우고, 나머지는
-                    프로젝트 색을 옅게 깐다. 목록에서 어느 게 먼저인지 바로 읽히게. */}
+                {/* D-Day 뱃지 — 달성한 것은 회색으로 가라앉히고, 아직 남았는데
+                    급하거나(D-7 이하) 이미 지난 것은 경고색으로 꽉 채운다.
+                    나머지는 프로젝트 색을 옅게 깐다. */}
                 <span
                   className="text-[11px] font-black px-2.5 py-1.5 rounded-lg shrink-0 min-w-[44px] text-center"
                   style={
-                    m.dday <= 7
-                      ? { background: ALERT, color: "#fff" }
-                      : softBadge(accentColor)
+                    m.done
+                      ? { background: "rgba(28,28,30,0.06)", color: "rgba(28,28,30,0.4)" }
+                      : m.dday <= 7
+                        ? { background: ALERT, color: "#fff" }
+                        : softBadge(accentColor)
                   }
                 >
-                  D-{m.dday}
+                  {ddayLabel(m.dueDate)}
                 </span>
                 {/* 목표 + 연결된 작업 진행 */}
                 <span className="flex-1 flex flex-col gap-0.5">
-                  <span className="text-[14px] font-semibold" style={{ color: "#1C1C1E" }}>
+                  <span
+                    className="text-[14px] font-semibold"
+                    style={{ color: m.done ? "rgba(28,28,30,0.4)" : "#1C1C1E" }}
+                  >
                     {m.label}
                   </span>
                   <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>
-                    {m.totalCount === 0
-                      ? "연결된 작업 없음"
-                      : `작업 ${m.doneCount}/${m.totalCount} 완료`}
+                    {m.done
+                      ? "달성"
+                      : m.totalCount === 0
+                        ? "연결된 작업 없음"
+                        : `작업 ${m.doneCount}/${m.totalCount} 완료`}
                   </span>
                 </span>
                 {/* 화살표 */}

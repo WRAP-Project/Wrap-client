@@ -25,10 +25,14 @@ export interface Member {
   state: MemberState;
 }
 
-/** "다가오는 마일스톤" 목록의 한 줄 */
-export interface UpcomingMilestone {
+/** "이 프로젝트의 마일스톤" 목록의 한 줄 */
+export interface ProjectMilestoneRow {
   id: string;
+  /** 목표일(YYYY-MM-DD) — 화면이 D-day 라벨을 만든다. 지난 것은 D+n이 된다. */
+  dueDate: string;
   dday: number;
+  /** 달성 여부 — 지난 것과 달성한 것을 다르게 칠해야 한다 */
+  done: boolean;
   label: string;
   /** 연결된 작업 중 몇 개가 끝났는지 — "2/3" */
   doneCount: number;
@@ -49,7 +53,8 @@ export interface ProjectDetailData {
   /** 남은 마일스톤이 없으면 null */
   urgentTask: UrgentTask | null;
   members: Member[];
-  upcomingMilestones: UpcomingMilestone[];
+  /** 이 프로젝트의 마일스톤 전부 — 지난 것도 달성한 것도 포함한다 */
+  milestones: ProjectMilestoneRow[];
   progress: Progress;
 }
 
@@ -109,9 +114,6 @@ const EMPTY_SEED: ProjectDetailSeed = {
 
 // ── 파생 로직 ─────────────────────────────────────────────────────────────────
 
-/** 카드에 미리 보여줄 다가오는 마일스톤 개수 */
-const UPCOMING_PREVIEW_COUNT = 3;
-
 const EMPTY_PROGRESS: Progress = {
   percent: 0,
   done: 0,
@@ -124,10 +126,13 @@ function buildDetail(
   seed: ProjectDetailSeed,
   projectMilestones: MilestoneView[],
 ): ProjectDetailData {
-  // projectMilestones는 이미 목표일이 가까운 순.
-  // 지난 것과 이미 달성한 것은 "다음에 할 일"이 아니므로 제외한다.
-  const upcoming = projectMilestones.filter((m) => !m.done && m.dday >= 0);
-  const nearest = upcoming[0];
+  // projectMilestones는 이미 목표일이 가까운 순(다가오는 것 먼저, 지난 것은
+  // 뒤에 최근 것부터). 목록은 이 순서를 그대로 쓴다 — 지난 마일스톤도 이
+  // 프로젝트의 기록이라 감추지 않는다.
+  //
+  // 반면 "마감 임박" 카드는 다음에 할 일 하나를 집는 자리라, 거기에만
+  // 남은 것 중 가장 가까운 하나를 따로 고른다.
+  const nearest = projectMilestones.find((m) => !m.done && m.dday >= 0);
 
   // 진행률은 목록 화면과 공유하는 계산식을 쓴다(값이 어긋나면 안 된다).
   const { percent, done, total } = progressOf(projectMilestones);
@@ -151,9 +156,11 @@ function buildDetail(
           ],
         }
       : null,
-    upcomingMilestones: upcoming.slice(0, UPCOMING_PREVIEW_COUNT).map((m) => ({
+    milestones: projectMilestones.map((m) => ({
       id: m.id,
+      dueDate: m.dueDate,
       dday: m.dday,
+      done: m.done,
       label: m.title,
       doneCount: m.doneCount,
       totalCount: m.totalCount,
