@@ -473,7 +473,13 @@ export default function ProjectDetail() {
             </button>
           ) : (
           <div className="rounded-2xl overflow-hidden" style={{ background: "#fff" }}>
-            {milestones.map((m, i) => (
+            {milestones.map((m, i) => {
+              // 목표일이 지난 것은 "급한 일"이 아니라 지나간 기록이다 —
+              // 경고색으로 채우면 아직 쫓아야 할 일처럼 읽히므로, 전체를
+              // 흐린 회색으로 내리고 부제에 "기한 지남"을 적는다.
+              const past = !m.done && m.dday < 0;
+              const muted = m.done || past;
+              return (
               <button
                 key={m.id}
                 onClick={() => goMilestone(m.id)}
@@ -482,16 +488,17 @@ export default function ProjectDetail() {
                   borderBottom: i < milestones.length - 1
                     ? "1px solid rgba(0,0,0,0.06)"
                     : "none",
+                  opacity: muted ? 0.5 : 1,
                 }}
               >
-                {/* D-Day 뱃지 — 달성한 것은 회색으로 가라앉히고, 아직 남았는데
-                    급하거나(D-7 이하) 이미 지난 것은 경고색으로 꽉 채운다.
+                {/* D-Day 뱃지 — 달성한 것과 지난 것은 회색으로 가라앉히고,
+                    아직 남았는데 급한 것(D-7 이하)만 경고색으로 꽉 채운다.
                     나머지는 프로젝트 색을 옅게 깐다. */}
                 <span
                   className="text-[11px] font-black px-2.5 py-1.5 rounded-lg shrink-0 min-w-[44px] text-center"
                   style={
-                    m.done
-                      ? { background: "rgba(28,28,30,0.06)", color: "rgba(28,28,30,0.4)" }
+                    muted
+                      ? { background: "rgba(28,28,30,0.06)", color: "rgba(28,28,30,0.45)" }
                       : m.dday <= 7
                         ? { background: ALERT, color: "#fff" }
                         : softBadge(accentColor)
@@ -503,22 +510,25 @@ export default function ProjectDetail() {
                 <span className="flex-1 flex flex-col gap-0.5">
                   <span
                     className="text-[14px] font-semibold"
-                    style={{ color: m.done ? "rgba(28,28,30,0.4)" : "#1C1C1E" }}
+                    style={{ color: muted ? "rgba(28,28,30,0.45)" : "#1C1C1E" }}
                   >
                     {m.label}
                   </span>
                   <span className="text-[11px] font-medium" style={{ color: "rgba(28,28,30,0.4)" }}>
                     {m.done
                       ? "달성"
-                      : m.totalCount === 0
-                        ? "연결된 작업 없음"
-                        : `작업 ${m.doneCount}/${m.totalCount} 완료`}
+                      : past
+                        ? "기한 지남"
+                        : m.totalCount === 0
+                          ? "연결된 작업 없음"
+                          : `작업 ${m.doneCount}/${m.totalCount} 완료`}
                   </span>
                 </span>
                 {/* 화살표 */}
                 <ChevronRight size={16} strokeWidth={2} color="rgba(28,28,30,0.3)" />
               </button>
-            ))}
+              );
+            })}
           </div>
           )}
 
