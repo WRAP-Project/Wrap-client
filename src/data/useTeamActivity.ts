@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTeamMembers } from "./useTeamMembers";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -25,48 +26,6 @@ export interface TeamActivityData {
   header: TeamActivityHeader;
   filters: string[];
   members: MemberActivity[];
-}
-
-// ── Mock 데이터 (백엔드 GET /projects/{projectId}/activity 준비되면 교체) ──────
-// 화면 컴포넌트(screens/TeamActivity.tsx)는 건드릴 필요 없음.
-// projectId·팀 구성은 useProjects.ts / useProjectDetail.ts와 맞춰져 있다.
-// 실제 서비스에서 한 사람이 여러 프로젝트에 동시에 속하는 경우는 사실상 없으므로,
-// mock도 프로젝트 간 팀원이 겹치지 않게 구성한다(이름·이니셜 모두 유일).
-
-const MOCK_BY_PROJECT: Record<string, MemberActivity[]> = {
-  // 프로젝트 루프
-  "1": [
-    { name: "김민서", role: "PM",     initials: "KM", timeAgo: "12분 전",  statusText: "발표 흐름 검토 중",       blocked: false },
-    { name: "이주연", role: "디자인", initials: "LJ", timeAgo: "24분 전",  statusText: "키 비주얼 3페이지 반영",  blocked: false },
-    { name: "박준",   role: "개발",   initials: "PJ", timeAgo: "1시간 전", statusText: "데일리 링크 체크 완료",   blocked: false },
-    { name: "최서현", role: "마케팅", initials: "CS", timeAgo: "2시간 전", statusText: "클라이언트 콘텐츠 정리",  blocked: false },
-    { name: "윤채원", role: "기획",   initials: "YC", timeAgo: "3시간 전", statusText: "온보딩 카피 초안 정리",   blocked: false },
-    { name: "정하늘", role: "QA",     initials: "JH", timeAgo: "어제",     statusText: "검증 데이터 미수신",      blocked: true  },
-  ],
-
-  // 오로라 리브랜딩
-  "2": [
-    { name: "문가온", role: "PM",     initials: "MG", timeAgo: "35분 전",  statusText: "리뷰 안건 정리 중",       blocked: false },
-    { name: "오세린", role: "디자인", initials: "OS", timeAgo: "1시간 전", statusText: "로고 시안 3차 작업 중",   blocked: false },
-    { name: "신하람", role: "브랜딩", initials: "SH", timeAgo: "2시간 전", statusText: "브랜드 보이스 가이드 초안", blocked: false },
-    { name: "배도윤", role: "마케팅", initials: "BD", timeAgo: "이틀 전",  statusText: "런칭 채널 확정 대기",     blocked: true  },
-  ],
-
-  // 캠페인 라디오
-  "3": [
-    { name: "서지훈", role: "마케팅", initials: "SJ", timeAgo: "20분 전",  statusText: "캠페인 콘셉트 후보 정리", blocked: false },
-    { name: "노아린", role: "기획",   initials: "NA", timeAgo: "4시간 전", statusText: "녹음 스튜디오 섭외 완료", blocked: false },
-    { name: "강태오", role: "개발",   initials: "KT", timeAgo: "사흘 전",  statusText: "랜딩 페이지 착수 대기",   blocked: true  },
-  ],
-};
-
-/**
- * 팀원 명단만 필요한 곳(캘린더 "팀원 일정")이 같은 mock을 공유하도록 노출한다.
- * 이름·역할·이니셜이 화면마다 어긋나지 않게 하려는 목적 — 백엔드 연동 시에도
- * 멤버 조회는 한 곳에서만 바뀐다.
- */
-export function getProjectMembers(projectId: string): MemberActivity[] {
-  return MOCK_BY_PROJECT[projectId] ?? [];
 }
 
 // ── 파생 로직 ─────────────────────────────────────────────────────────────────
@@ -98,12 +57,30 @@ function buildActivity(members: MemberActivity[]): TeamActivityData {
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
-// 백엔드 GET /projects/{projectId}/activity 준비되면 이 훅 내부만 fetch로 교체.
+// 명단은 실제 프로젝트 멤버(GET /projects/{projectId}/members)에서 온다.
+//
+// 다만 "무엇을 하고 있는지"(timeAgo·statusText·blocked)를 주는 엔드포인트는
+// 아직 없다(api/openapi.yaml에 activity 경로 없음). 그래서 활동 내용은 비워
+// 두고 명단만 보여준다 — 지어내면 화면이 거짓을 말하게 된다.
+// GET /projects/{projectId}/activity 가 생기면 이 훅 내부만 교체하면 된다.
 
 export function useTeamActivity(projectId: string | undefined) {
+  const { members, loading } = useTeamMembers(projectId ?? null);
+
   const data = useMemo(
-    () => buildActivity((projectId && MOCK_BY_PROJECT[projectId]) || []),
-    [projectId],
+    () =>
+      buildActivity(
+        members.map((m) => ({
+          name: m.name,
+          role: m.role,
+          initials: m.initials,
+          timeAgo: "—",
+          statusText: "활동 기록 없음",
+          blocked: false,
+        })),
+      ),
+    [members],
   );
-  return { data, loading: false, error: null as Error | null };
+
+  return { data, loading, error: null as Error | null };
 }
