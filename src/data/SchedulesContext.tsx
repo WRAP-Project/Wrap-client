@@ -1,8 +1,9 @@
 /**
  * SchedulesContext
  *
- * 일정은 캘린더(등록/조회), 프로젝트 상세(다가오는 일정·마감 임박),
- * 전체 일정 화면, 마일스톤 상세가 함께 읽는 유일한 출처다.
+ * 일정은 캘린더(등록/조회), 조율 상세, 팀 하루 일정이 함께 읽는 유일한 출처다.
+ * 프로젝트 "전체 일정" 화면은 여기를 읽지 않는다 — 그 화면은 마일스톤 계층
+ * (마일스톤 → 할 일)만 보여주고, 일정은 그 계층에 속하는 개념이 아니다.
  * 화면마다 useSchedules()를 따로 호출하면 캘린더에서 등록한 일정이
  * 다른 화면에 안 보이므로 Context로 전역화한다.
  *
@@ -13,7 +14,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 import {
   useSchedules,
-  byImminence,
   type Schedule,
   type ScheduleDraft,
   type ReminderChecklistState,
@@ -44,11 +44,4 @@ export function useSchedulesContext(): SchedulesContextValue {
     throw new Error("useSchedulesContext는 SchedulesProvider 안에서만 사용 가능합니다.");
   }
   return ctx;
-}
-
-/** 특정 프로젝트의 일정만 — 마감이 가까운 순으로 정렬해 돌려준다. */
-export function useProjectSchedules(projectId: string | undefined): Schedule[] {
-  const { schedules } = useSchedulesContext();
-  if (!projectId) return [];
-  return schedules.filter((s) => s.projectId === projectId).sort(byImminence);
 }

@@ -36,14 +36,14 @@ function mondayOf(d: Date): Date {
   return addDays(d, -offset);
 }
 
-/** "7.30 수" — 날짜만. 시각은 가진 항목(일정)에서만 따로 덧붙인다. */
+/** "7.30 수" — 마일스톤·할 일은 둘 다 날짜까지만 가진다. */
 function formatDay(dateStr: string): string {
   const [, m, d] = dateStr.split("-");
   const weekday = WEEKDAY_OF[new Date(dateStr + "T00:00:00").getDay()];
   return `${Number(m)}.${Number(d)} ${weekday}`;
 }
 
-/** 한 줄 — 마일스톤·태스크·일정이 같은 모양을 쓴다. 구분은 뱃지와 부제가 한다. */
+/** 한 줄 — 마일스톤과 할 일이 같은 모양을 쓴다. 구분은 뱃지와 부제가 한다. */
 function TimelineRow({
   item,
   accent,
@@ -86,7 +86,7 @@ function TimelineRow({
           >
             {item.title}
           </span>
-          {/* 팀 공동 목표인지(마일스톤) 개인 실행 항목인지(일정)를 구분한다 —
+          {/* 팀 공동 목표인지(마일스톤) 개인 실행 항목인지(할 일)를 구분한다 —
               같은 목록에 섞여 있으면 뱃지 없이는 읽히지 않는다. */}
           {item.kind === "milestone" && (
             <span
@@ -109,27 +109,29 @@ function TimelineRow({
 
       <span className="shrink-0 text-[11px] font-medium text-right" style={{ color: ON_DARK.faint }}>
         {item.date ? formatDay(item.date) : "—"}
-        {item.time ? ` · ${item.time}` : ""}
       </span>
 
       {/* 열 곳이 있는 항목에만 화살표를 둔다 — 눌러도 아무 일도 없는 화살표는
-          고장으로 읽힌다. 태스크는 자기 상세가 없어 소속 마일스톤으로 간다. */}
+          고장으로 읽힌다. 할 일은 자기 상세가 없어 소속 마일스톤으로 간다. */}
       {openable && <ChevronRight size={14} strokeWidth={2} color={ON_DARK.faint} />}
     </>
   );
 
   const className = "w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left";
+  // 지난 것·끝난 것은 전체를 흐리게 내린다 — 목록에 남기되 다가오는 것보다
+  // 먼저 읽히면 안 된다.
+  const style = { background: DARK_SURFACE, opacity: item.done || past ? 0.5 : 1 };
 
   return openable ? (
     <button
       onClick={() => onOpen(item.milestoneId!)}
       className={`${className} transition-opacity active:opacity-60`}
-      style={{ background: DARK_SURFACE }}
+      style={style}
     >
       {body}
     </button>
   ) : (
-    <div className={className} style={{ background: DARK_SURFACE }}>
+    <div className={className} style={style}>
       {body}
     </div>
   );
@@ -143,7 +145,8 @@ export default function ProjectSchedule() {
   const accent = projects.find((p) => p.id === projectId)?.color ?? FALLBACK_ACCENT;
   const onAccent = onAccentPalette(accent);
 
-  // 마일스톤 + 태스크 + 일정을 한 목록으로 — 합치는 규칙은 데이터 훅에 있다.
+  // 마일스톤 + 할 일을 한 목록으로 — 합치는 규칙은 데이터 훅에 있다.
+  // 캘린더 일정은 마일스톤 계층에 속하지 않아 여기 들어오지 않는다.
   const { items } = useProjectTimeline(projectId);
   const [selectedDate, setSelectedDate] = useState(() => toDateStr(new Date()));
   const [mineOnly, setMineOnly] = useState(false);
