@@ -67,6 +67,17 @@ export interface TaskDraft {
   milestoneId?: string | null;
   dueDate?: string;
   deliverable?: boolean;
+  /**
+   * 담당자(projectMemberId — useTeamMembers의 assigneeIdOf가 뽑는다).
+   * 비워두면 "담당 미정"으로 남는다 — 생성에서만 통하는 이야기다.
+   *
+   * 수정(PATCH .../tasks/{taskId})은 null을 "변경 없음"으로 읽어서, 담당자를
+   * 비우는 요청을 보낼 방법이 아직 없다. 나중에 수정 경로를 붙일 때 "담당
+   * 미정으로 되돌리기"를 그대로 만들면 서버는 200을 주면서 기존 담당자를
+   * 유지한다 — 화면만 비고 새로고침하면 돌아오는 조용한 실패가 된다.
+   * 해제가 필요해지면 백엔드에 해제 수단(명시 플래그 등)을 먼저 요청할 것.
+   */
+  assigneeId?: number;
 }
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
@@ -243,6 +254,8 @@ export function useProjectTasks(projectId: string | undefined) {
               : {}),
             ...(draft.dueDate ? { dueDate: draft.dueDate } : {}),
             ...(draft.deliverable ? { deliverable: true } : {}),
+            // 담당 미정이면 필드를 빼고 보낸다 — 서버 기본값을 그대로 쓴다.
+            ...(draft.assigneeId !== undefined ? { assigneeId: draft.assigneeId } : {}),
           },
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         },

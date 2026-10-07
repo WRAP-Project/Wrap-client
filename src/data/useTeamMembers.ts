@@ -16,6 +16,28 @@ export interface TeamMember {
   letter: string;
   /** 어느 프로젝트의 멤버로 집계됐는지(Project.id) — 전체 보기에서 줄을 나눌 때 쓴다 */
   projectId: string;
+  /**
+   * 서버가 준 식별자 두 개를 그대로 들고 있는다 — 일정 담당자 지정처럼 id를
+   * 요청에 실어야 하는 곳이 쓴다. 가공한 문자열 id(`pm-12`)로는 복원할 수 없어
+   * 원본을 남긴다.
+   */
+  projectMemberId: number | null;
+  memberId: number | null;
+}
+
+/**
+ * 일정(Task)의 assigneeId로 보낼 값 — projectMemberId다(백엔드 확인 완료).
+ *
+ * 스펙만으로는 알 수 없는 부분이다. TaskAssigneeResponse가 projectMemberId와
+ * memberId를 둘 다 내려주기 때문인데, 서버는 ProjectMember의 PK로 조회하고
+ * Task.assignee도 ProjectMember FK다.
+ *
+ * memberId를 잘못 보내면 404 PROJECT_MEMBER_NOT_FOUND가 나고, 운 나쁘게 같은
+ * 값의 projectMemberId가 그 프로젝트에 있으면 조용히 엉뚱한 사람에게 배정된다
+ * — 그래서 고르는 자리를 이 함수 하나로 묶어 둔다.
+ */
+export function assigneeIdOf(member: TeamMember): number | null {
+  return member.projectMemberId;
 }
 
 async function fetchMembers(clientProjectId: string, serverId: number): Promise<TeamMember[]> {
@@ -37,6 +59,8 @@ async function fetchMembers(clientProjectId: string, serverId: number): Promise<
         initials: initialsOf(name),
         letter: name.slice(0, 1),
         projectId: clientProjectId,
+        projectMemberId: member.projectMemberId ?? null,
+        memberId: member.memberId ?? null,
       };
     });
 }

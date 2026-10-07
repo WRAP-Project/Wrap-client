@@ -5,6 +5,7 @@ import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { useMilestoneDetail } from "@/data/useMilestoneDetail";
 import { isTaskStalled, TASK_STATUS_LABEL, type Task } from "@/data/useTasks";
 import { useProjectsContext } from "@/data/ProjectsContext";
+import { assigneeIdOf, useTeamMembers, type TeamMember } from "@/data/useTeamMembers";
 import { ddayLabel } from "@/data/useSchedules";
 import { ALERT, DARK_SURFACE, FALLBACK_ACCENT, ON_DARK, onAccentPalette, onDark } from "@/lib/color";
 
@@ -99,29 +100,121 @@ function toDateStr({ year, month, day }: PickedDate): string {
 }
 
 /**
+ * 담당자 고르기 바텀시트.
+ *
+ * 명단은 프로젝트 멤버 하나에서만 온다(useTeamMembers) — 팀 활동·캘린더와
+ * 같은 이름을 보게 하려는 것이다.
+ */
+function AssigneePickerSheet({
+  members,
+  selectedId,
+  accent,
+  onSelect,
+  onClose,
+}: {
+  members: TeamMember[];
+  selectedId: string | null;
+  accent: string;
+  onSelect: (member: TeamMember | null) => void;
+  onClose: () => void;
+}) {
+  const onAccent = onAccentPalette(accent);
+
+  function pick(member: TeamMember | null) {
+    onSelect(member);
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full rounded-t-[28px] px-5 pt-5 pb-8 flex flex-col gap-3"
+        style={{ background: "#2C2C2E", maxWidth: 390, margin: "0 auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[15px] font-bold" style={{ color: ON_DARK.fg }}>담당자</p>
+
+        <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto [scrollbar-width:none]">
+          {/* 비워두는 것도 선택지다 — 서버가 담당 미정을 허용한다. */}
+          <button
+            onClick={() => pick(null)}
+            className="flex items-center justify-between rounded-2xl px-4 py-3.5 transition-opacity active:opacity-70"
+            style={{ background: DARK_SURFACE }}
+          >
+            <span className="text-[14px] font-medium" style={{ color: ON_DARK.dim }}>담당 미정</span>
+            {selectedId === null && <Check size={16} strokeWidth={3} color={onDark(accent)} />}
+          </button>
+
+          {members.map((member) => (
+            <button
+              key={member.id}
+              onClick={() => pick(member)}
+              className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-opacity active:opacity-70"
+              style={{ background: DARK_SURFACE }}
+            >
+              <span
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0"
+                style={{ background: accent, color: onAccent.fg }}
+              >
+                {member.letter}
+              </span>
+              <span className="flex-1 min-w-0 flex flex-col">
+                <span className="text-[14px] font-semibold truncate" style={{ color: ON_DARK.fg }}>
+                  {member.name}
+                </span>
+                <span className="text-[11px] font-medium" style={{ color: ON_DARK.faint }}>
+                  {member.role}
+                </span>
+              </span>
+              {selectedId === member.id && <Check size={16} strokeWidth={3} color={onDark(accent)} />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * 일정 추가 바텀시트.
  *
- * 담당자와 우선순위는 받지 않는다 — 서버 기본값(담당 미정 / MEDIUM)으로 두고,
- * 바꿀 일이 생기면 수정 API로 간다. 추가 자리에서 물어볼 게 많아지면 "일단
- * 적어두기"가 안 되고, 마일스톤 상세에서 필요한 건 그 쪽이다.
+ * 우선순위는 받지 않는다 — 서버 기본값(MEDIUM)으로 두고 추가 자리에서
+ * 물어볼 것을 줄인다. 담당자는 다르다: 지금 앱에는 만든 뒤에 담당자를 바꿀
+ * 경로가 없어서, 여기서 안 받으면 그 일정은 영영 "담당 미정"으로 남는다.
+ * 그래도 필수는 아니다(서버도 선택 항목이다) — "일단 적어두기"는 막지 않는다.
  */
 function AddTaskSheet({
   accent,
+  projectId,
   defaultDueDate,
   onSubmit,
   onClose,
 }: {
   accent: string;
+  /** 담당자 후보(= 이 프로젝트의 팀원)를 불러올 대상 */
+  projectId: string | undefined;
   /** 마일스톤 목표일 — 일정 마감은 보통 그보다 이르거나 같다 */
   defaultDueDate: string;
-  onSubmit: (draft: { title: string; dueDate?: string; deliverable?: boolean }) => Promise<void>;
+  onSubmit: (draft: {
+    title: string;
+    dueDate?: string;
+    deliverable?: boolean;
+    assigneeId?: number;
+  }) => Promise<void>;
   onClose: () => void;
 }) {
   const onAccent = onAccentPalette(accent);
+  const { members } = useTeamMembers(projectId ?? null);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [deliverable, setDeliverable] = useState(false);
+  const [assignee, setAssignee] = useState<TeamMember | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -133,7 +226,13 @@ function AddTaskSheet({
     setSaving(true);
     setError(null);
     try {
-      await onSubmit({ title: trimmed, dueDate: dueDate || undefined, deliverable });
+      await onSubmit({
+        title: trimmed,
+        dueDate: dueDate || undefined,
+        deliverable,
+        // 담당 미정이면 아예 넘기지 않는다 — 서버 기본값을 그대로 쓴다.
+        assigneeId: assignee ? (assigneeIdOf(assignee) ?? undefined) : undefined,
+      });
       onClose();
     } catch (e) {
       // 시트는 닫지 않는다 — 입력한 내용을 잃지 않고 바로 다시 누를 수 있게.
@@ -184,6 +283,23 @@ function AddTaskSheet({
           </span>
         </button>
 
+        {/* 담당자 — 비워둘 수 있지만, 지금은 만든 뒤 바꿀 경로가 없어서
+            여기서 정해두는 편이 낫다. 팀원을 못 불러왔으면 누를 수 없게 둔다. */}
+        <button
+          onClick={() => setAssigneeOpen(true)}
+          disabled={members.length === 0}
+          className="flex items-center justify-between rounded-2xl px-4 py-3.5 transition-opacity enabled:active:opacity-70 disabled:opacity-40"
+          style={{ background: DARK_SURFACE }}
+        >
+          <span className="text-[13px] font-medium" style={{ color: ON_DARK.dim }}>담당자</span>
+          <span
+            className="text-[13px] font-semibold"
+            style={{ color: assignee ? onDark(accent) : ON_DARK.faint }}
+          >
+            {assignee?.name ?? (members.length === 0 ? "팀원 없음" : "담당 미정")}
+          </span>
+        </button>
+
         {/* 제출물 — 켜면 목록에서 "제출물" 뱃지가 붙는다 */}
         <button
           onClick={() => setDeliverable((v) => !v)}
@@ -219,6 +335,16 @@ function AddTaskSheet({
           selected={picked}
           onSelect={(d) => setDueDate(toDateStr(d))}
           onClose={() => setDatePickerOpen(false)}
+        />
+      )}
+
+      {assigneeOpen && (
+        <AssigneePickerSheet
+          members={members}
+          selectedId={assignee?.id ?? null}
+          accent={accent}
+          onSelect={setAssignee}
+          onClose={() => setAssigneeOpen(false)}
         />
       )}
     </div>
@@ -365,6 +491,7 @@ export default function MilestoneDetail() {
       {addOpen && (
         <AddTaskSheet
           accent={accent}
+          projectId={projectId}
           defaultDueDate={header.dueDate}
           onSubmit={addTask}
           onClose={() => setAddOpen(false)}
