@@ -38,9 +38,11 @@ export const ACCENT_PALETTE = [C.lime, C.purple, C.blue, C.red, C.yellow] as con
 const MOCK_PROFILE: Profile = {
   name: "유나 김",
   email: "yuna@projectloop.io",
-  team: "프로젝트 루프",
+  // 삭제된 샘플 프로젝트 이름을 더 이상 참조하지 않는다 — 프로필 엔드포인트가
+  // 생기기 전까지는 사용자가 직접 채우는 자리로 둔다.
+  team: "소속 미지정",
   role: "UX Designer",
-  bio: "UI/UX 디자이너 · 프로젝트 루프 팀에서 디자인 시스템을 담당하고 있습니다.",
+  bio: "프로필 소개를 입력해 주세요.",
   avatarInitial: "유",
   teamMembers: 5,
   tasks: 38,

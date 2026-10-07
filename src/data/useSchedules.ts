@@ -49,7 +49,7 @@ export interface Schedule {
   isDeadlineReminder?: boolean;
   /** 마감 리마인드 집계 체크리스트. */
   reminderChecklist?: ReminderChecklistItem[];
-  source?: "mock" | "server";
+  source?: "server";
 }
 
 /** Calendar 화면의 일정 등록 폼이 넘기는 입력값 */
@@ -71,12 +71,6 @@ function toLocalDateStr(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function addDays(base: Date, n: number): Date {
-  const d = new Date(base);
-  d.setDate(d.getDate() + n);
-  return d;
 }
 
 export function daysLeft(dateStr: string): number {
@@ -119,125 +113,13 @@ export function formatScheduleDatetime(s: Schedule): string {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAY_KO[d.getDay()]}요일 ${time}${suffix}`;
 }
 
-// ── Mock 데이터 ───────────────────────────────────────────────────────────────
-// mock 프로젝트("1"~"3")는 서버 프로젝트가 아니므로 기존 데모 일정을 유지한다.
-// 서버 프로젝트 일정은 GET /schedules/me 결과를 뒤에 붙인다.
-// 오늘 기준 상대 날짜로 만들어 D-day가 항상 유효하다. projectId/이름은
-// useProjects.ts의 MOCK_PROJECTS와 맞춰져 있다.
-
-const today = new Date();
-
-// 이 배열이 앱 전체 일정의 유일한 출처다 — 캘린더와 전체 일정 화면이 여기서
-// 파생된다.
+// ── 일정의 출처 ───────────────────────────────────────────────────────────────
+// 일정은 전부 서버에서 온다(GET /schedules/me). 이 훅이 돌려주는 schedules가
+// 앱 전체 일정의 유일한 출처다 — 캘린더와 전체 일정 화면이 여기서 파생된다.
 //
 // 마일스톤과는 무관하다. 마일스톤을 이루는 건 태스크(useTasks.ts)이고, 일정은
 // 캘린더 위의 시간 블록일 뿐이다 — 개인 일정도 될 수 있어 팀 목표의 달성
 // 근거가 될 수 없다.
-
-const MOCK_SCHEDULES: Schedule[] = [
-  // ── 프로젝트 루프 ──
-  {
-    id: "s1", checked: true, projectId: "1", projectName: "프로젝트 루프",
-    title: "스프린트 회고",
-    date: toLocalDateStr(addDays(today, -2)), startTime: "16:00", endTime: "17:00",
-    type: "meeting", reminder: false, assignees: ["KM"],
-  },
-  {
-    id: "s2", checked: true, projectId: "1", projectName: "프로젝트 루프",
-    title: "UI 시안 최종 전달",
-    date: toLocalDateStr(addDays(today, 1)), startTime: "10:00", endTime: "11:00",
-    type: "deadline", reminder: true, assignees: ["LJ"],
-    reminderChecklist: [
-      { id: "c1", sourceType: "task", title: "발표 흐름 및 목차 확정", state: "done", statusLabel: "완료", assignee: "박희성" },
-      { id: "c2", sourceType: "task", title: "키 비주얼 슬라이드 반영", state: "inProgress", statusLabel: "진행 중", assignee: "이제희" },
-      {
-        id: "c3", sourceType: "task", title: "발표 수치 검증 대기", state: "blocked", statusLabel: "데이터 미수신",
-        assignee: "김민지", assigneeRole: "디자인", assigneeInitials: "KM",
-      },
-    ],
-  },
-  {
-    id: "s3", projectId: "1", projectName: "프로젝트 루프",
-    title: "중간 발표 자료 제출",
-    date: toLocalDateStr(addDays(today, 3)), startTime: "10:00", endTime: "11:00",
-    type: "deadline", reminder: true, assignees: ["KM", "LJ"],
-    reminderChecklist: [
-      { id: "c4", sourceType: "task", title: "발표 대본 초안", state: "done", statusLabel: "완료", assignee: "이주연" },
-      {
-        id: "c5", sourceType: "task", title: "검증 데이터 취합", state: "blocked", statusLabel: "데이터 미수신",
-        assignee: "정하늘", assigneeRole: "QA", assigneeInitials: "JH",
-      },
-    ],
-  },
-  {
-    id: "s4", projectId: "1", projectName: "프로젝트 루프",
-    title: "클라이언트 검토 미팅",
-    date: toLocalDateStr(addDays(today, 7)), startTime: "14:00", endTime: "15:30",
-    type: "meeting", reminder: false, assignees: ["KM"],
-  },
-  {
-    id: "s5", projectId: "1", projectName: "프로젝트 루프",
-    title: "최종 산출물 납품",
-    date: toLocalDateStr(addDays(today, 14)), startTime: "18:00", endTime: "18:30",
-    type: "deadline", reminder: true, assignees: ["PJ"],
-    reminderChecklist: [
-      { id: "c6", sourceType: "task", title: "산출물 패키징", state: "inProgress", statusLabel: "진행 중", assignee: "박준" },
-    ],
-  },
-
-  // ── 오로라 리브랜딩 ──
-  {
-    id: "s6", checked: true, projectId: "2", projectName: "오로라 리브랜딩",
-    title: "무드보드 정리",
-    date: toLocalDateStr(addDays(today, -4)), startTime: "11:00", endTime: "12:00",
-    type: "milestone", reminder: false, assignees: ["SH"],
-  },
-  {
-    id: "s7", projectId: "2", projectName: "오로라 리브랜딩",
-    title: "브랜드 가이드 리뷰",
-    date: toLocalDateStr(addDays(today, 2)), startTime: "13:00", endTime: "14:00",
-    type: "meeting", reminder: true, assignees: ["MG"],
-    reminderChecklist: [
-      { id: "c7", sourceType: "task", title: "리뷰 안건 정리", state: "inProgress", statusLabel: "진행 중", assignee: "문가온" },
-    ],
-  },
-  {
-    id: "s8", projectId: "2", projectName: "오로라 리브랜딩",
-    title: "로고 시안 3차 공유",
-    date: toLocalDateStr(addDays(today, 9)), startTime: "11:00", endTime: "12:00",
-    type: "milestone", reminder: false, assignees: ["OS", "SH"],
-  },
-  {
-    id: "s9", projectId: "2", projectName: "오로라 리브랜딩",
-    title: "리브랜딩 발표",
-    date: toLocalDateStr(addDays(today, 21)), startTime: "15:00", endTime: "16:00",
-    type: "deadline", reminder: true, assignees: ["MG"],
-  },
-
-  // ── 캠페인 라디오 ──
-  {
-    id: "s10", checked: true, projectId: "3", projectName: "캠페인 라디오",
-    title: "캠페인 킥오프 미팅",
-    date: toLocalDateStr(addDays(today, -6)), startTime: "10:00", endTime: "11:00",
-    type: "meeting", reminder: false, assignees: ["SJ"],
-  },
-  {
-    id: "s11", projectId: "3", projectName: "캠페인 라디오",
-    title: "캠페인 콘셉트 확정",
-    date: toLocalDateStr(addDays(today, 5)), startTime: "16:00", endTime: "17:00",
-    type: "deadline", reminder: true, assignees: ["SJ"],
-    reminderChecklist: [
-      { id: "c8", sourceType: "task", title: "콘셉트 후보 정리", state: "done", statusLabel: "완료", assignee: "서지훈" },
-      { id: "c9", sourceType: "task", title: "채널 믹스 검토", state: "inProgress", statusLabel: "진행 중", assignee: "노아린" },
-    ],
-  },
-  {
-    id: "s12", projectId: "3", projectName: "캠페인 라디오",
-    title: "라디오 광고 녹음",
-    date: toLocalDateStr(addDays(today, 12)), startTime: "09:00", endTime: "12:00",
-    type: "milestone", reminder: true, assignees: ["NA"],
-  },
-];
 
 type ScheduleResponse = components["schemas"]["ScheduleResponse"];
 type ScheduleDetailResponse = components["schemas"]["ScheduleDetailResponse"];
@@ -372,7 +254,7 @@ function mapScheduleResponse(
 
 export function useSchedules() {
   const { projects } = useProjectsContext();
-  const [schedules, setSchedules] = useState<Schedule[]>(MOCK_SCHEDULES);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -423,10 +305,10 @@ export function useSchedules() {
         isDeadlineReminder: deadlineReminderScheduleIds.has(schedule.id),
         reminderChecklist: reminderByScheduleId.get(schedule.id) ?? schedule.reminderChecklist,
       }));
-      setSchedules([...MOCK_SCHEDULES, ...schedulesWithReminderChecklist]);
+      setSchedules(schedulesWithReminderChecklist);
       setError(null);
     } catch (e) {
-      setSchedules(MOCK_SCHEDULES);
+      setSchedules([]);
       setError(
         e instanceof Error && e.name !== "TimeoutError"
           ? e
@@ -444,9 +326,9 @@ export function useSchedules() {
   const addSchedule = useCallback(async (draft: ScheduleDraft): Promise<Schedule> => {
     const projectId = serverIdOf(draft.projectId);
     if (projectId === null) {
-      const created: Schedule = { id: crypto.randomUUID(), ...draft, source: "mock" };
-      setSchedules((prev) => [...prev, created]);
-      return created;
+      // 서버에 없는 프로젝트에는 일정을 붙일 수 없다 — 로컬에만 만들면
+      // 새로고침에 조용히 사라진다.
+      throw new Error("프로젝트를 찾을 수 없어 일정을 등록할 수 없습니다.");
     }
 
     const { data, response } = await apiClient.POST("/schedules", {

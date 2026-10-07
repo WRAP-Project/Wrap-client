@@ -199,8 +199,8 @@ export function useMilestones() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // 서버에 실제로 존재하는 프로젝트만 조회 대상이다. mock 프로젝트("1"~"3")는
-  // serverIdOf가 null을 주므로 건너뛴다 — 보내면 남의 프로젝트를 열거나 404다.
+  // 서버에 실제로 존재하는 프로젝트만 조회 대상이다(serverIdOf가 null이면 건너뛴다 —
+  // 보내면 남의 프로젝트를 열거나 404다).
   // 목록을 그대로 의존성에 쓰면 프로젝트 배열이 새로 만들어질 때마다 재조회하므로
   // id만 뽑아 문자열로 굳힌다.
   const serverProjectIdsKey = useMemo(
@@ -258,7 +258,7 @@ export function useMilestones() {
     async (projectId: string, draft: MilestoneDraft): Promise<Milestone> => {
       const serverProjectId = serverIdOf(projectId);
       if (serverProjectId === null) {
-        throw new Error("샘플 프로젝트에는 마일스톤을 추가할 수 없어요.");
+        throw new Error("프로젝트를 찾을 수 없어 마일스톤을 추가할 수 없어요.");
       }
 
       const { data, error, response } = await apiClient.POST(

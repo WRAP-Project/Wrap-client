@@ -171,7 +171,7 @@ export function useProjectTasks(projectId: string | undefined) {
   const serverProjectId = projectId === undefined ? null : serverIdOf(projectId);
 
   const load = useCallback(async () => {
-    // mock 프로젝트("1"~"3")는 서버에 없다 — 보내면 남의 프로젝트를 열거나 404다.
+    // 서버 id를 뽑을 수 없는 프로젝트는 건너뛴다 — 보내면 남의 프로젝트를 열거나 404다.
     if (serverProjectId === null) {
       setTasks([]);
       setError(null);

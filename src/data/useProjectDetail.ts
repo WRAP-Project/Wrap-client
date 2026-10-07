@@ -58,61 +58,13 @@ export interface ProjectDetailData {
   progress: Progress;
 }
 
-// ── Mock 데이터 (백엔드 GET /projects/{projectId} 준비되면 이 파일만 교체) ────
-// 화면 컴포넌트(screens/ProjectDetail.tsx)는 건드릴 필요 없음.
-// projectId는 useProjects.ts의 MOCK_PROJECTS와 1:1로 맞춰져 있다.
-//
-//
-// 일정(다가오는 일정 / 마감 임박)은 여기서 하드코딩하지 않는다 —
-// useSchedules.ts의 일정 목록(앱 전체의 유일한 출처)에서 파생시킨다.
-// 그래서 캘린더에서 일정을 추가하면 이 화면에도 즉시 반영된다.
-
-// 진행률은 더 이상 여기 하드코딩하지 않는다 — 마일스톤 완료 수에서 파생한다.
-interface ProjectDetailSeed {
-  members: Member[];
-}
-
-const MOCK_BY_PROJECT: Record<string, ProjectDetailSeed> = {
-  // 프로젝트 루프
-  // delayed인 사람은 useTeamActivity.ts에서 blocked로 잡힌 사람과 같다 —
-  // 두 화면이 같은 사람을 다른 상태로 보여주면 안 된다.
-  "1": {
-    members: [
-      { initials: "KM", role: "PM",    state: "active"   },
-      { initials: "LJ", role: "디자인", state: "active"   },
-      { initials: "PJ", role: "개발",   state: "active"   },
-      { initials: "CS", role: "마케팅", state: "active"   },
-      { initials: "JH", role: "QA",    state: "delayed"  },
-      { initials: "YC", role: "기획",   state: "inactive" },
-    ],
-  },
-
-  // 오로라 리브랜딩
-  "2": {
-    members: [
-      { initials: "MG", role: "PM",    state: "active"  },
-      { initials: "OS", role: "디자인", state: "active"  },
-      { initials: "SH", role: "브랜딩", state: "active"  },
-      { initials: "BD", role: "마케팅", state: "delayed" },
-    ],
-  },
-
-  // 캠페인 라디오
-  "3": {
-    members: [
-      { initials: "SJ", role: "마케팅", state: "active"  },
-      { initials: "NA", role: "기획",   state: "active"  },
-      { initials: "KT", role: "개발",   state: "delayed" },
-    ],
-  },
-};
-
-/** mock에 없는 프로젝트(새로 만든 프로젝트 등)는 빈 상태로 시작한다. */
-const EMPTY_SEED: ProjectDetailSeed = {
-  members: [],
-};
-
 // ── 파생 로직 ─────────────────────────────────────────────────────────────────
+// 이 화면의 데이터는 전부 서버에서 온다 — 팀원은 GET /projects/{projectId}/members,
+// 마일스톤·진행률은 MilestonesContext에서 파생된다.
+//
+// 일정(다가오는 일정 / 마감 임박)은 여기서 만들지 않는다 — useSchedules.ts의
+// 일정 목록(앱 전체의 유일한 출처)에서 파생시킨다. 그래서 캘린더에서 일정을
+// 추가하면 이 화면에도 즉시 반영된다.
 
 const EMPTY_PROGRESS: Progress = {
   percent: 0,
@@ -123,7 +75,7 @@ const EMPTY_PROGRESS: Progress = {
 };
 
 function buildDetail(
-  seed: ProjectDetailSeed,
+  members: Member[],
   projectMilestones: MilestoneView[],
 ): ProjectDetailData {
   // projectMilestones는 이미 목표일이 가까운 순(다가오는 것 먼저, 지난 것은
@@ -165,7 +117,7 @@ function buildDetail(
       doneCount: m.doneCount,
       totalCount: m.totalCount,
     })),
-    members: seed.members,
+    members,
     progress:
       total === 0
         ? EMPTY_PROGRESS
@@ -181,15 +133,14 @@ function buildDetail(
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
-// 백엔드 GET /projects/{projectId} 준비되면 이 훅 내부만 fetch로 교체.
 // 마일스톤은 MilestonesContext(= useMilestones.ts)에서 그대로 파생된다.
 
 export function useProjectDetail(projectId: string | undefined) {
   const projectMilestones = useProjectMilestones(projectId);
   const serverId = useMemo(() => serverIdOf(projectId), [projectId]);
 
-  // 서버 프로젝트의 팀원은 실제로 불러온다. mock 프로젝트는 서버에 없으므로
-  // 호출하지 않고 위의 seed를 그대로 쓴다.
+  // 팀원은 서버에서 불러온다. id에서 서버 id를 뽑지 못하면(잘못된 경로 등)
+  // 호출하지 않고 빈 명단으로 둔다.
   const [serverMembers, setServerMembers] = useState<Member[] | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -235,11 +186,10 @@ export function useProjectDetail(projectId: string | undefined) {
     };
   }, [serverId]);
 
-  const data = useMemo(() => {
-    const seed = (projectId && MOCK_BY_PROJECT[projectId]) || EMPTY_SEED;
-    const detail = buildDetail(seed, projectMilestones);
-    return serverMembers ? { ...detail, members: serverMembers } : detail;
-  }, [projectId, projectMilestones, serverMembers]);
+  const data = useMemo(
+    () => buildDetail(serverMembers ?? [], projectMilestones),
+    [projectMilestones, serverMembers],
+  );
 
   return { data, loading, error: null as Error | null };
 }

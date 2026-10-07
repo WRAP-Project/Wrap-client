@@ -23,7 +23,9 @@ export default function ChatRoom() {
   const { room } = useChatRoom(Number(roomId));
   const { messages } = useChatMessages();
   const { participants } = useChatParticipants();
-  const themeColor = room.color;
+  // 방을 못 찾았을 때도 훅 순서는 유지해야 하므로 색만 기본값으로 두고,
+  // 실제 "없음" 처리는 아래 모든 훅 호출이 끝난 뒤에 한다.
+  const themeColor = room?.color ?? C.lime;
 
   // 라임·핑크는 밝아서 헤더에 다크 잉크 필요, 퍼플·블루는 어두워서 흰 텍스트
   const brightTheme = themeColor === C.lime || themeColor === C.pink;
@@ -60,6 +62,30 @@ export default function ChatRoom() {
   };
 
   const next = () => (step < 2 ? setStep(step + 1) : setSheet(false));
+
+  // 채팅 API가 없어 방 목록이 비어 있다 — 목록에서는 도달할 수 없고 딥링크로만
+  // 들어올 수 있는 경로이므로, 빈 화면 대신 돌아갈 길을 준다.
+  if (!room) {
+    return (
+      <main
+        className="flex size-full flex-col items-center justify-center gap-4 px-8 text-center"
+        style={{ background: C.bg, color: C.fg }}
+      >
+        <p className="text-[15px] font-bold">채팅방을 찾을 수 없어요</p>
+        <p className="text-[12px] font-medium" style={{ color: muted }}>
+          이 방이 사라졌거나 아직 열리지 않았어요.
+        </p>
+        <button
+          onClick={() => navigate("/chat")}
+          className="mt-1 flex h-11 items-center gap-2 rounded-xl px-5 text-[13px] font-bold transition-opacity active:opacity-70"
+          style={{ background: "rgba(255,255,255,0.1)", color: C.fg }}
+        >
+          <ArrowLeft size={15} strokeWidth={2.2} />
+          채팅 목록으로
+        </button>
+      </main>
+    );
+  }
 
   return (
     <main

@@ -30,34 +30,6 @@ export interface ChatParticipant {
   color: string;
 }
 
-// API 연동 전 임시 데이터. 백엔드 채팅 엔드포인트가 준비되면 이 파일
-// 내부만 fetch 기반으로 바꾸면 된다 — 아래 훅들을 쓰는 화면 쪽은 그대로
-// 둔다 (반환 형태가 같으므로).
-const MOCK_ROOM_GROUPS: ChatRoomGroup[] = [
-  {
-    projectId: "1", project: "프로젝트 루프", color: C.lime, rooms: [
-      { id: 1, title: "디자인 핸드오프", time: "오늘 · 14:00–15:00", people: 4, initials: "DH", unread: 2, note: "최종 카드 레이아웃을 확인했어요." },
-      { id: 2, title: "데일리 스탠드업", time: "오늘 · 09:30–09:45", people: 3, initials: "DS", unread: 0, note: "API 키 이슈를 백엔드에 전달했어요." },
-    ],
-  },
-  {
-    projectId: "2", project: "오로라 리브랜딩", color: C.purple, rooms: [
-      { id: 3, title: "프로덕트 싱크", time: "오늘 · 11:00–12:00", people: 6, initials: "PS", unread: 5, note: "3분기 로드맵을 확정했어요." },
-      { id: 4, title: "주간 플래닝", time: "내일 · 10:00–11:30", people: 2, initials: "JP", unread: 0, note: "새 스프린트 목표를 추가 중이에요." },
-    ],
-  },
-  {
-    projectId: "3", project: "캠페인 라디오", color: C.pink, rooms: [
-      { id: 5, title: "마케팅 아이디어", time: "금요일 · 15:00–16:00", people: 5, initials: "MI", unread: 1, note: "캠페인 비주얼 검토가 준비됐어요." },
-      { id: 6, title: "스프린트 회고", time: "금요일 · 16:30–17:00", people: 4, initials: "SH", unread: 0, note: "좋았던 점과 아쉬운 점을 정리해요." },
-    ],
-  },
-];
-
-const MOCK_ROOMS: ChatRoom[] = MOCK_ROOM_GROUPS.flatMap((g) =>
-  g.rooms.map((r) => ({ ...r, project: g.project, color: g.color }))
-);
-
 // 받은 메시지는 화자 색으로 아바타만 표시하고 말풍선은 중립 회색
 const MOCK_MESSAGES: ChatMessage[] = [
   ["시스템", "세션이 시작됐어요 · 00:00"],
@@ -84,9 +56,8 @@ const MOCK_PARTICIPANTS: ChatParticipant[] = [
  * 쪽 값을 그대로 따라가므로 홈 화면과 어긋나지 않는다.
  *
  * 다만 백엔드에 채팅 엔드포인트가 없어서(api/openapi.yaml에 chat 경로 없음)
- * 방 목록은 아직 mock뿐이다. mock이 없는 프로젝트는 빈 배열로 두고, 화면이
- * "아직 채팅방이 없어요"를 보여준다. 채팅 API가 생기면 아래 rooms만 fetch로
- * 바꾸면 된다.
+ * 방 목록은 아직 비어 있다 — 화면이 "아직 채팅방이 없어요"를 보여준다.
+ * 채팅 API가 생기면 아래 rooms만 fetch로 바꾸면 된다.
  */
 export function useChatRoomGroups() {
   const { projects, loading, error } = useProjectsContext();
@@ -97,7 +68,7 @@ export function useChatRoomGroups() {
         projectId: p.id,
         project: p.name,
         color: p.color,
-        rooms: MOCK_ROOM_GROUPS.find((g) => g.projectId === p.id)?.rooms ?? [],
+        rooms: [],
       })),
     [projects],
   );
@@ -105,10 +76,16 @@ export function useChatRoomGroups() {
   return { groups, loading, error };
 }
 
-export function useChatRoom(roomId: number) {
-  const [rooms] = useState<ChatRoom[]>(MOCK_ROOMS);
-  const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
-  return { room, loading: false, error: null as Error | null };
+/**
+ * 방 상세. 조회할 방 목록이 아직 없으므로 항상 undefined다 — 화면이 "찾을 수
+ * 없는 방"으로 처리한다(목록에서는 도달할 수 없고, 딥링크로만 들어올 수 있다).
+ */
+export function useChatRoom(_roomId: number): {
+  room: ChatRoom | undefined;
+  loading: boolean;
+  error: Error | null;
+} {
+  return { room: undefined, loading: false, error: null };
 }
 
 // 지금은 방 구분 없이 같은 mock 대화를 반환한다. 실제 연동 시 방별 대화를

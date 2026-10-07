@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient, apiErrorMessage } from "@/lib/api/client";
-import { C } from "@/screens/chatShared";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -17,15 +16,16 @@ export interface Project {
   id: string;
   name: string;
   color: string;          // "#RRGGBB" (백엔드 color 필드와 동일 — 생성 시 필수)
-  description?: string;
   // 진행률은 필드로 갖지 않는다 — 달성한 마일스톤 수에서 파생한다
   // (useMilestones.ts progressOf). 여기 숫자를 따로 두면 목록과 상세가 어긋난다.
   goal?: string;
   endDate?: string;       // YYYY-MM-DD (백엔드 endDate 필드와 동일)
+  // 아래 셋은 아직 백엔드가 주지 않는다(api/openapi.yaml에 없음) — 서버가 채워
+  // 주기 전까지는 비어 있고, 쓰는 쪽이 기본값으로 대체한다.
   members?: ProjectMember[];
-  /** 마이페이지 배지에 표시할 최근 업데이트 수 (백엔드 스키마에 없음 — mock 전용) */
+  /** 마이페이지 배지에 표시할 최근 업데이트 수 */
   recentUpdates?: number;
-  /** "최근 업데이트 · {라벨}" 표기용 (mock 전용) */
+  /** "최근 업데이트 · {라벨}" 표기용 */
   lastUpdatedLabel?: string;
 }
 
@@ -37,61 +37,6 @@ export interface ProjectDraft {
   color: string;
 }
 
-// ── Mock 데이터 ───────────────────────────────────────────────────────────────
-// 목록은 "mock 고정 + 서버 프로젝트 추가" 방식이다. 이 세 프로젝트가 앱 전체의
-// 기준점이라 — id/이름이 useChatData.ts의 채팅 그룹, useProjectDetail.ts의 상세,
-// useTeamActivity.ts의 팀원 명단, useSchedules.ts의 일정과 전부 1:1로 맞춰져 있다.
-// mock을 서버 목록으로 갈아치우면 그 화면들이 통째로 비므로, 상세/채팅/팀/일정까지
-// 함께 연동되기 전까지는 mock을 그대로 두고 서버 프로젝트를 뒤에 이어 붙인다.
-// members는 프로젝트끼리 겹치지 않는다 — 실제 서비스에서도 한 사람이 여러
-// 프로젝트에 속하지 않는다.
-
-const MOCK_PROJECTS: Project[] = [
-  {
-    id: "1",
-    name: "프로젝트 루프",
-    color: C.lime,
-    description: "디자인 시스템 정비와 온보딩 플로우 개선을 진행 중입니다.",
-    recentUpdates: 2,
-    lastUpdatedLabel: "오늘",
-    members: [
-      { id: "m1", initials: "김" },
-      { id: "m2", initials: "이" },
-      { id: "m3", initials: "박" },
-      { id: "m4", initials: "최" },
-      { id: "m5", initials: "윤" },
-      { id: "m6", initials: "정" },
-    ],
-  },
-  {
-    id: "2",
-    name: "오로라 리브랜딩",
-    color: C.purple,
-    description: "브랜드 아이덴티티와 마케팅 자산을 새로 정의하고 있습니다.",
-    recentUpdates: 5,
-    lastUpdatedLabel: "오늘",
-    members: [
-      { id: "m7", initials: "문" },
-      { id: "m8", initials: "오" },
-      { id: "m9", initials: "신" },
-      { id: "m10", initials: "배" },
-    ],
-  },
-  {
-    id: "3",
-    name: "캠페인 라디오",
-    color: C.pink,
-    description: "분기 캠페인 콘텐츠 기획과 라디오 광고 제작을 진행합니다.",
-    recentUpdates: 1,
-    lastUpdatedLabel: "오늘",
-    members: [
-      { id: "m11", initials: "서" },
-      { id: "m12", initials: "노" },
-      { id: "m13", initials: "강" },
-    ],
-  },
-];
-
 // ── 백엔드 연동 ───────────────────────────────────────────────────────────────
 // GET /projects (서버 프로젝트 조회) · POST /projects (생성). 계약: api/openapi.yaml.
 // 응답 봉투는 ApiResponse<T> = { success, data, message, error }이고 null 필드는
@@ -102,15 +47,14 @@ const MOCK_PROJECTS: Project[] = [
 // 짧게 끊으면 멀쩡한 요청이 실패한다.
 export const REQUEST_TIMEOUT_MS = 60_000;
 
-// 서버 프로젝트의 id는 숫자 채번이라 mock의 "1"~"3"과 겹친다. 그대로 두면 상세
-// 화면이 엉뚱한 mock을 열게 되므로 접두사를 붙여 분리한다.
-// (상세까지 실제 연동하면 이 접두사는 걷어낸다)
+// 서버 프로젝트의 id는 숫자 채번인데 화면은 문자열 id를 들고 다닌다. 접두사를
+// 붙여 "서버에 실재하는 프로젝트"임을 id만 보고 판별할 수 있게 한다.
 export const SERVER_ID_PREFIX = "srv-";
 
 /**
  * 화면이 들고 다니는 문자열 id("srv-12")를 백엔드가 path에 요구하는 숫자 id(12)로
- * 바꾼다. mock 프로젝트("1"~"3")는 서버에 존재하지 않으므로 null을 돌려주고,
- * 호출 측은 그때 API를 아예 건너뛴다 — 그대로 보내면 남의 프로젝트를 열거나 404가 난다.
+ * 바꾼다. 접두사가 없거나 형식이 깨진 id는 null을 돌려주고, 호출 측은 그때 API를
+ * 아예 건너뛴다 — 그대로 보내면 남의 프로젝트를 열거나 404가 난다.
  */
 export function serverIdOf(projectId: string | undefined): number | null {
   if (!projectId?.startsWith(SERVER_ID_PREFIX)) return null;
@@ -129,8 +73,8 @@ const FALLBACK_COLOR = "#CDEA6F";
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useProjects() {
-  // mock은 항상 목록 앞에 고정으로 남고, 서버에서 불러온 프로젝트가 뒤에 붙는다.
-  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
+  // 목록은 전적으로 서버에서 온다 — 불러오기 전/실패 시에는 빈 목록이다.
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -151,11 +95,11 @@ export function useProjects() {
         color: p.color ?? FALLBACK_COLOR,
         endDate: p.endDate,
       }));
-      setProjects([...MOCK_PROJECTS, ...fromServer]);
+      setProjects(fromServer);
       setError(null);
     } catch (e) {
-      // 서버를 못 읽어도 mock은 그대로 남는다 — 화면이 비지는 않고, 실패 사실만
-      // error로 올린다.
+      // 목록을 못 읽으면 화면은 빈 상태가 된다 — 실패 사실을 error로 올려서
+      // 화면이 "프로젝트 없음"과 "불러오기 실패"를 구분해 보여줄 수 있게 한다.
       setError(
         e instanceof Error && e.name !== "TimeoutError"
           ? e
@@ -206,8 +150,8 @@ export function useProjects() {
    * 참여 중인 프로젝트에서 나간다(DELETE /projects/{projectId}/members/me).
    * 성공하면 목록에서 바로 뺀다 — 다시 조회하지 않는다.
    *
-   * mock 프로젝트는 서버에 없으므로 호출 자체를 막는다. 그대로 보내면 남의
-   * 프로젝트를 건드리거나 404가 난다.
+   * id 형식이 깨져 서버 id를 뽑을 수 없으면 호출 자체를 막는다. 그대로 보내면
+   * 남의 프로젝트를 건드리거나 404가 난다.
    *
    * OWNER가 나갈 때 서버가 어떻게 처리하는지는 스펙에 없다 — 거절한다면 그
    * 사유가 그대로 예외 메시지로 올라오므로 화면이 보여준다.
@@ -215,7 +159,7 @@ export function useProjects() {
   const leaveProject = useCallback(async (projectId: string): Promise<void> => {
     const serverId = serverIdOf(projectId);
     if (serverId === null) {
-      throw new Error("샘플 프로젝트라 나갈 수 없어요.");
+      throw new Error("프로젝트를 찾을 수 없어요.");
     }
 
     const { data, error, response } = await apiClient.DELETE(
@@ -241,7 +185,7 @@ export function useProjects() {
    * 나가기(leaveProject)와 다르다 — 나가기는 나만 빠지지만, 삭제는 프로젝트 자체가
    * 사라져 모든 팀원이 잃는다. 그래서 화면에서도 한 단계 더 강한 확인을 거친다.
    *
-   * mock 프로젝트는 서버에 없으므로 호출 자체를 막는다(나가기와 같은 이유).
+   * id에서 서버 id를 뽑을 수 없으면 호출을 막는다(나가기와 같은 이유).
    *
    * 권한(OWNER만 삭제 가능한지)은 스펙에 명시돼 있지 않다 — 서버가 거절하면 그
    * 사유가 그대로 예외 메시지로 올라오므로 화면이 보여준다.
@@ -249,7 +193,7 @@ export function useProjects() {
   const deleteProject = useCallback(async (projectId: string): Promise<void> => {
     const serverId = serverIdOf(projectId);
     if (serverId === null) {
-      throw new Error("샘플 프로젝트라 삭제할 수 없어요.");
+      throw new Error("프로젝트를 찾을 수 없어요.");
     }
 
     const { data, error, response } = await apiClient.DELETE("/projects/{projectId}", {
