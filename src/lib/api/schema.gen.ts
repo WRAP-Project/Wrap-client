@@ -67,6 +67,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["findTasks"];
+        put?: never;
+        post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/milestones": {
         parameters: {
             query?: never;
@@ -78,7 +94,7 @@ export interface paths {
         get: operations["findProjectMilestones"];
         put?: never;
         /** 마일스톤 생성 */
-        post: operations["create_2"];
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -107,7 +123,7 @@ export interface paths {
          *     링크는 생성 시각부터 7일간 유효합니다.
          *     원본 초대 URL은 생성 성공 응답에서만 반환됩니다.
          */
-        post: operations["create_3"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -128,7 +144,7 @@ export interface paths {
         get: operations["getSentInvitations"];
         put?: never;
         /** 프로젝트 팀원 초대 생성 */
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -146,7 +162,7 @@ export interface paths {
         get: operations["findAll"];
         put?: never;
         /** Create availability request */
-        post: operations["create_5"];
+        post: operations["create_6"];
         delete?: never;
         options?: never;
         head?: never;
@@ -326,6 +342,22 @@ export interface paths {
         patch: operations["update_1"];
         trace?: never;
     };
+    "/projects/{projectId}/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        patch: operations["update_2"];
+        trace?: never;
+    };
     "/projects/{projectId}/tasks/{taskId}/status": {
         parameters: {
             query?: never;
@@ -386,11 +418,11 @@ export interface paths {
         put?: never;
         post?: never;
         /** 마일스톤 삭제 */
-        delete: operations["delete_2"];
+        delete: operations["delete_3"];
         options?: never;
         head?: never;
         /** 마일스톤 수정 */
-        patch: operations["update_2"];
+        patch: operations["update_3"];
         trace?: never;
     };
     "/projects/{projectId}/members/{projectMemberId}/work-role": {
@@ -520,27 +552,6 @@ export interface paths {
         get: operations["findMine"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{projectId}/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["findTasks"];
-        put?: never;
-        /**
-         * 일정(Task) 생성
-         * @description 프로젝트에 참여 중인 멤버 누구나 생성할 수 있습니다.
-         *     status는 TODO, progress는 0으로 서버가 초기화합니다.
-         */
-        post: operations["createTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -755,27 +766,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/projects/{projectId}/tasks/{taskId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["delete_3"];
-        options?: never;
-        head?: never;
-        /**
-         * 일정(Task) 수정
-         * @description 전 필드 선택이며, null인 필드는 기존 값을 유지합니다(연결 해제 불가).
-         *     생성과 달리 프로젝트 오너 또는 해당 일정의 담당자만 수정할 수 있습니다.
-         */
-        patch: operations["updateTask"];
         trace?: never;
     };
     "/projects/{projectId}/members/{projectMemberId}": {
@@ -1000,6 +990,54 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        TaskCreateRequest: {
+            title: string;
+            /** Format: int64 */
+            milestoneId?: number;
+            description?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            assigneeId?: number;
+            /** @enum {string} */
+            priority?: "HIGH" | "MEDIUM" | "LOW";
+            deliverable?: boolean;
+        };
+        ApiResponseTaskResponse: {
+            success?: boolean;
+            data?: components["schemas"]["TaskResponse"];
+            message?: string;
+            error?: components["schemas"]["ErrorBody"];
+        };
+        TaskAssigneeResponse: {
+            /** Format: int64 */
+            projectMemberId?: number;
+            /** Format: int64 */
+            memberId?: number;
+            nickname?: string;
+            /** @enum {string} */
+            role?: "OWNER" | "MEMBER";
+        };
+        TaskResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            projectId?: number;
+            /** Format: int64 */
+            milestoneId?: number;
+            assignee?: components["schemas"]["TaskAssigneeResponse"];
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int32 */
+            progress?: number;
+            /** @enum {string} */
+            priority?: "HIGH" | "MEDIUM" | "LOW";
+            deliverable?: boolean;
         };
         MilestoneCreateRequest: {
             title: string;
@@ -1329,44 +1367,22 @@ export interface components {
             /** @description 프로젝트 색상. #RRGGBB 형식이며 빈 문자열은 허용하지 않습니다. 생략 또는 null은 기존 값을 유지합니다. */
             color?: string;
         };
-        TaskStatusUpdateRequest: {
-            /** @enum {string} */
-            status: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
-        };
-        ApiResponseTaskResponse: {
-            success?: boolean;
-            data?: components["schemas"]["TaskResponse"];
-            message?: string;
-            error?: components["schemas"]["ErrorBody"];
-        };
-        TaskAssigneeResponse: {
-            /** Format: int64 */
-            projectMemberId?: number;
-            /** Format: int64 */
-            memberId?: number;
-            nickname?: string;
-            /** @enum {string} */
-            role?: "OWNER" | "MEMBER";
-        };
-        TaskResponse: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int64 */
-            projectId?: number;
+        TaskUpdateRequest: {
+            title?: string;
             /** Format: int64 */
             milestoneId?: number;
-            assignee?: components["schemas"]["TaskAssigneeResponse"];
-            title?: string;
             description?: string;
-            /** @enum {string} */
-            status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
             /** Format: date */
             dueDate?: string;
-            /** Format: int32 */
-            progress?: number;
+            /** Format: int64 */
+            assigneeId?: number;
             /** @enum {string} */
             priority?: "HIGH" | "MEDIUM" | "LOW";
             deliverable?: boolean;
+        };
+        TaskStatusUpdateRequest: {
+            /** @enum {string} */
+            status: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
         };
         ReminderItemStatusUpdateRequest: {
             /** @enum {string} */
@@ -1462,43 +1478,6 @@ export interface components {
             /** Format: int32 */
             memberCount?: number;
             memberProfiles?: components["schemas"]["ProjectSummaryMemberResponse"][];
-        };
-        TaskCreateRequest: {
-            title: string;
-            description?: string;
-            /**
-             * Format: int64
-             * @description 생략하면 마일스톤에 연결되지 않은 일정이 됩니다.
-             */
-            milestoneId?: number;
-            /**
-             * Format: int64
-             * @description projectMemberId 기준입니다.
-             */
-            assigneeId?: number;
-            /** Format: date */
-            dueDate?: string;
-            /**
-             * @description 생략 시 MEDIUM
-             * @enum {string}
-             */
-            priority?: "HIGH" | "MEDIUM" | "LOW";
-            /** @description 생략 시 false */
-            deliverable?: boolean;
-        };
-        /** @description 전 필드 선택. null은 "변경 없음"으로 처리되어 연결 해제에는 쓸 수 없습니다. */
-        TaskUpdateRequest: {
-            title?: string;
-            description?: string;
-            /** Format: int64 */
-            milestoneId?: number;
-            /** Format: int64 */
-            assigneeId?: number;
-            /** Format: date */
-            dueDate?: string;
-            /** @enum {string} */
-            priority?: "HIGH" | "MEDIUM" | "LOW";
-            deliverable?: boolean;
         };
         ApiResponseListTaskResponse: {
             success?: boolean;
@@ -1995,6 +1974,62 @@ export interface operations {
             };
         };
     };
+    findTasks: {
+        parameters: {
+            query?: {
+                milestoneId?: number;
+                status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
+                assigneeId?: number;
+                deliverable?: boolean;
+                dueFrom?: string;
+                dueTo?: string;
+                sort?: string;
+            };
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListTaskResponse"];
+                };
+            };
+        };
+    };
+    create_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
+                };
+            };
+        };
+    };
     findProjectMilestones: {
         parameters: {
             query?: never;
@@ -2017,7 +2052,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2096,7 +2131,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2189,7 +2224,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -2241,7 +2276,7 @@ export interface operations {
             };
         };
     };
-    create_5: {
+    create_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -2680,6 +2715,56 @@ export interface operations {
             };
         };
     };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                taskId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                taskId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
+                };
+            };
+        };
+    };
     updateStatus: {
         parameters: {
             query?: never;
@@ -2758,7 +2843,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    delete_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2781,7 +2866,7 @@ export interface operations {
             };
         };
     };
-    update_2: {
+    update_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -3082,83 +3167,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListScheduleResponse"];
-                };
-            };
-        };
-    };
-    findTasks: {
-        parameters: {
-            query?: {
-                milestoneId?: number;
-                status?: "TODO" | "IN_PROGRESS" | "NEEDS_REVIEW" | "DONE" | "HOLD";
-                assigneeId?: number;
-                deliverable?: boolean;
-                dueFrom?: string;
-                dueTo?: string;
-                sort?: string;
-            };
-            header?: never;
-            path: {
-                projectId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListTaskResponse"];
-                };
-            };
-        };
-    };
-    createTask: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                projectId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TaskCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
-                };
-            };
-            /** @description 프로젝트 멤버가 아님(PROJECT_ACCESS_DENIED) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
-                };
-            };
-            /**
-             * @description 마일스톤이 이 프로젝트에 없음(MILESTONE_NOT_FOUND) 또는
-             *     담당자가 이 프로젝트 멤버가 아님(PROJECT_MEMBER_NOT_FOUND)
-             */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
                 };
             };
         };
@@ -3466,65 +3474,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": string;
-                };
-            };
-        };
-    };
-    delete_3: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                projectId: number;
-                taskId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    updateTask: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                projectId: number;
-                taskId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TaskUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
-                };
-            };
-            /** @description 오너도 담당자도 아님(FORBIDDEN) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseTaskResponse"];
                 };
             };
         };

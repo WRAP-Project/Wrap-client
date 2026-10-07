@@ -163,6 +163,94 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /projects/{projectId}/tasks:
+    get:
+      tags:
+      - task-controller
+      operationId: findTasks
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: milestoneId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - NEEDS_REVIEW
+          - DONE
+          - HOLD
+      - name: assigneeId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: deliverable
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: dueFrom
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: dueTo
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListTaskResponse"
+    post:
+      tags:
+      - task-controller
+      operationId: create_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseTaskResponse"
   /projects/{projectId}/milestones:
     get:
       tags:
@@ -187,7 +275,7 @@ paths:
       tags:
       - Milestone
       summary: 마일스톤 생성
-      operationId: create_2
+      operationId: create_3
       parameters:
       - name: projectId
         in: path
@@ -263,7 +351,7 @@ paths:
         프로젝트당 하나의 만료되지 않은 활성 링크만 존재할 수 있으며,
         링크는 생성 시각부터 7일간 유효합니다.
         원본 초대 URL은 생성 성공 응답에서만 반환됩니다.
-      operationId: create_3
+      operationId: create_4
       parameters:
       - name: projectId
         in: path
@@ -337,7 +425,7 @@ paths:
       tags:
       - Invitation
       summary: 프로젝트 팀원 초대 생성
-      operationId: create_4
+      operationId: create_5
       parameters:
       - name: projectId
         in: path
@@ -403,7 +491,7 @@ paths:
       tags:
       - Availability
       summary: Create availability request
-      operationId: create_5
+      operationId: create_6
       parameters:
       - name: projectId
         in: path
@@ -784,6 +872,61 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseProjectResponse"
+  /projects/{projectId}/tasks/{taskId}:
+    delete:
+      tags:
+      - task-controller
+      operationId: delete_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+    patch:
+      tags:
+      - task-controller
+      operationId: update_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseTaskResponse"
   /projects/{projectId}/tasks/{taskId}/status:
     patch:
       tags:
@@ -887,7 +1030,7 @@ paths:
       tags:
       - Milestone
       summary: 마일스톤 삭제
-      operationId: delete_2
+      operationId: delete_3
       parameters:
       - name: projectId
         in: path
@@ -912,7 +1055,7 @@ paths:
       tags:
       - Milestone
       summary: 마일스톤 수정
-      operationId: update_2
+      operationId: update_3
       parameters:
       - name: projectId
         in: path
@@ -1197,112 +1340,6 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseListScheduleResponse"
-  /projects/{projectId}/tasks:
-    get:
-      tags:
-      - task-controller
-      operationId: findTasks
-      parameters:
-      - name: projectId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      - name: milestoneId
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int64
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - TODO
-          - IN_PROGRESS
-          - NEEDS_REVIEW
-          - DONE
-          - HOLD
-      - name: assigneeId
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int64
-      - name: deliverable
-        in: query
-        required: false
-        schema:
-          type: boolean
-      - name: dueFrom
-        in: query
-        required: false
-        schema:
-          type: string
-          format: date
-      - name: dueTo
-        in: query
-        required: false
-        schema:
-          type: string
-          format: date
-      - name: sort
-        in: query
-        required: false
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseListTaskResponse"
-    post:
-      tags:
-      - task-controller
-      summary: 일정(Task) 생성
-      description: |
-        프로젝트에 참여 중인 멤버 누구나 생성할 수 있습니다.
-        status는 TODO, progress는 0으로 서버가 초기화합니다.
-      operationId: createTask
-      parameters:
-      - name: projectId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TaskCreateRequest"
-        required: true
-      responses:
-        "201":
-          description: Created
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseTaskResponse"
-        "403":
-          description: 프로젝트 멤버가 아님(PROJECT_ACCESS_DENIED)
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseTaskResponse"
-        "404":
-          description: |
-            마일스톤이 이 프로젝트에 없음(MILESTONE_NOT_FOUND) 또는
-            담당자가 이 프로젝트 멤버가 아님(PROJECT_MEMBER_NOT_FOUND)
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseTaskResponse"
   /projects/{projectId}/schedules:
     get:
       tags:
@@ -1626,71 +1663,6 @@ paths:
             '*/*':
               schema:
                 type: string
-  /projects/{projectId}/tasks/{taskId}:
-    patch:
-      tags:
-      - task-controller
-      summary: 일정(Task) 수정
-      description: |
-        전 필드 선택이며, null인 필드는 기존 값을 유지합니다(연결 해제 불가).
-        생성과 달리 프로젝트 오너 또는 해당 일정의 담당자만 수정할 수 있습니다.
-      operationId: updateTask
-      parameters:
-      - name: projectId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      - name: taskId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TaskUpdateRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseTaskResponse"
-        "403":
-          description: 오너도 담당자도 아님(FORBIDDEN)
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseTaskResponse"
-    delete:
-      tags:
-      - task-controller
-      operationId: delete_3
-      parameters:
-      - name: projectId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      - name: taskId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
   /projects/{projectId}/members/{projectMemberId}:
     delete:
       tags:
@@ -2146,6 +2118,101 @@ components:
           format: date-time
       required:
       - myRole
+    TaskCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+        milestoneId:
+          type: integer
+          format: int64
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        assigneeId:
+          type: integer
+          format: int64
+        priority:
+          type: string
+          enum:
+          - HIGH
+          - MEDIUM
+          - LOW
+        deliverable:
+          type: boolean
+      required:
+      - title
+    ApiResponseTaskResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/TaskResponse"
+        message:
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    TaskAssigneeResponse:
+      type: object
+      properties:
+        projectMemberId:
+          type: integer
+          format: int64
+        memberId:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        role:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        milestoneId:
+          type: integer
+          format: int64
+        assignee:
+          $ref: "#/components/schemas/TaskAssigneeResponse"
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - NEEDS_REVIEW
+          - DONE
+          - HOLD
+        dueDate:
+          type: string
+          format: date
+        progress:
+          type: integer
+          format: int32
+        priority:
+          type: string
+          enum:
+          - HIGH
+          - MEDIUM
+          - LOW
+        deliverable:
+          type: boolean
     MilestoneCreateRequest:
       type: object
       properties:
@@ -2672,6 +2739,33 @@ components:
           description: "프로젝트 색상. #RRGGBB 형식이며 빈 문자열은 허용하지 않습니다. 생략 또는 null은 기존 값을\
             \ 유지합니다."
           pattern: "^#[0-9A-Fa-f]{6}$"
+    TaskUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+          pattern: .*\S.*
+        milestoneId:
+          type: integer
+          format: int64
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        assigneeId:
+          type: integer
+          format: int64
+        priority:
+          type: string
+          enum:
+          - HIGH
+          - MEDIUM
+          - LOW
+        deliverable:
+          type: boolean
     TaskStatusUpdateRequest:
       type: object
       properties:
@@ -2685,73 +2779,6 @@ components:
           - HOLD
       required:
       - status
-    ApiResponseTaskResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        data:
-          $ref: "#/components/schemas/TaskResponse"
-        message:
-          type: string
-        error:
-          $ref: "#/components/schemas/ErrorBody"
-    TaskAssigneeResponse:
-      type: object
-      properties:
-        projectMemberId:
-          type: integer
-          format: int64
-        memberId:
-          type: integer
-          format: int64
-        nickname:
-          type: string
-        role:
-          type: string
-          enum:
-          - OWNER
-          - MEMBER
-    TaskResponse:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        projectId:
-          type: integer
-          format: int64
-        milestoneId:
-          type: integer
-          format: int64
-        assignee:
-          $ref: "#/components/schemas/TaskAssigneeResponse"
-        title:
-          type: string
-        description:
-          type: string
-        status:
-          type: string
-          enum:
-          - TODO
-          - IN_PROGRESS
-          - NEEDS_REVIEW
-          - DONE
-          - HOLD
-        dueDate:
-          type: string
-          format: date
-        progress:
-          type: integer
-          format: int32
-        priority:
-          type: string
-          enum:
-          - HIGH
-          - MEDIUM
-          - LOW
-        deliverable:
-          type: boolean
     ReminderItemStatusUpdateRequest:
       type: object
       properties:
@@ -2958,65 +2985,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProjectSummaryMemberResponse"
-    TaskCreateRequest:
-      type: object
-      properties:
-        title:
-          type: string
-          maxLength: 255
-          minLength: 1
-        description:
-          type: string
-        milestoneId:
-          type: integer
-          format: int64
-          description: 생략하면 마일스톤에 연결되지 않은 일정이 됩니다.
-        assigneeId:
-          type: integer
-          format: int64
-          description: projectMemberId 기준입니다.
-        dueDate:
-          type: string
-          format: date
-        priority:
-          type: string
-          enum:
-          - HIGH
-          - MEDIUM
-          - LOW
-          description: 생략 시 MEDIUM
-        deliverable:
-          type: boolean
-          description: 생략 시 false
-      required:
-      - title
-    TaskUpdateRequest:
-      type: object
-      description: 전 필드 선택. null은 "변경 없음"으로 처리되어 연결 해제에는 쓸 수 없습니다.
-      properties:
-        title:
-          type: string
-          maxLength: 255
-          minLength: 1
-        description:
-          type: string
-        milestoneId:
-          type: integer
-          format: int64
-        assigneeId:
-          type: integer
-          format: int64
-        dueDate:
-          type: string
-          format: date
-        priority:
-          type: string
-          enum:
-          - HIGH
-          - MEDIUM
-          - LOW
-        deliverable:
-          type: boolean
     ApiResponseListTaskResponse:
       type: object
       properties:
