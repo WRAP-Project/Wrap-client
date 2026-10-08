@@ -6,6 +6,7 @@ import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
 import { daysLeft, ddayLabel, type ReminderChecklistItem, type ReminderChecklistState, type Schedule, type ScheduleDraft } from "@/data/useSchedules";
 import { useSchedulesContext } from "@/data/SchedulesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
+import { useCalendarItems, type CalendarMilestoneItem } from "@/data/useCalendarItems";
 import { useCalendarRiskChecks, type CalendarRiskSignal } from "@/data/useCalendarRiskChecks";
 import { serverIdOf } from "@/data/useProjects";
 import {
@@ -438,6 +439,59 @@ function ReminderCard({
   );
 }
 
+function MilestoneCalendarCard({
+  item,
+  color,
+  onOpen,
+}: {
+  item: CalendarMilestoneItem;
+  color: string;
+  onOpen: () => void;
+}) {
+  const bright = isBright(color);
+  const { milestone } = item;
+  const ink = bright ? INK : "#fff";
+  const muted = bright ? "rgba(28,28,30,0.55)" : "rgba(255,255,255,0.7)";
+  const status = milestone.done
+    ? "달성"
+    : milestone.totalCount === 0
+      ? "연결된 일정 없음"
+      : `일정 ${milestone.doneCount}/${milestone.totalCount} 완료`;
+
+  return (
+    <button
+      onClick={onOpen}
+      className="w-full rounded-3xl rounded-tl-lg px-5 py-4 text-left transition-opacity active:opacity-70"
+      style={{ background: color }}
+      aria-label={`${milestone.title} 마일스톤 상세 보기`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-black" style={{ color: muted }}>
+            {ddayLabel(milestone.dueDate)} · 마일스톤
+          </p>
+          <p className="mt-0.5 truncate text-[16px] font-bold" style={{ color: ink }}>
+            {milestone.title}
+          </p>
+          <p className="mt-0.5 truncate text-[12px]" style={{ color: muted }}>
+            {status}
+          </p>
+        </div>
+        <ChevronRight size={18} className="mt-1 shrink-0" color={muted} />
+      </div>
+      <div
+        className="relative mt-4 h-1.5 overflow-hidden rounded-full"
+        style={{ background: bright ? "rgba(28,28,30,0.14)" : "rgba(255,255,255,0.2)" }}
+      >
+        <span
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${milestone.readyPercent}%`, background: ink }}
+        />
+      </div>
+    </button>
+  );
+}
+
 // ── 주간 스트립 ───────────────────────────────────────────────────────────────
 
 function WeekStrip({
@@ -665,6 +719,7 @@ export default function CalendarScreen() {
    */
   const [filterProjectId, setFilterProjectId] = useState<string | null>(queryProjectId ?? selectedProjectId);
   const calendarProjects = projects;
+  const { items: calendarItems, milestoneItems, milestonesLoading, milestonesError } = useCalendarItems(filterProjectId);
   const { signals: riskSignals } = useCalendarRiskChecks(filterProjectId);
 
   useEffect(() => {
@@ -691,11 +746,11 @@ export default function CalendarScreen() {
     ? schedules.filter((s) => s.projectId === filterProjectId)
     : schedules;
 
-  const schedulesByDate = new Map<string, Schedule[]>();
-  for (const s of visibleSchedules) {
-    const list = schedulesByDate.get(s.date) ?? [];
-    list.push(s);
-    schedulesByDate.set(s.date, list);
+  const itemsByDate = new Map<string, typeof calendarItems>();
+  for (const item of calendarItems) {
+    const list = itemsByDate.get(item.date) ?? [];
+    list.push(item);
+    itemsByDate.set(item.date, list);
   }
 
   function dateStrOf(day: number) {
@@ -719,6 +774,11 @@ export default function CalendarScreen() {
     ? visibleSchedules.filter((s) => isReminderSchedule(s) && s.date === selectedDateStr)
     : [...visibleSchedules]
         .filter((s) => isReminderSchedule(s) && daysLeft(s.date) >= 0)
+        .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+  const visibleMilestones = selectedDateStr
+    ? milestoneItems.filter((item) => item.date === selectedDateStr)
+    : [...milestoneItems]
+        .filter((item) => daysLeft(item.date) >= 0)
         .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
 
   useEffect(() => {
@@ -901,7 +961,7 @@ export default function CalendarScreen() {
               가능한 시간 확인
             </button>
           </>
-        ) : visibleSchedules.length === 0 ? (
+        ) : calendarItems.length === 0 && !schedulesLoading && !milestonesLoading ? (
           /* ── 빈 상태 ── */
           <div className="flex flex-col items-center gap-6 pt-24 text-center">
             <div>
@@ -946,7 +1006,7 @@ export default function CalendarScreen() {
                 if (day === null) return <div key={`e-${idx}`} />;
                 const col = idx % 7;
                 const dateStr = dateStrOf(day);
-                const daySchedules = schedulesByDate.get(dateStr) ?? [];
+                const dayItems = itemsByDate.get(dateStr) ?? [];
                 const sel =
                   selectedDay !== null &&
                   selectedDay.year === viewYear &&
@@ -970,8 +1030,8 @@ export default function CalendarScreen() {
                       {day}
                     </span>
                     <span className="flex h-1.5 items-center justify-center gap-[3px]">
-                      {daySchedules.slice(0, 3).map((s) => (
-                        <span key={s.id} className="size-[3px] rounded-full" style={{ background: colorOfProject(s.projectId) }} />
+                      {dayItems.slice(0, 3).map((item) => (
+                        <span key={item.key} className="size-[3px] rounded-full" style={{ background: colorOfProject(item.projectId) }} />
                       ))}
                     </span>
                   </button>
@@ -987,6 +1047,42 @@ export default function CalendarScreen() {
             >
               일정 등록하기
             </button>
+
+            {/* 마일스톤 — 별도 Schedule을 만들지 않고 목표일을 캘린더에 투영한다. */}
+            <div className="mt-7">
+              <h2 className="mb-3 text-[13px] font-bold" style={{ color: FG50 }}>
+                마일스톤{selectedDateStr ? ` · ${selectedDateStr.replace(/-/g, ".")}` : ""}
+              </h2>
+              {milestonesError && (
+                <p
+                  role="alert"
+                  className="mb-3 rounded-xl px-3 py-2 text-[11px] font-semibold"
+                  style={{ background: "rgba(235,62,136,0.14)", color: PINK }}
+                >
+                  {milestonesError.message}
+                </p>
+              )}
+              {visibleMilestones.length > 0 ? (
+                <div className="flex flex-col gap-3.5">
+                  {visibleMilestones.map((item) => (
+                    <MilestoneCalendarCard
+                      key={item.key}
+                      item={item}
+                      color={colorOfProject(item.projectId)}
+                      onOpen={() => navigate(`/project/${item.projectId}/milestone/${item.id}`)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-2xl px-4 py-6 text-center text-[12px]" style={{ background: SURFACE, color: FG35 }}>
+                  {milestonesLoading
+                    ? "마일스톤을 불러오는 중이에요"
+                    : selectedDateStr
+                      ? "이 날짜에는 마일스톤이 없어요"
+                      : "다가오는 마일스톤이 없어요"}
+                </p>
+              )}
+            </div>
 
             {/* 마감 리마인드 — 선택한 날짜의 일정만 */}
             <div className="mt-7">
