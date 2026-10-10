@@ -4,6 +4,7 @@ import type { components } from "@/lib/api/schema.gen";
 import { clientIdOfServerProject, REQUEST_TIMEOUT_MS, serverIdOf } from "./useProjects";
 import { useProjectsContext } from "./ProjectsContext";
 import { initialsOf, roleLabelOf } from "./projectMemberDisplay";
+import { milestoneServerIdOf } from "./milestoneId";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export interface Schedule {
   projectId: string;
   projectName?: string;
   title: string;
+  description?: string;
   date: string;       // YYYY-MM-DD
   startTime: string;  // HH:mm
   endTime: string;    // HH:mm
@@ -52,17 +54,30 @@ export interface Schedule {
   source?: "server";
 }
 
-/** Calendar 화면의 일정 등록 폼이 넘기는 입력값 */
+/**
+ * Calendar 화면의 일정 등록 폼이 넘기는 입력값.
+ *
+ * reminder는 받지 않는다 — 캘린더 하단 목록이 리마인드 여부와 무관하게 그 날짜의
+ * 모든 일정을 보여주므로, 폼에서 켜고 끌 의미가 없다.
+ */
 export interface ScheduleDraft {
   projectId: string;
   projectName?: string;
   title: string;
+  description?: string;
   date: string;
   startTime: string;
   endTime: string;
   type: ScheduleType;
-  reminder: boolean;
+  /**
+   * 연결할 마일스톤(화면 id). 고르지 않고 등록할 수 있어 선택값이다.
+   * 서버는 같은 프로젝트에 속한 마일스톤만 받는다 — 아니면 404.
+   */
+  milestoneId?: string;
 }
+
+/** 일정 제목 길이 상한 — ScheduleCreateRequest.title의 maxLength와 같다. */
+export const SCHEDULE_TITLE_MAX = 100;
 
 // ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
 
@@ -239,6 +254,7 @@ function mapScheduleResponse(
     projectId: serverProjectClientId(schedule.projectId),
     projectName: "projectName" in schedule ? schedule.projectName : serverProjectName(schedule.projectId, projects),
     title: schedule.title,
+    description: schedule.description,
     date: start.date,
     startTime: start.time,
     endTime: end.time,
@@ -331,15 +347,25 @@ export function useSchedules() {
       throw new Error("프로젝트를 찾을 수 없어 일정을 등록할 수 없습니다.");
     }
 
+    const milestoneId = milestoneServerIdOf(draft.milestoneId);
+
     const { data, response } = await apiClient.POST("/schedules", {
       body: {
         projectId,
         title: draft.title,
+        ...(draft.description ? { description: draft.description } : {}),
         startAt: dateTimeOf(draft.date, draft.startTime),
         endAt: dateTimeOf(draft.date, draft.endTime),
+        // shared는 공개 여부가 아니라 "프로젝트 일정 ↔ 개인 일정" 구분자다.
+        // false면 projectId를 같이 보내도 서버가 프로젝트 연결을 끊어서, 그 일정은
+        // 프로젝트 캘린더·리마인더 조회에서 빠지고 작성자만 보게 된다.
+        // 생성 요청에서는 생략해도 false이므로 반드시 명시한다 (스펙에는 없는 동작).
         shared: true,
         type: draft.type,
-        reminder: draft.reminder,
+        // 마일스톤은 고르지 않을 수 있어 있을 때만 싣는다. 서버는 shared=true이고
+        // 같은 프로젝트에 속한 마일스톤만 받는다(아니면 404) — 폼이 프로젝트를
+        // 바꿀 때 선택을 비우므로 여기까지 어긋난 값이 오지 않는다.
+        ...(milestoneId !== null ? { milestoneId } : {}),
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

@@ -22,6 +22,7 @@ import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { useProjectsContext } from "./ProjectsContext";
 import { REQUEST_TIMEOUT_MS, clientIdOfServerProject, serverIdOf } from "./useProjects";
 import { daysLeft } from "./useSchedules";
+import { clientMilestoneIdOf } from "./milestoneId";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -58,16 +59,10 @@ export interface MilestoneView extends Milestone {
 }
 
 // ── 서버 id ↔ 화면 id ─────────────────────────────────────────────────────────
-// 서버 마일스톤 id는 숫자다. 화면은 문자열 id를 라우트에 그대로 싣고 다니고,
-// 일정(useSchedules.ts)의 milestoneId도 문자열이라 접두사를 붙여 구분한다.
+// 변환 자체는 milestoneId.ts에 있다 — useSchedules.ts도 같은 변환을 쓰는데
+// 이 파일이 그쪽의 daysLeft를 import하고 있어 순환을 피해 떼어냈다.
 
-const MILESTONE_ID_PREFIX = "srv-m-";
-
-export function milestoneServerIdOf(milestoneId: string | undefined): number | null {
-  if (!milestoneId?.startsWith(MILESTONE_ID_PREFIX)) return null;
-  const n = Number(milestoneId.slice(MILESTONE_ID_PREFIX.length));
-  return Number.isInteger(n) ? n : null;
-}
+export { milestoneServerIdOf } from "./milestoneId";
 
 // ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
 
@@ -161,7 +156,7 @@ type MilestoneResponse = {
 function toMilestone(m: MilestoneResponse, serverProjectId: number): Milestone | null {
   if (m.id == null || !m.dueDate) return null;
   return {
-    id: `${MILESTONE_ID_PREFIX}${m.id}`,
+    id: clientMilestoneIdOf(m.id),
     projectId: clientIdOfServerProject(serverProjectId),
     title: m.title ?? "",
     // 빈 문자열은 undefined로 접는다 — 화면이 "설명 있음"으로 보고 빈 줄을 띄우지 않게.

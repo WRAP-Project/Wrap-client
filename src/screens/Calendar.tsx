@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 import { buildCalendar } from "@/lib/calendarGrid";
 import { DatePickerSheet, type PickedDate } from "@/components/DatePickerSheet";
-import { daysLeft, ddayLabel, type ReminderChecklistItem, type ReminderChecklistState, type Schedule, type ScheduleDraft } from "@/data/useSchedules";
+import {
+  daysLeft,
+  ddayLabel,
+  SCHEDULE_TITLE_MAX,
+  type ReminderChecklistItem,
+  type ReminderChecklistState,
+  type Schedule,
+  type ScheduleDraft,
+} from "@/data/useSchedules";
 import { useSchedulesContext } from "@/data/SchedulesContext";
 import { useProjectsContext } from "@/data/ProjectsContext";
 import { useCalendarItems, type CalendarMilestoneItem } from "@/data/useCalendarItems";
+import { useProjectMilestones, type MilestoneView } from "@/data/MilestonesContext";
 import { useCalendarRiskChecks, type CalendarRiskSignal } from "@/data/useCalendarRiskChecks";
 import { serverIdOf } from "@/data/useProjects";
 import {
@@ -20,10 +29,19 @@ import {
 } from "@/data/useTeamDaySchedule";
 
 // ── 색상 ──────────────────────────────────────────────────────────────────────
-// 화면 배경은 ProjectDetail/CreateProject와 같은 계열(#1C1C1E). 등록 바텀시트만
-// 디자인 시안대로 흰색 톤 — 이 화면 전용 톤이라 chatShared 팔레트는 쓰지 않는다.
+// 화면 배경은 ProjectDetail/CreateProject와 같은 계열(#1C1C1E). 등록·선택
+// 바텀시트는 한 단계 밝은 #2C2C2E로 띄운다 — 이 화면 전용 톤이라 chatShared
+// 팔레트는 쓰지 않는다.
 
 const INK = "#1C1C1E";
+/** 바텀시트 바닥 — 화면 배경보다 한 단계 밝아 떠 있는 느낌을 준다. */
+const SHEET = "#2C2C2E";
+/** 시트 안에서 한 단계 더 올라온 면(선택 항목 카드 등) */
+const SHEET_ROW = "#3A3A3C";
+/** 시트 안 구분선 */
+const SHEET_LINE = "rgba(240,240,236,0.10)";
+/** 선택 강조색 — AdjustCreate/AdjustDetail과 같은 라임 */
+const LIME = "#CFF665";
 const FG = "#F0F0EC";
 const FG70 = "rgba(240,240,236,0.7)";
 const FG50 = "rgba(240,240,236,0.5)";
@@ -78,24 +96,263 @@ function startOfWeek(d: Date): Date {
   return c;
 }
 
-// ── 토글 스위치 ───────────────────────────────────────────────────────────────
+// ── 스케줄 등록 바텀시트 ──────────────────────────────────────────────────────
+// 시안 3장(등록 / 프로젝트 선택 / 마일스톤 선택)을 그대로 옮긴 것이다.
+// 세 시트가 서로 포개지므로 선택 시트는 등록 시트 위에 더 높은 z-index로 깐다.
 
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+/** 프로젝트 아바타 글자 — "프로젝트 알파"에서 "알"을 뽑는다(마지막 낱말의 첫 글자). */
+function projectInitial(name: string): string {
+  const last = name.trim().split(/\s+/).pop() ?? "";
+  return last.slice(0, 1) || "?";
+}
+
+/** 시안 2 — 프로젝트 선택 시트. 검색 + 색상 아바타 + 선택 항목 라임 테두리. */
+function ProjectPickerSheet({
+  projects,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  projects: { id: string; name: string; color: string }[];
+  selectedId: string;
+  onSelect: (projectId: string) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q === "" ? projects : projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, query]);
+
   return (
-    <button
-      onClick={() => onChange(!on)}
-      className="relative h-7 w-12 shrink-0 rounded-full transition-colors"
-      style={{ background: on ? INK : "rgba(28,28,30,0.15)" }}
-    >
-      <span
-        className="absolute top-1 size-5 rounded-full bg-white shadow transition-all"
-        style={{ left: on ? 22 : 4 }}
-      />
-    </button>
+    <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(0,0,0,0.55)" }} onClick={onClose}>
+      <div
+        className="flex max-h-[88vh] w-full flex-col rounded-t-[28px]"
+        style={{ background: SHEET, maxWidth: 390, margin: "0 auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 px-5 pt-3">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: "rgba(240,240,236,0.2)" }} />
+          <div className="flex items-center justify-between pb-4">
+            <span className="w-10" />
+            <span className="text-[16px] font-bold" style={{ color: FG }}>프로젝트 선택</span>
+            <button onClick={onClose} className="w-10 text-right text-[14px]" style={{ color: FG50 }}>닫기</button>
+          </div>
+
+          <div className="mb-4 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: SHEET_ROW }}>
+            <Search size={15} color={FG35} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="프로젝트 검색"
+              className="w-full bg-transparent text-[14px] outline-none"
+              style={{ color: FG }}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 pb-8 [scrollbar-width:none]">
+          {filtered.length === 0 ? (
+            <p className="pt-10 text-center text-[13px]" style={{ color: FG35 }}>
+              {projects.length === 0 ? "참여 중인 프로젝트가 없습니다" : "검색 결과가 없습니다"}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {filtered.map((p) => {
+                const active = p.id === selectedId;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => { onSelect(p.id); onClose(); }}
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-opacity active:opacity-70"
+                    style={{
+                      background: active ? "rgba(207,246,101,0.12)" : SHEET_ROW,
+                      border: `1.5px solid ${active ? LIME : "transparent"}`,
+                    }}
+                  >
+                    <span
+                      className="grid size-9 shrink-0 place-items-center rounded-full text-[13px] font-bold"
+                      style={{ background: p.color, color: isBright(p.color) ? INK : "#fff" }}
+                    >
+                      {projectInitial(p.name)}
+                    </span>
+                    <span className="text-[15px] font-bold" style={{ color: FG }}>{p.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ── 일정 등록 바텀시트 ────────────────────────────────────────────────────────
+/**
+ * 시안 3 — 마일스톤 선택 시트.
+ *
+ * 시안은 "7.15 – 7.21" 같은 기간과 완료/진행중/예정 3단계를 보여주지만,
+ * MilestoneResponse에는 dueDate(목표일) 하나와 status(IN_PROGRESS | DONE)뿐이라
+ * 시작일도 "예정" 상태도 서버에 없다. 그래서 날짜는 목표일만 적고, 단계는
+ * 목표일 순서에서 파생한다 — 완료된 것은 완료, 남은 것 중 가장 이른 하나가
+ * 진행중, 그 뒤는 예정. 서버가 기간/상태를 더 주면 그대로 바꾸면 된다.
+ */
+type MilestoneStage = "done" | "current" | "upcoming";
+
+function stagesOf(milestones: MilestoneView[]): Map<string, MilestoneStage> {
+  const stages = new Map<string, MilestoneStage>();
+  let currentTaken = false;
+  for (const m of milestones) {
+    if (m.done) {
+      stages.set(m.id, "done");
+    } else if (!currentTaken) {
+      stages.set(m.id, "current");
+      currentTaken = true;
+    } else {
+      stages.set(m.id, "upcoming");
+    }
+  }
+  return stages;
+}
+
+const STAGE_LABEL: Record<MilestoneStage, string> = {
+  done: "완료",
+  current: "진행중",
+  upcoming: "예정",
+};
+
+/** "7.21" — 시안의 날짜 표기. 목표일만 있으므로 기간 대신 한 날짜를 적는다. */
+function shortDue(dueDate: string): string {
+  const d = new Date(dueDate + "T00:00:00");
+  return `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function MilestonePickerSheet({
+  projectName,
+  projectColor,
+  milestones,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  projectName: string;
+  projectColor: string;
+  milestones: MilestoneView[];
+  selectedId: string | null;
+  onSelect: (milestoneId: string | null) => void;
+  onClose: () => void;
+}) {
+  const stages = useMemo(() => stagesOf(milestones), [milestones]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(0,0,0,0.55)" }} onClick={onClose}>
+      <div
+        className="flex max-h-[88vh] w-full flex-col rounded-t-[28px]"
+        style={{ background: SHEET, maxWidth: 390, margin: "0 auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 px-5 pt-3">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: "rgba(240,240,236,0.2)" }} />
+          <div className="flex items-center justify-between pb-4">
+            <span className="w-10" />
+            <span className="text-[16px] font-bold" style={{ color: FG }}>마일스톤 선택</span>
+            <button onClick={onClose} className="w-10 text-right text-[14px]" style={{ color: FG50 }}>닫기</button>
+          </div>
+
+          {/* 어느 프로젝트의 마일스톤인지 — 시안의 상단 띠 */}
+          <div className="mb-4 flex items-center gap-2.5 rounded-2xl px-4 py-3" style={{ background: SHEET_ROW }}>
+            <span className="size-5 shrink-0 rounded-full" style={{ background: projectColor }} />
+            <span className="text-[14px] font-bold" style={{ color: FG }}>{projectName}</span>
+            <span className="text-[12px]" style={{ color: FG50 }}>의 마일스톤</span>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 [scrollbar-width:none]">
+          {milestones.length === 0 ? (
+            <p className="pt-10 text-center text-[13px]" style={{ color: FG35 }}>
+              이 프로젝트에는 아직 마일스톤이 없습니다
+            </p>
+          ) : (
+            <div className="relative pl-7">
+              {/* 타임라인 세로줄 — 첫 점과 마지막 점 사이만 잇는다 */}
+              <span
+                className="absolute left-[7px] top-6 w-px"
+                style={{ background: "rgba(240,240,236,0.18)", bottom: 24 }}
+              />
+              <div className="flex flex-col gap-2.5">
+                {milestones.map((m) => {
+                  const stage = stages.get(m.id) ?? "upcoming";
+                  const active = m.id === selectedId;
+                  return (
+                    <div key={m.id} className="relative">
+                      <span
+                        className="absolute left-[-27px] top-1/2 size-[13px] -translate-y-1/2 rounded-full"
+                        style={{
+                          background: stage === "done" ? FG35 : stage === "current" ? LIME : "transparent",
+                          border: stage === "upcoming" ? "1.5px solid rgba(240,240,236,0.3)" : "none",
+                        }}
+                      />
+                      <button
+                        onClick={() => { onSelect(m.id); onClose(); }}
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-opacity active:opacity-70"
+                        style={{
+                          background: active ? "rgba(207,246,101,0.12)" : SHEET_ROW,
+                          border: `1.5px solid ${active ? LIME : "transparent"}`,
+                        }}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-[14px] font-bold" style={{ color: stage === "done" ? FG50 : FG }}>
+                            {m.title}
+                          </span>
+                          <span className="mt-0.5 block text-[12px]" style={{ color: FG35 }}>
+                            {shortDue(m.dueDate)} 목표
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[11px]" style={{ color: stage === "current" ? LIME : FG35 }}>
+                          {STAGE_LABEL[stage]}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0 px-5 pb-8 pt-4">
+          <button
+            onClick={() => { onSelect(null); onClose(); }}
+            className="w-full rounded-2xl py-3.5 text-[14px] font-semibold transition-opacity active:opacity-70"
+            style={{ background: SURFACE, color: FG70 }}
+          >
+            마일스톤 없이 등록
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 등록 시트의 한 줄 — 라벨 + 값 + 오른쪽 화살표. */
+function PickerRow({ label, value, placeholder, onClick }: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="border-b py-4" style={{ borderColor: SHEET_LINE }}>
+      <label className="mb-2 block text-[12px]" style={{ color: FG35 }}>{label}</label>
+      <button onClick={onClick} className="flex w-full items-center justify-between gap-3 active:opacity-60">
+        <span className="min-w-0 truncate text-[16px] font-bold" style={{ color: value ? FG : FG35 }}>
+          {value || placeholder}
+        </span>
+        <ChevronRight size={16} color={FG35} />
+      </button>
+    </div>
+  );
+}
 
 function RegisterSheet({
   defaultProjectId,
@@ -114,11 +371,12 @@ function RegisterSheet({
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState(defaultProject);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [milestoneId, setMilestoneId] = useState<string | null>(null);
+  const [milestonePickerOpen, setMilestonePickerOpen] = useState(false);
   const [date, setDate] = useState<PickedDate>(todayPicked());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [startTime, setStartTime] = useState("14:00");
   const [endTime, setEndTime] = useState("15:00");
-  const [reminder, setReminder] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -126,8 +384,20 @@ function RegisterSheet({
     setProjectId(defaultProject);
   }, [defaultProject, projectId, selectableProjects]);
 
-  const projectName = selectableProjects.find((p) => p.id === projectId)?.name ?? "";
-  const canSubmit = title.trim().length > 0 && projectId.length > 0;
+  const project = selectableProjects.find((p) => p.id === projectId);
+  const projectName = project?.name ?? "";
+  const milestones = useProjectMilestones(projectId || undefined);
+  const milestone = milestones.find((m) => m.id === milestoneId);
+
+  // 프로젝트를 바꾸면 이전 프로젝트의 마일스톤은 더 이상 고를 수 없다.
+  // (서버도 projectId와 맞지 않는 milestoneId는 404로 거절한다.)
+  useEffect(() => {
+    if (milestoneId !== null && !milestones.some((m) => m.id === milestoneId)) setMilestoneId(null);
+  }, [milestoneId, milestones]);
+
+  /** startAt/endAt은 같은 날짜라 종료가 시작보다 빠르면 서버의 기간 검증에 걸린다. */
+  const timeRangeInvalid = endTime < startTime;
+  const canSubmit = title.trim().length > 0 && projectId.length > 0 && !timeRangeInvalid;
 
   async function handleSubmit() {
     if (!canSubmit || submitting) return;
@@ -140,11 +410,10 @@ function RegisterSheet({
         date: pickedToDateStr(date),
         startTime,
         endTime,
-        // 유형은 폼에서 고르지 않는다 — 마일스톤이 별도 엔티티가 되면서
-        // 유형의 "마일스톤" 값이 의미를 잃었다. 백엔드 enum은 필수라 마감으로
-        // 고정한다.
+        // 시안에 유형 선택이 없어 마감으로 고정한다 — ScheduleCreateRequest.type은 필수가 아니지만
+        // 비워 보내면 캘린더에서 일정 종류를 구분할 수 없다.
         type: "deadline",
-        reminder,
+        ...(milestoneId ? { milestoneId } : {}),
       });
     } finally {
       setSubmitting(false);
@@ -155,140 +424,127 @@ function RegisterSheet({
     <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.55)" }} onClick={onClose}>
       <div
         className="flex max-h-[88vh] w-full flex-col rounded-t-[28px]"
-        style={{ background: "#fff", maxWidth: 390, margin: "0 auto" }}
+        style={{ background: SHEET, maxWidth: 390, margin: "0 auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 핸들 + 헤더 */}
         <div className="shrink-0 px-5 pt-3">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: "rgba(28,28,30,0.15)" }} />
-          <div className="flex items-center justify-between pb-4">
-            <button onClick={onClose} className="text-[14px]" style={{ color: "rgba(28,28,30,0.5)" }}>
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: "rgba(240,240,236,0.2)" }} />
+          <div className="flex items-center justify-between pb-2">
+            <span className="w-10" />
+            <span className="text-[16px] font-bold" style={{ color: FG }}>스케줄 등록하기</span>
+            <button onClick={onClose} className="w-10 text-right text-[14px]" style={{ color: FG50 }}>
               취소
-            </button>
-            <span className="text-[16px] font-bold" style={{ color: INK }}>
-              일정 등록
-            </span>
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit || submitting}
-              className="text-[14px] font-bold"
-              style={{ color: canSubmit && !submitting ? INK : "rgba(28,28,30,0.25)" }}
-            >
-              저장
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-2 [scrollbar-width:none]">
           {/* 일정 제목 */}
-          <div className="border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
-            <label className="mb-2 block text-[12px] font-semibold" style={{ color: "rgba(28,28,30,0.4)" }}>
+          <div className="border-b py-4" style={{ borderColor: SHEET_LINE }}>
+            <label className="mb-2 block text-[12px]" style={{ color: FG35 }}>
               일정 제목
             </label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              maxLength={SCHEDULE_TITLE_MAX}
               placeholder="제목을 입력하세요"
-              className="w-full text-[16px] outline-none"
-              style={{ color: INK }}
+              className="w-full bg-transparent text-[16px] outline-none placeholder:text-[rgba(240,240,236,0.35)]"
+              style={{ color: FG }}
             />
           </div>
 
-          {/* 프로젝트 */}
-          <div className="relative border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
-            <label className="mb-2 block text-[12px] font-semibold" style={{ color: "rgba(28,28,30,0.4)" }}>
-              프로젝트
-            </label>
-            <button
-              onClick={() => setProjectPickerOpen((v) => !v)}
-              className="flex w-full items-center justify-between text-[16px]"
-              style={{ color: INK }}
-            >
-              <span>{projectName || "프로젝트를 선택하세요"}</span>
-              <ChevronRight size={16} color="rgba(28,28,30,0.3)" />
-            </button>
-            {projectPickerOpen && (
-              <div
-                className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-2xl shadow-lg"
-                style={{ background: "#fff", border: "1px solid rgba(28,28,30,0.08)" }}
-              >
-                {selectableProjects.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => { setProjectId(p.id); setProjectPickerOpen(false); }}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[14px] active:opacity-60"
-                    style={{ color: INK }}
-                  >
-                    <span className="size-2 rounded-full" style={{ background: p.color }} />
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <PickerRow
+            label="프로젝트"
+            value={projectName}
+            placeholder="프로젝트를 선택하세요"
+            onClick={() => setProjectPickerOpen(true)}
+          />
 
-          {/* 날짜 */}
-          <div className="border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
-            <label className="mb-2 block text-[12px] font-semibold" style={{ color: "rgba(28,28,30,0.4)" }}>
-              날짜
-            </label>
-            <button
-              onClick={() => setDatePickerOpen(true)}
-              className="flex w-full items-center justify-between text-[16px]"
-              style={{ color: INK }}
-            >
-              <span>{pickedToDateStr(date).replace(/-/g, ".")}</span>
-              <ChevronRight size={16} color="rgba(28,28,30,0.3)" />
-            </button>
-          </div>
+          <PickerRow
+            label="마일스톤"
+            value={milestone?.title ?? ""}
+            placeholder={projectId ? "마일스톤 없이 등록" : "프로젝트를 먼저 선택하세요"}
+            onClick={() => { if (projectId) setMilestonePickerOpen(true); }}
+          />
+
+          <PickerRow
+            label="날짜"
+            value={pickedToDateStr(date).replace(/-/g, ".")}
+            placeholder=""
+            onClick={() => setDatePickerOpen(true)}
+          />
 
           {/* 시간 */}
-          <div className="border-b py-4" style={{ borderColor: "rgba(28,28,30,0.08)" }}>
-            <label className="mb-2 block text-[12px] font-semibold" style={{ color: "rgba(28,28,30,0.4)" }}>
+          <div className="border-b py-4" style={{ borderColor: SHEET_LINE }}>
+            <label className="mb-2 block text-[12px]" style={{ color: FG35 }}>
               시간
             </label>
             <div className="flex gap-6">
               <div className="flex-1">
-                <span className="mb-1 block text-[11px]" style={{ color: "rgba(28,28,30,0.4)" }}>시작</span>
+                <span className="mb-1 block text-[11px]" style={{ color: FG35 }}>시작</span>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full text-[16px] outline-none"
-                  style={{ color: INK }}
+                  className="w-full bg-transparent text-[16px] font-bold outline-none"
+                  style={{ color: FG, colorScheme: "dark" }}
                 />
               </div>
-              <div className="flex-1">
-                <span className="mb-1 block text-[11px]" style={{ color: "rgba(28,28,30,0.4)" }}>종료</span>
+              <div className="flex-1 border-l pl-6" style={{ borderColor: SHEET_LINE }}>
+                <span className="mb-1 block text-[11px]" style={{ color: FG35 }}>종료</span>
                 <input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full text-[16px] outline-none"
-                  style={{ color: INK }}
+                  className="w-full bg-transparent text-[16px] font-bold outline-none"
+                  style={{ color: FG, colorScheme: "dark" }}
                 />
               </div>
             </div>
-          </div>
-
-          {/* 마감 리마인드 */}
-          <div className="flex items-center justify-between py-4">
-            <span className="text-[14px] font-semibold" style={{ color: INK }}>마감 리마인드</span>
-            <Toggle on={reminder} onChange={setReminder} />
+            {timeRangeInvalid && (
+              <p role="alert" className="mt-2 text-[12px] font-semibold" style={{ color: PINK }}>
+                종료 시간이 시작 시간보다 빠릅니다
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="shrink-0 px-5 pb-8 pt-2">
+        <div className="shrink-0 px-5 pb-8 pt-4">
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
             className="w-full rounded-2xl py-4 text-[15px] font-bold transition-opacity active:opacity-70"
-            style={{ background: canSubmit && !submitting ? INK : "rgba(28,28,30,0.15)", color: "#fff" }}
+            style={{
+              background: canSubmit && !submitting ? "#fff" : "rgba(240,240,236,0.15)",
+              color: canSubmit && !submitting ? INK : FG35,
+            }}
           >
             {submitting ? "등록 중" : "등록하기"}
           </button>
         </div>
       </div>
+
+      {projectPickerOpen && (
+        <ProjectPickerSheet
+          projects={selectableProjects}
+          selectedId={projectId}
+          onSelect={setProjectId}
+          onClose={() => setProjectPickerOpen(false)}
+        />
+      )}
+
+      {milestonePickerOpen && (
+        <MilestonePickerSheet
+          projectName={projectName}
+          projectColor={project?.color ?? FALLBACK_COLOR}
+          milestones={milestones}
+          selectedId={milestoneId}
+          onSelect={setMilestoneId}
+          onClose={() => setMilestonePickerOpen(false)}
+        />
+      )}
 
       {datePickerOpen && (
         <DatePickerSheet
@@ -419,6 +675,14 @@ function ReminderCard({
 
       {open && (
         <div className="mt-5 flex flex-col gap-4 pb-1">
+          {schedule.description && (
+            <p
+              className="whitespace-pre-wrap text-[13px]"
+              style={{ color: bright ? "rgba(28,28,30,0.7)" : "rgba(255,255,255,0.8)" }}
+            >
+              {schedule.description}
+            </p>
+          )}
           {schedule.reminderChecklist?.length ? (
             schedule.reminderChecklist.map((item) => (
               <ChecklistRow
@@ -674,10 +938,6 @@ function TeamTimeline({ rows, color }: { rows: TeamMemberDay[]; color: (projectI
   );
 }
 
-function isReminderSchedule(schedule: Schedule): boolean {
-  return schedule.reminder || schedule.isDeadlineReminder === true;
-}
-
 // ── 메인 화면 ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
@@ -768,12 +1028,15 @@ export default function CalendarScreen() {
     else setViewMonth((m) => m + 1);
   }
 
-  /** 날짜를 고르면 그 날짜만, 선택을 풀면 다가오는 리마인드 전체. */
+  /**
+   * 날짜를 고르면 그 날짜의 일정 전부, 선택을 풀면 다가오는 일정 전부.
+   * 리마인드 여부로 거르지 않는다 — 등록한 일정은 언제나 이 목록에 보여야 한다.
+   */
   const selectedDateStr = selectedDay ? pickedToDateStr(selectedDay) : null;
-  const reminders = selectedDateStr
-    ? visibleSchedules.filter((s) => isReminderSchedule(s) && s.date === selectedDateStr)
+  const listedSchedules = selectedDateStr
+    ? visibleSchedules.filter((s) => s.date === selectedDateStr)
     : [...visibleSchedules]
-        .filter((s) => isReminderSchedule(s) && daysLeft(s.date) >= 0)
+        .filter((s) => daysLeft(s.date) >= 0)
         .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
   const visibleMilestones = selectedDateStr
     ? milestoneItems.filter((item) => item.date === selectedDateStr)
@@ -782,10 +1045,10 @@ export default function CalendarScreen() {
         .sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
 
   useEffect(() => {
-    if (!openReminderOnLoad || openedReminderFromQuery.current || schedulesLoading || reminders.length === 0) return;
+    if (!openReminderOnLoad || openedReminderFromQuery.current || schedulesLoading || listedSchedules.length === 0) return;
     openedReminderFromQuery.current = true;
-    setOpenReminderId(reminders[0].id);
-  }, [openReminderOnLoad, reminders, schedulesLoading]);
+    setOpenReminderId(listedSchedules[0].id);
+  }, [openReminderOnLoad, listedSchedules, schedulesLoading]);
 
   /** 팀원 일정 탭은 "선택 없음" 상태가 없다 — 선택이 풀려 있으면 오늘 기준. */
   const teamDate = selectedDay ?? todayPicked();
@@ -796,7 +1059,7 @@ export default function CalendarScreen() {
       await addSchedule(draft);
       setRegisterOpen(false);
     } catch {
-      alert("일정 등록에 실패했습니다.");
+      alert("스케줄 등록에 실패했습니다.");
     }
   }
 
@@ -966,14 +1229,14 @@ export default function CalendarScreen() {
           <div className="flex flex-col items-center gap-6 pt-24 text-center">
             <div>
               <p className="text-[15px] font-bold" style={{ color: FG70 }}>등록된 일정이 없어요</p>
-              <p className="mt-1 text-[12px]" style={{ color: FG35 }}>일정을 추가해 목표를 관리해보세요</p>
+              <p className="mt-1 text-[12px]" style={{ color: FG35 }}>스케줄을 추가해 목표를 관리해보세요</p>
             </div>
             <button
               onClick={() => setRegisterOpen(true)}
               className="w-full rounded-2xl py-4 text-[14px] font-bold transition-opacity active:opacity-70"
               style={{ background: SURFACE, color: FG70 }}
             >
-              일정 등록하기
+              스케줄 등록하기
             </button>
           </div>
         ) : (
@@ -1039,13 +1302,13 @@ export default function CalendarScreen() {
               })}
             </div>
 
-            {/* 일정 등록하기 */}
+            {/* 스케줄 등록하기 */}
             <button
               onClick={() => setRegisterOpen(true)}
               className="mt-6 w-full rounded-2xl border py-4 text-[14px] font-bold transition-opacity active:opacity-70"
               style={{ borderColor: FG35, color: FG }}
             >
-              일정 등록하기
+              스케줄 등록하기
             </button>
 
             {/* 마일스톤 — 별도 Schedule을 만들지 않고 목표일을 캘린더에 투영한다. */}
@@ -1084,10 +1347,10 @@ export default function CalendarScreen() {
               )}
             </div>
 
-            {/* 마감 리마인드 — 선택한 날짜의 일정만 */}
+            {/* 일정 — 선택한 날짜의 일정 전부 */}
             <div className="mt-7">
               <h2 className="mb-3 text-[13px] font-bold" style={{ color: FG50 }}>
-                마감 리마인드{selectedDateStr ? ` · ${selectedDateStr.replace(/-/g, ".")}` : ""}
+                일정{selectedDateStr ? ` · ${selectedDateStr.replace(/-/g, ".")}` : ""}
               </h2>
               {schedulesError && (
                 <p
@@ -1098,7 +1361,7 @@ export default function CalendarScreen() {
                   {schedulesError.message}
                 </p>
               )}
-              {reminders.length > 0 ? (
+              {listedSchedules.length > 0 ? (
                 /* 왼쪽 세로 레일 + 카드 목록 */
                 <div className="relative pl-4">
                   <span
@@ -1106,7 +1369,7 @@ export default function CalendarScreen() {
                     style={{ background: "rgba(240,240,236,0.12)" }}
                   />
                   <div className="flex flex-col gap-3.5">
-                    {reminders.map((s) => (
+                    {listedSchedules.map((s) => (
                       <ReminderCard
                         key={s.id}
                         schedule={s}
@@ -1120,7 +1383,7 @@ export default function CalendarScreen() {
                 </div>
               ) : (
                 <p className="rounded-2xl px-4 py-6 text-center text-[12px]" style={{ background: SURFACE, color: FG35 }}>
-                  {selectedDateStr ? "이 날짜에는 마감 리마인드가 없어요" : "다가오는 마감 리마인드가 없어요"}
+                  {selectedDateStr ? "이 날짜에는 일정이 없어요" : "다가오는 일정이 없어요"}
                 </p>
               )}
             </div>

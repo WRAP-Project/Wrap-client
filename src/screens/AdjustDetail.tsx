@@ -108,7 +108,6 @@ function useFinalize(req: AdjustRequest | undefined) {
       startTime: hh(hour),
       endTime: hh(hour + 1),
       type: "meeting",
-      reminder: false,
     });
     closeRequest(req.id);
     navigate("/calendar");
