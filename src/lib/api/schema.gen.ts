@@ -910,6 +910,11 @@ export interface components {
         ScheduleCreateRequest: {
             /** Format: int64 */
             projectId?: number;
+            /**
+             * Format: int64
+             * @description 연결할 마일스톤 ID. 생략하면 마일스톤 없이 등록된다. shared=true 이고 projectId가 있을 때만 사용할 수 있으며, 해당 프로젝트에 속한 마일스톤이어야 한다.
+             */
+            milestoneId?: number | null;
             title: string;
             description?: string;
             /** Format: date-time */
@@ -920,7 +925,6 @@ export interface components {
             /** @enum {string} */
             type?: "deadline" | "meeting" | "milestone";
             reminder?: boolean;
-            validDateRange?: boolean;
         };
         ApiResponseScheduleResponse: {
             success?: boolean;
@@ -933,6 +937,8 @@ export interface components {
             id?: number;
             /** Format: int64 */
             projectId?: number;
+            /** Format: int64 */
+            milestoneId?: number;
             /** Format: int64 */
             creatorId?: number;
             title?: string;
@@ -1305,6 +1311,13 @@ export interface components {
         ScheduleUpdateRequest: {
             /** Format: int64 */
             projectId?: number;
+            /**
+             * Format: int64
+             * @description 연결할 마일스톤 ID. 생략하면 기존 연결을 유지한다. 연결을 끊으려면 clearMilestone=true 를 사용한다.
+             */
+            milestoneId?: number | null;
+            /** @description true 이면 마일스톤 연결을 해제한다. milestoneId와 함께 보내면 400. */
+            clearMilestone?: boolean | null;
             title?: string;
             description?: string;
             /** Format: date-time */
@@ -1315,7 +1328,6 @@ export interface components {
             /** @enum {string} */
             type?: "deadline" | "meeting" | "milestone";
             reminder?: boolean;
-            validDateRange?: boolean;
         };
         ApiResponseScheduleDetailResponse: {
             success?: boolean;
@@ -1329,6 +1341,9 @@ export interface components {
             /** Format: int64 */
             projectId?: number;
             projectName?: string;
+            /** Format: int64 */
+            milestoneId?: number;
+            milestoneTitle?: string;
             /** Format: int64 */
             creatorId?: number;
             creatorNickname?: string;
@@ -1512,6 +1527,8 @@ export interface components {
             id?: number;
             /** Format: int64 */
             projectId?: number;
+            /** Format: int64 */
+            milestoneId?: number;
             title?: string;
             description?: string;
             /** Format: date-time */
